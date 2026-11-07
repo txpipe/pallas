@@ -20,6 +20,9 @@ pub enum Error {
 
     #[error("string contained a nul byte")]
     NulFailure(#[from] std::ffi::NulError),
+
+    #[error("deliberate break to test the API compatibility jobs")]
+    DeliberateBreakForCiTest,
 }
 
 pub const DEFAULT_PRECISION: u64 = 34;

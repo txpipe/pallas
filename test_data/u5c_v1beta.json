@@ -15,7 +15,6 @@
             "coin": {
               "int": "59270328"
             },
-            "datum": {},
             "originalCbor": "glgdYbHy8gqHgaO6ln2Me1Bo0h15noCdzOIvZRZ51mEaA4hkuA=="
           },
           "totalCollateral": {
@@ -1307,7 +1306,6 @@
             "coin": {
               "int": "975057"
             },
-            "datum": {},
             "originalCbor": "glgdYbHy8gqHgaO6ln2Me1Bo0h15noCdzOIvZRZ51mEaAA7g0Q=="
           },
           {
@@ -1315,7 +1313,6 @@
             "coin": {
               "int": "975058"
             },
-            "datum": {},
             "originalCbor": "glgdYbHy8gqHgaO6ln2Me1Bo0h15noCdzOIvZRZ51mEaAA7g0g=="
           }
         ],
@@ -1448,7 +1445,6 @@
             "coin": {
               "int": "19070000"
             },
-            "datum": {},
             "originalCbor": "glg5AfC+N/7dRmjEE4c346Pofrf6lfbE5ZvUljEP1MVSvdq7nuw2BtTmL+i3wOqpbodFkqHDuk9GTmhfghoBIvwwoVgcJ+7hlYjJl8pU0xN/ZK/lWhjfz5Bi+oOnJL8jV6NFU1BBQ0UDR0dSQVZJVFkCSVNBVEVMTElURQU="
           }
         ],
@@ -1554,7 +1550,6 @@
             "coin": {
               "int": "4526384"
             },
-            "datum": {},
             "originalCbor": "glg5AdvIO1ZRD7CFGoF/uIOsoV6AbvR9PmLsl1c+TO1W7DAFSIAhxcRh6X2sb8T277WRuBxWRWBmAGr9GgBFETA="
           },
           "totalCollateral": {
@@ -1894,7 +1889,6 @@
             "coin": {
               "int": "56301735"
             },
-            "datum": {},
             "originalCbor": "glg5AdvIO1ZRD7CFGoF/uIOsoV6AbvR9PmLsl1c+TO1W7DAFSIAhxcRh6X2sb8T277WRuBxWRWBmAGr9GgNbGKc="
           }
         ],
@@ -2502,7 +2496,6 @@
             "coin": {
               "int": "46874014"
             },
-            "datum": {},
             "originalCbor": "glg5AYWtgPzNBzkpvzTsDi+F+GKxjwYgLc9fyACQvSbJYUpzo0v3d+qDVCPWQbGhbQCdvjY49oDQlkUoGgLLPZ4="
           },
           "totalCollateral": {
@@ -2652,7 +2645,6 @@
             "coin": {
               "int": "1172320"
             },
-            "datum": {},
             "originalCbor": "glg5AYWtgPzNBzkpvzTsDi+F+GKxjwYgLc9fyACQvSbJYUpzo0v3d+qDVCPWQbGhbQCdvjY49oDQlkUoghoAEeNgoVgcJ5+ELDPu2QVLnjxwzWo7MimCWcJLeLiVy0HZGqFEVFVOQRsAAAABKgXyAA=="
           },
           {
@@ -2660,7 +2652,6 @@
             "coin": {
               "int": "45903122"
             },
-            "datum": {},
             "originalCbor": "glg5AYWtgPzNBzkpvzTsDi+F+GKxjwYgLc9fyACQvSbJYUpzo0v3d+qDVCPWQbGhbQCdvjY49oDQlkUoGgK8bRI="
           }
         ],
@@ -2958,7 +2949,6 @@
             "coin": {
               "int": "1172320"
             },
-            "datum": {},
             "originalCbor": "glg5AQj/ikhph7DqDKF/KW83jhGuHCU57schFUqtwLhk8vtzWMLjrv4zWaV3m47AakLm1z6th5/iISSdghoAEeNgoVgcvdHTdcBYmGybw3TPjsf734BC4OOUby+j68UJn6FMVGhlUHJpbmNlNTg1AQ=="
           },
           {
@@ -2966,7 +2956,6 @@
             "coin": {
               "int": "8120687"
             },
-            "datum": {},
             "originalCbor": "glgdYdZAfjoj7nXOnSrW4gXMuXOt/kL/Ji6YOn15hPEaAHvpbw=="
           }
         ],
@@ -3191,7 +3180,6 @@
             "coin": {
               "int": "166261084"
             },
-            "datum": {},
             "originalCbor": "glg5AetFDxwWdAZLqHxlpey+eo6C1tAsjc6/nVQdtj20fykvFlUEcyFK44MqfWEIDI1LO8HDIpsm+2mwGgno8Vw="
           }
         ],
