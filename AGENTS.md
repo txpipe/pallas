@@ -112,6 +112,44 @@ cargo +1.88 check --workspace --all-targets
 - `Cargo.lock` is not tracked.
 - Security reports follow `SECURITY.md`, not a public issue.
 
+## API compatibility
+
+`main` is the v1 lineage. Code built against an earlier 1.x must keep compiling and behaving the
+same, in every published crate. A `!` in the commit title records a break, it doesn't permit one.
+
+What this doesn't cover:
+
+- Anything behind the `unstable` feature, including the Dijkstra era.
+- PRs that target `vnext`, the branch for breaking changes.
+- MSRV bumps, which follow the policy in `README.md`.
+
+A break is more than a compile error. These all count:
+
+- a public item removed, renamed or moved, or a changed signature or field type
+- a variant added to an exhaustive enum, or a field added to a struct callers can construct
+- a new `Drop` impl on a public type, which stops owned patterns from moving payloads out
+- the same signature with different behavior: a field now absent, a changed default, a new error
+  on input that used to work, or different CBOR bytes for the same value
+
+Make the change additive instead:
+
+- Add the new function, method or type beside the old one, and keep the old one working.
+- For a behavior change, add an opt-in and leave the old behavior as the default.
+- When the new item fully replaces the old, you may add
+  `#[deprecated(since = "<next release>", note = "use `x`")]`. Clippy runs with `-D warnings`, so move
+  internal callers in the same PR.
+
+If there's no additive form, don't open the break against `main`. Ask a maintainer, who either sends
+it to `vnext` or accepts it on v1.
+
+CI checks PRs to `main` with `cargo-semver-checks` and `cargo-public-api`. Neither sees behavior, so
+green jobs don't prove a change is compatible. To run them locally:
+
+```sh
+cargo semver-checks --baseline-rev origin/main --release-type minor
+cargo +nightly public-api -p <crate> diff --deny=changed --deny=removed origin/main..HEAD
+```
+
 ## Using Pallas from another project
 
 Depend on the umbrella crate, `cargo add pallas`, or on individual crates. `README.md` has the module
