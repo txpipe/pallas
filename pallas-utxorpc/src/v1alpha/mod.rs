@@ -381,8 +381,9 @@ mod tests {
         }
     }
 
-    // u5c1.block has every shape: transaction 0 opens with an output holding an inline
-    // datum, 1 with one holding no datum, and 2 with a hash its witnesses resolve.
+    // In u5c1.block, transaction 0 opens with an output holding an inline datum, 1 with one
+    // holding no datum, and 2 with a hash its witnesses resolve. No output holds a hash its own
+    // witnesses lack; a test gets that shape by pairing an output with another transaction.
     fn datum_fixture() -> Vec<u8> {
         hex::decode(include_str!("../../../test_data/u5c1.block")).unwrap()
     }
@@ -397,6 +398,7 @@ mod tests {
         let empty = u5c::Datum::default();
 
         assert_eq!(mapper.map_tx_datum(output, Some(tx)), empty);
+        assert_eq!(mapper.map_tx_datum_opt(output, Some(tx)), None);
         assert_eq!(mapper.map_tx_output(output, Some(tx)).datum, Some(empty));
     }
 
@@ -409,6 +411,7 @@ mod tests {
         let mapper = Mapper::new(NoLedger).omit_absent_datums();
 
         assert_eq!(mapper.map_tx_datum_opt(output, Some(tx)), None);
+        assert_eq!(mapper.map_tx_datum(output, Some(tx)), u5c::Datum::default());
         assert_eq!(mapper.map_tx_output(output, Some(tx)).datum, None);
 
         let masked = mapper.masked(FieldMask::default());
@@ -439,6 +442,35 @@ mod tests {
 
         assert!(unset > 0);
         assert_eq!(expected, mapper.omit_absent_datums().map_block(&block));
+    }
+
+    #[test]
+    fn a_resolved_input_with_no_datum_follows_the_opt_in() {
+        let cbor = datum_fixture();
+        let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
+        let tx = &block.txs()[1];
+        let output = &tx.outputs()[0];
+        let input = &tx.inputs()[0];
+        let resolved = Some(UtxoMap::from([(
+            (*input.hash(), input.index() as u32),
+            (output.era(), output.encode()),
+        )]));
+        let mapper = Mapper::new(NoLedger);
+
+        let datum = mapper
+            .map_tx_input(input, tx, 0, &resolved)
+            .as_output
+            .unwrap()
+            .datum;
+        assert_eq!(datum, Some(u5c::Datum::default()));
+
+        let datum = mapper
+            .omit_absent_datums()
+            .map_tx_input(input, tx, 0, &resolved)
+            .as_output
+            .unwrap()
+            .datum;
+        assert_eq!(datum, None);
     }
 
     #[test]
@@ -492,6 +524,26 @@ mod tests {
         assert_eq!(unresolved.hash, resolved.hash);
         assert_eq!(unresolved.payload, None);
         assert_eq!(unresolved.original_cbor, prost::bytes::Bytes::new());
+    }
+
+    #[test]
+    fn a_datum_hash_its_transaction_does_not_witness_keeps_its_hash() {
+        let cbor = datum_fixture();
+        let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
+        let txs = block.txs();
+        let output = &txs[2].outputs()[0];
+        let mapper = Mapper::new(NoLedger);
+        let expected = mapper.map_tx_output(output, None).datum;
+
+        assert!(expected.as_ref().is_some_and(|x| !x.hash.is_empty()));
+        assert_eq!(mapper.map_tx_output(output, Some(&txs[5])).datum, expected);
+        assert_eq!(
+            mapper
+                .omit_absent_datums()
+                .map_tx_output(output, Some(&txs[5]))
+                .datum,
+            expected
+        );
     }
 
     #[test]
