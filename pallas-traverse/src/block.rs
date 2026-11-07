@@ -256,4 +256,21 @@ mod tests {
             assert_eq!(block.txs().len(), tx_count);
         }
     }
+
+    #[test]
+    fn decodes_mainnet_block_at_protocol_version_11() {
+        let cbor =
+            hex::decode(include_str!("../../test_data/conway-v11.block")).expect("invalid hex");
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(block.era(), Era::Conway);
+        assert_eq!(
+            block.hash().to_string(),
+            "d03a37835e9f1ffb70e8a476334c69183ab5491c911faa7ea0d6ba285dd7c8b4"
+        );
+
+        let header = block.header();
+        let header = header.as_babbage().expect("not a babbage-shaped header");
+        assert_eq!(header.header_body.protocol_version.0, 11);
+    }
 }
