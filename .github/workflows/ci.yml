@@ -120,3 +120,59 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.88
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace --all-targets
+
+  # main is the v1 lineage, where public API changes must be additive; see
+  # "API compatibility" in AGENTS.md. Other targets, such as vnext, may break.
+  #
+  # Both jobs compare the PR's merge commit with the target branch tip, so a
+  # stale PR branch doesn't read as removing newer items. Neither tool is enough
+  # alone: cargo-semver-checks catches breaks that look like additions but not
+  # type changes, and cargo-public-api is the reverse.
+  semver-checks:
+    name: API compatibility (semver-checks)
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+      - uses: obi1kenobi/cargo-semver-checks-action@v2
+        with:
+          baseline-rev: ${{ github.event.pull_request.base.sha }}
+          # The version alone won't do: main can sit on a prerelease.
+          release-type: minor
+
+  public-api:
+    name: API compatibility (public-api, ${{ matrix.crate }})
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The published crates. Add a new crate here once it's on main; until
+        # then the base revision doesn't have it to diff against.
+        crate:
+          - pallas
+          - pallas-addresses
+          - pallas-codec
+          - pallas-configs
+          - pallas-crypto
+          - pallas-hardano
+          - pallas-math
+          - pallas-network
+          - pallas-network2
+          - pallas-primitives
+          - pallas-traverse
+          - pallas-txbuilder
+          - pallas-utxorpc
+          - pallas-validate
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+      - uses: ./.github/actions/public-api-diff
+        with:
+          crate: ${{ matrix.crate }}
+          base: ${{ github.event.pull_request.base.sha }}

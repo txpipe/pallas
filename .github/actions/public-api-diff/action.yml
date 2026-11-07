@@ -1,0 +1,31 @@
+name: Public API diff
+description: Fail if a crate's public API changed or lost items since the base revision. Additions pass.
+
+inputs:
+  crate:
+    description: The workspace package to diff.
+    required: true
+  base:
+    description: The revision to diff against. It must be fetched.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # cargo-public-api reads nightly rustdoc JSON, whose format changes often.
+    # Bump the tool and the nightly (both uses) together, per the tool's
+    # compatibility matrix.
+    - uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: nightly-2026-05-25
+    - uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: public-api-diff
+    - uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-public-api@0.52.0
+    - shell: bash
+      env:
+        CRATE: ${{ inputs.crate }}
+        BASE: ${{ inputs.base }}
+      run: cargo +nightly-2026-05-25 public-api -p "$CRATE" diff --deny=changed --deny=removed "$BASE..$GITHUB_SHA"
