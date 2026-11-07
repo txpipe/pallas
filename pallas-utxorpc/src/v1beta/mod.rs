@@ -45,29 +45,26 @@ impl<C: LedgerContext> Mapper<C> {
         u5c::native_script::NativeScript::ScriptPubkeyHash(bytes.into())
     }
 
+    /// Maps the datum of an output, or `None` when the output has none.
     pub fn map_tx_datum(
         &self,
         x: &trv::MultiEraOutput,
         tx: Option<&trv::MultiEraTx>,
-    ) -> u5c::Datum {
-        u5c::Datum {
-            hash: match x.datum() {
-                Some(babbage::DatumOption::Data(x)) => x.original_hash().to_vec().into(),
-                Some(babbage::DatumOption::Hash(x)) => x.to_vec().into(),
-                _ => vec![].into(),
+    ) -> Option<u5c::Datum> {
+        Some(match x.datum()? {
+            babbage::DatumOption::Data(x) => u5c::Datum {
+                hash: x.original_hash().to_vec().into(),
+                payload: self.map_plutus_datum(&x.0).into(),
+                original_cbor: Some(x.raw_cbor().to_vec().into()),
             },
-            payload: match x.datum() {
-                Some(babbage::DatumOption::Data(x)) => self.map_plutus_datum(&x.0).into(),
-                Some(babbage::DatumOption::Hash(x)) => tx
+            babbage::DatumOption::Hash(x) => u5c::Datum {
+                hash: x.to_vec().into(),
+                payload: tx
                     .and_then(|tx| tx.find_plutus_data(&x))
                     .map(|d| self.map_plutus_datum(d)),
-                _ => None,
+                original_cbor: None,
             },
-            original_cbor: match x.datum() {
-                Some(babbage::DatumOption::Data(x)) => Some(x.raw_cbor().to_vec().into()),
-                _ => None,
-            },
-        }
+        })
     }
 
     pub fn map_tx_output(
@@ -87,7 +84,7 @@ impl<C: LedgerContext> Mapper<C> {
                 .iter()
                 .map(|x| self.map_policy_assets(x))
                 .collect(),
-            datum: self.map_tx_datum(x, tx).into(),
+            datum: self.map_tx_datum(x, tx),
             script: self.map_output_script(x),
             original_cbor: Some(x.encode().into()),
         }
@@ -448,6 +445,77 @@ mod tests {
 
             assert_eq!(expected, current)
         }
+    }
+
+    // u5c1.block has every shape: transaction 0 opens with an output holding an inline
+    // datum, 1 with one holding no datum, and 2 with a hash its witnesses resolve.
+    fn datum_fixture() -> Vec<u8> {
+        hex::decode(include_str!("../../../test_data/u5c1.block")).unwrap()
+    }
+
+    #[test]
+    fn an_output_with_no_datum_leaves_the_field_unset() {
+        let cbor = datum_fixture();
+        let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
+        let tx = &block.txs()[1];
+        let output = &tx.outputs()[0];
+        let mapper = Mapper::new(NoLedger);
+
+        assert_eq!(mapper.map_tx_datum(output, Some(tx)), None);
+        assert_eq!(mapper.map_tx_output(output, Some(tx)).datum, None);
+    }
+
+    #[test]
+    fn an_inline_datum_maps_its_hash_payload_and_cbor() {
+        let cbor = datum_fixture();
+        let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
+        let tx = &block.txs()[0];
+        let output = &tx.outputs()[0];
+
+        let datum = Mapper::new(NoLedger)
+            .map_tx_output(output, Some(tx))
+            .datum
+            .unwrap();
+
+        assert_eq!(
+            hex::encode(&datum.hash),
+            "58260815eb79c0e8168502dbe5c6e73ac0fa37b57fe2b0582f765778c9c63550"
+        );
+        assert_eq!(
+            datum.payload,
+            Some(u5c::PlutusData {
+                plutus_data: Some(u5c::plutus_data::PlutusData::BoundedBytes(
+                    vec![0xd8, 0x79, 0x80].into()
+                )),
+            })
+        );
+        assert_eq!(
+            datum.original_cbor,
+            Some(vec![0x43, 0xd8, 0x79, 0x80].into())
+        );
+    }
+
+    #[test]
+    fn a_datum_hash_maps_with_or_without_a_resolvable_payload() {
+        let cbor = datum_fixture();
+        let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
+        let tx = &block.txs()[2];
+        let output = &tx.outputs()[0];
+        let mapper = Mapper::new(NoLedger);
+
+        let resolved = mapper.map_tx_output(output, Some(tx)).datum.unwrap();
+        let unresolved = mapper.map_tx_output(output, None).datum.unwrap();
+
+        assert_eq!(
+            hex::encode(&resolved.hash),
+            "c0b7784ae9fd96e36ae5eae00f1ab5572b540213f1d8e3d727dec251c578ec39"
+        );
+        assert!(resolved.payload.is_some());
+        assert_eq!(resolved.original_cbor, None);
+
+        assert_eq!(unresolved.hash, resolved.hash);
+        assert_eq!(unresolved.payload, None);
+        assert_eq!(unresolved.original_cbor, None);
     }
 
     #[test]
