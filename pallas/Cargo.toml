@@ -27,7 +27,12 @@ pallas-network2 = { workspace = true, optional = true }
 
 [features]
 hardano = ["pallas-hardano"]
-unstable = ["hardano", "pallas-traverse/unstable", "pallas-primitives/unstable"]
+unstable = [
+  "hardano",
+  "pallas-traverse/unstable",
+  "pallas-primitives/unstable",
+  "pallas-utxorpc/unstable",
+]
 
 # pallas-validate feature flags
 phase2 = ["pallas-validate/phase2"]

@@ -35,3 +35,14 @@ let back: Pair = minicbor::decode(&bytes)?;
 - `codec_by_datatype!` macro — derives a tag-free CBOR codec for enums
   whose variants are distinguished by their data-type rather than a
   discriminant.
+
+## Ownership migration in 1.5
+
+`flat::filler::Filler` now computes its length and destroys manually constructed
+padding chains iteratively. The flat wire decoder already consumes padding
+without constructing such a chain, and its wire behavior is unchanged.
+
+`Filler` now implements `Drop`, so an owned match can no longer move the box
+out of `FillerStart`. Use a borrowed match, mutable replacement, or `into_next`
+(which returns the original `FillerEnd` in `Err` on a mismatch). This source
+compatibility break is included in the maintainer-approved minor release.

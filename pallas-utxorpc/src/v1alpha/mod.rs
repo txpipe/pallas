@@ -88,7 +88,7 @@ impl<C: LedgerContext> Mapper<C> {
                 .map(|x| self.map_policy_assets(x))
                 .collect(),
             datum: self.map_tx_datum(x, tx).into(),
-            script: x.script_ref().map(|x| self.map_any_script(&x)),
+            script: self.map_output_script(x),
         }
     }
 
@@ -372,6 +372,36 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
+    fn the_legacy_purpose_mapper_agrees_with_the_multi_era_one() {
+        use pallas_primitives::conway::RedeemerTag;
+        use pallas_traverse::MultiEraRedeemerTag;
+
+        let mapper = Mapper::new(NoLedger);
+        let tags = [
+            RedeemerTag::Spend,
+            RedeemerTag::Mint,
+            RedeemerTag::Cert,
+            RedeemerTag::Reward,
+            RedeemerTag::Vote,
+            RedeemerTag::Propose,
+        ];
+
+        let mut seen = Vec::new();
+        for tag in tags {
+            let legacy = mapper.map_purpose(&tag);
+            assert_eq!(
+                legacy,
+                mapper.map_multi_era_purpose(&MultiEraRedeemerTag::from(tag))
+            );
+            seen.push(legacy);
+        }
+
+        seen.dedup();
+        assert_eq!(seen.len(), 6, "each tag maps to a purpose of its own");
+    }
+
+    #[test]
     fn oversized_n_of_k_threshold_maps_to_u32_max() {
         let mapped = Mapper::<NoLedger>::map_native_script(
             &pallas_primitives::alonzo::NativeScript::ScriptNOfK(i64::MAX, vec![]),
@@ -404,8 +434,6 @@ mod tests {
                         )]))
                     };
                 }
-                // The source Drop still recurses; leak it like the result.
-                let datum = std::mem::ManuallyDrop::new(datum);
 
                 let mapped = Mapper::<NoLedger>::map_metadatum(&datum);
 
@@ -463,8 +491,6 @@ mod tests {
                         _ => PlutusData::Array(MaybeIndefArray::Def(vec![datum])),
                     };
                 }
-                // The source Drop still recurses; leak it like the result.
-                let datum = std::mem::ManuallyDrop::new(datum);
 
                 let mapped = Mapper::new(NoLedger).map_plutus_datum(&datum);
 

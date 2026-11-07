@@ -1,10 +1,11 @@
 use super::{
     AccountBalanceInterval, AccountBalanceIntervals, AuxiliaryData, Block, BlockTransaction,
-    Certificate, CostModels, DRep, GovAction, Guards, Header, MempoolTransaction, NativeScript,
-    NonEmptySet, ProposalProcedure, Set, SetArm, StakeCredential, TransactionOutput, Value,
+    Certificate, CostModels, DRep, EndorserBlock, GovAction, Guards, Header, MempoolTransaction,
+    NativeScript, NonEmptySet, ProposalProcedure, Set, SetArm, StakeCredential, TransactionBody,
+    TransactionOutput, Value, WitnessSet,
 };
 use pallas_codec::minicbor;
-use pallas_codec::utils::KeepRaw;
+use pallas_codec::utils::{KeepRaw, Nullable};
 
 type BlockWrapper<'b> = (u16, Block<'b>);
 
@@ -78,6 +79,25 @@ const TEST_BLOCKS: &[(&str, &str)] = &[
 const PRE_FORK_BLOCKS: &[(&str, &str)] =
     &[("conway5", include_str!("../../../test_data/conway5.block"))];
 
+/// Endorser block bodies and the number of transactions each names.
+const ENDORSER_BLOCKS: &[(&str, &str, usize)] = &[
+    (
+        "dijkstra-eb1",
+        include_str!("../../../test_data/dijkstra-eb1.ebbody"),
+        1,
+    ),
+    (
+        "dijkstra-eb2",
+        include_str!("../../../test_data/dijkstra-eb2.ebbody"),
+        30,
+    ),
+    (
+        "dijkstra-17402",
+        include_str!("../../../test_data/dijkstra-17402.ebbody"),
+        244,
+    ),
+];
+
 const WITH_TRANSACTIONS: usize = 1;
 
 fn block_named(name: &str) -> &'static str {
@@ -125,6 +145,23 @@ fn block_isomorphic_decoding_encoding() {
             bytes2.len(),
             hex::encode(&bytes[first_diff.saturating_sub(8)..(first_diff + 24).min(bytes.len())]),
             hex::encode(&bytes2[first_diff.saturating_sub(8)..(first_diff + 24).min(bytes2.len())]),
+        );
+    }
+}
+
+#[test]
+fn endorser_block_isomorphic_decoding_encoding() {
+    for (name, body_str, transactions) in ENDORSER_BLOCKS.iter() {
+        let bytes = hex::decode(body_str).unwrap_or_else(|_| panic!("bad body file {name}"));
+
+        let block: EndorserBlock = minicbor::decode(&bytes)
+            .unwrap_or_else(|e| panic!("error decoding cbor for file {name}: {e:?}"));
+        assert_eq!(block.len(), *transactions, "{name}: transaction count");
+
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&block).unwrap()),
+            hex::encode(&bytes),
+            "{name}: re-encoded bytes didn't match original"
         );
     }
 }
@@ -192,6 +229,136 @@ fn transaction_payloads_reencode_to_their_wire_bytes() {
         (bodies, witness_sets, auxiliary_data),
         (45, 45, 5),
         "the fixtures should carry forty five transactions, each with a body and a witness set, five of them with auxiliary data"
+    );
+}
+
+const INDEFINITE_BYTES_TXS: &[(&str, &str, &str, usize, &str, &str)] = &[
+    (
+        "dijkstra-indef-bytes1",
+        include_str!("../../../test_data/dijkstra-indef-bytes1.tx"),
+        "943a88c97f86522b2cda39d1d6bd076ea51a696e5ad41c41e4c6d38ce8f7dd50",
+        11,
+        "e040142528145d15aeea4834e948b87030a94ed33cdf3f7fff0364cf84a2408a",
+        "00b44447f25f59bf23280d29fdea97f4e341e0bcd1d407ce80a8f11ede1ec80930158084eb5c735fd9bfb1ec53b8b5001c4b39d32c116b4921",
+    ),
+    (
+        "dijkstra-indef-bytes2",
+        include_str!("../../../test_data/dijkstra-indef-bytes2.tx"),
+        "b026c42a9cf28aff7ce8624487f4d2b8f45df93454ac0ea2842408c1673cce5c",
+        7,
+        "943a88c97f86522b2cda39d1d6bd076ea51a696e5ad41c41e4c6d38ce8f7dd50",
+        "00b44447f25f59bf23280d29fdea97f4e341e0bcd1d407ce80a8f11ede1ec80930158084eb5c735fd9bfb1ec53b8b5001c4b39d32c116b4921",
+    ),
+];
+
+#[test]
+fn transactions_with_indefinite_length_byte_strings_decode_and_keep_their_ids() {
+    for (name, tx_hex, id, indefinite, input_id, address) in INDEFINITE_BYTES_TXS {
+        let bytes = hex::decode(tx_hex).unwrap();
+
+        let tx: MempoolTransaction = minicbor::decode(&bytes)
+            .unwrap_or_else(|e| panic!("{name} should decode as a mempool transaction: {e:?}"));
+
+        let input = tx.transaction_body.inputs.first().unwrap();
+        assert_eq!(
+            hex::encode(input.transaction_id),
+            *input_id,
+            "{name}: the first input id should be its chunks joined in order"
+        );
+
+        let Some(TransactionOutput::Legacy(output)) = tx.transaction_body.outputs.first() else {
+            panic!("{name}: the first output should be in the array form");
+        };
+        assert_eq!(
+            hex::encode(&*output.address),
+            *address,
+            "{name}: the first output address should be its chunks joined in order"
+        );
+
+        let body = tx.transaction_body.raw_cbor();
+        let begins = minicbor::decode::Tokenizer::new(body)
+            .filter(|token| matches!(token, Ok(minicbor::data::Token::BeginBytes)))
+            .count();
+        assert_eq!(
+            begins, *indefinite,
+            "{name}: the body should hold {indefinite} indefinite length byte strings"
+        );
+
+        assert_eq!(
+            hex::encode(pallas_crypto::hash::Hasher::<256>::hash(body)),
+            *id,
+            "{name}: the id is the hash of the body bytes as read"
+        );
+
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&tx).unwrap()),
+            *tx_hex,
+            "{name}: the transaction should re-encode to the bytes it was read from"
+        );
+    }
+}
+
+/// Transactions holding a PlutusV4 witness script, in their own witness set or a sub transaction's.
+const V4_WITNESS_TXS: &[(&str, &str)] = &[
+    (
+        "dijkstra-v4-witness",
+        include_str!("../../../test_data/dijkstra-v4-witness.tx"),
+    ),
+    (
+        "dijkstra-v4-sub-witness",
+        include_str!("../../../test_data/dijkstra-v4-sub-witness.tx"),
+    ),
+];
+
+/// The keys of a CBOR map, in ascending order.
+fn map_keys(cbor: &[u8]) -> Vec<u64> {
+    let mut d = minicbor::Decoder::new(cbor);
+    let n = d.map().unwrap().unwrap();
+    let mut keys: Vec<u64> = (0..n)
+        .map(|_| {
+            let key = d.u64().unwrap();
+            d.skip().unwrap();
+            key
+        })
+        .collect();
+    keys.sort();
+    keys
+}
+
+/// The node writes key 8 ahead of key 5, so the test compares keys.
+#[test]
+fn a_witness_set_holding_a_plutus_v4_script_keeps_every_key_on_reencode() {
+    let mut witness_sets = 0usize;
+    let mut mismatched = Vec::new();
+
+    for (name, tx_str) in V4_WITNESS_TXS {
+        let bytes = hex::decode(tx_str).unwrap();
+        let tx: BlockTransaction = minicbor::decode(&bytes).unwrap();
+        let subs = tx
+            .transaction_body
+            .sub_transactions
+            .iter()
+            .flat_map(|x| x.iter())
+            .map(|x| &x.transaction_witness_set);
+
+        for (i, wits) in std::iter::once(&tx.transaction_witness_set)
+            .chain(subs)
+            .enumerate()
+        {
+            let wire = map_keys(wits.raw_cbor());
+            let encoded = map_keys(&minicbor::to_vec(wits.clone().unwrap()).unwrap());
+            if encoded != wire {
+                mismatched.push((*name, i, wire, encoded));
+            }
+            witness_sets += 1;
+        }
+    }
+
+    assert_eq!(witness_sets, 4, "two transactions and two sub transactions");
+    assert_eq!(
+        mismatched,
+        vec![],
+        "these witness sets lost or gained a key on re-encode"
     );
 }
 
@@ -331,9 +498,121 @@ fn a_block_transaction_is_not_a_mempool_transaction() {
     );
 }
 
+/// A valid block transaction comes back byte for byte from a round trip through
+/// the mempool form.
+#[test]
+fn a_mempool_transaction_becomes_a_valid_block_transaction() {
+    let bytes = hex::decode(TEST_BLOCKS[WITH_TRANSACTIONS].1).unwrap();
+    let (_, block): BlockWrapper = minicbor::decode(&bytes).unwrap();
+
+    let tx = block
+        .block_body
+        .transactions
+        .first()
+        .expect("this fixture must carry at least one transaction");
+
+    let three = minicbor::to_vec(tx.to_mempool_transaction()).unwrap();
+    let mempool: MempoolTransaction = minicbor::decode(&three).unwrap();
+
+    let rebuilt = BlockTransaction::from(mempool.clone());
+    assert!(rebuilt.success, "the mempool form admits no other verdict");
+
+    let spelled_out = MempoolTransaction {
+        is_valid_supplied: true,
+        ..mempool
+    };
+    assert_eq!(
+        BlockTransaction::from(spelled_out),
+        rebuilt,
+        "a `true` written out means what the three element form means"
+    );
+    assert_eq!(&rebuilt, tx, "nothing but the flag was restored");
+    assert_eq!(
+        minicbor::to_vec(&rebuilt).unwrap(),
+        minicbor::to_vec(tx).unwrap(),
+        "the round trip is byte for byte"
+    );
+
+    let four = minicbor::to_vec(&rebuilt).unwrap();
+    let round: Result<MempoolTransaction, _> = minicbor::decode(&four);
+    assert!(
+        round.is_err(),
+        "the rebuilt transaction must no longer read as a mempool one"
+    );
+}
+
+/// Heap addresses of an input, a vkey witness and a metadata label, which a
+/// move leaves unchanged.
+fn heap_addresses(
+    body: &TransactionBody,
+    witnesses: &WitnessSet,
+    auxiliary_data: &Nullable<KeepRaw<AuxiliaryData>>,
+) -> [usize; 3] {
+    let input = body.inputs.first().expect("a transaction spends an input");
+    let vkey = witnesses
+        .vkeywitness
+        .as_ref()
+        .and_then(|w| w.first())
+        .expect("the fixture transaction is signed");
+    let label = match auxiliary_data {
+        Nullable::Some(aux) => match &**aux {
+            AuxiliaryData::PostAlonzo(aux) => aux.metadata.as_ref().and_then(|m| m.keys().next()),
+            _ => None,
+        },
+        _ => None,
+    }
+    .expect("the fixture transaction carries metadata");
+
+    [
+        input as *const _ as usize,
+        vkey as *const _ as usize,
+        label as *const _ as usize,
+    ]
+}
+
+#[test]
+fn a_mempool_transaction_is_moved_into_its_block_form() {
+    let bytes = hex::decode(block_named("dijkstra4")).unwrap();
+    let (_, block): BlockWrapper = minicbor::decode(&bytes).unwrap();
+
+    let tx = block
+        .block_body
+        .transactions
+        .first()
+        .expect("dijkstra4 carries a transaction");
+
+    let three = minicbor::to_vec(tx.to_mempool_transaction()).unwrap();
+    let mempool: MempoolTransaction = minicbor::decode(&three).unwrap();
+
+    let before = heap_addresses(
+        &mempool.transaction_body,
+        &mempool.transaction_witness_set,
+        &mempool.auxiliary_data,
+    );
+    let rebuilt = BlockTransaction::from(mempool);
+    let after = heap_addresses(
+        &rebuilt.transaction_body,
+        &rebuilt.transaction_witness_set,
+        &rebuilt.auxiliary_data,
+    );
+
+    assert_eq!(
+        after, before,
+        "the body, witness set and auxiliary data must keep their allocations"
+    );
+}
+
 const DEFS_CDDL: &str = include_str!("defs.cddl");
 const MODEL_RS: &str = include_str!("model.rs");
 const TESTS_RS: &str = include_str!("tests.rs");
+
+/// The leios-fetch messages of the vendored cardano-blueprint, the second source this module cites.
+#[cfg(feature = "blueprint")]
+const LEIOS_FETCH_CDDL: &str =
+    include_str!("../../../cardano-blueprint/src/network/node-to-node/leios-fetch/messages.cddl");
+
+/// Rules this module cites that the leios-fetch messages define.
+const LEIOS_FETCH_RULES: &[&str] = &["endorser_block"];
 
 /// Rules the vendored revision does not define, because the ledger deleted or
 /// renamed each one. A resync that brings one back fails the test below.
@@ -394,9 +673,9 @@ const NOT_RULES: &[&str] = &[
     "text",
 ];
 
-/// True when `defs.cddl` defines `name` as a rule, not merely mentions it.
-fn defines_rule(name: &str) -> bool {
-    DEFS_CDDL.lines().any(|line| {
+/// True when the CDDL `text` defines `name` as a rule, not merely mentions it.
+fn defines_rule(text: &str, name: &str) -> bool {
+    text.lines().any(|line| {
         line.strip_prefix(name).is_some_and(|rest| {
             let rest = rest.trim_start();
             // A plain rule is `name =`, a generic one is `name<a0> =`.
@@ -442,10 +721,11 @@ fn rule_citation(span: &str) -> Option<(String, &str)> {
     }
 }
 
-/// Every CDDL rule this module's doc comments cite. Both files are scanned,
-/// because a doc comment in either one can cite a rule.
-fn cited_rules() -> std::collections::BTreeSet<String> {
-    let mut cited = std::collections::BTreeSet::new();
+/// Every rule citation in this module's doc comments, as the rule name and
+/// the quoted text after its `=`. Both files are scanned, because a doc
+/// comment in either one can cite a rule.
+fn citations() -> Vec<(String, String)> {
+    let mut found = Vec::new();
 
     for line in MODEL_RS.lines().chain(TESTS_RS.lines()) {
         let line = line.trim_start();
@@ -463,17 +743,32 @@ fn cited_rules() -> std::collections::BTreeSet<String> {
                 continue;
             }
             if let Some((name, body)) = rule_citation(span) {
-                cited.insert(name);
-                cited.extend(snake_words(body));
+                found.push((name, body.to_string()));
             }
         }
+    }
+
+    found
+}
+
+/// Every CDDL rule this module's doc comments cite.
+fn cited_rules() -> std::collections::BTreeSet<String> {
+    let mut cited = std::collections::BTreeSet::new();
+
+    for (name, body) in citations() {
+        // A leios-fetch rule's body names leios-fetch rules, so only the rule's name is added.
+        if !LEIOS_FETCH_RULES.contains(&name.as_str()) {
+            cited.extend(snake_words(&body));
+        }
+        cited.insert(name);
     }
 
     cited
 }
 
-/// Every citation has to land in exactly one of three places: a rule the
-/// vendored file defines, a rule the ledger removed, or a name that is not one.
+/// Every citation has to land in exactly one of four places: a rule the
+/// vendored file defines, a rule on the leios-fetch list, a rule the ledger
+/// removed, or a name that is not one.
 #[test]
 fn every_cited_rule_matches_the_vendored_cddl() {
     let cited = cited_rules();
@@ -484,6 +779,7 @@ fn every_cited_rule_matches_the_vendored_cddl() {
         "block_body",
         "block_transaction",
         "certificate",
+        "endorser_block",
         "guards",
         "header_body",
         "protocol_param_update",
@@ -505,18 +801,31 @@ fn every_cited_rule_matches_the_vendored_cddl() {
         .iter()
         .map(String::as_str)
         .filter(|name| {
-            !defines_rule(name) && !ABSENT_RULES.contains(name) && !NOT_RULES.contains(name)
+            !defines_rule(DEFS_CDDL, name)
+                && !LEIOS_FETCH_RULES.contains(name)
+                && !ABSENT_RULES.contains(name)
+                && !NOT_RULES.contains(name)
         })
         .collect();
     assert!(
         unaccounted.is_empty(),
-        "a doc comment cites {unaccounted:?}, which defs.cddl does not define and neither list accounts for"
+        "a doc comment cites {unaccounted:?}, which defs.cddl does not define and no list accounts for"
+    );
+
+    let doubled: Vec<&str> = LEIOS_FETCH_RULES
+        .iter()
+        .copied()
+        .filter(|name| defines_rule(DEFS_CDDL, name))
+        .collect();
+    assert!(
+        doubled.is_empty(),
+        "defs.cddl defines {doubled:?}, so they belong to it rather than to the leios-fetch list"
     );
 
     let resurrected: Vec<&str> = ABSENT_RULES
         .iter()
         .copied()
-        .filter(|name| defines_rule(name))
+        .filter(|name| defines_rule(DEFS_CDDL, name))
         .collect();
     assert!(
         resurrected.is_empty(),
@@ -526,7 +835,7 @@ fn every_cited_rule_matches_the_vendored_cddl() {
     let parked: Vec<&str> = NOT_RULES
         .iter()
         .copied()
-        .filter(|name| defines_rule(name))
+        .filter(|name| defines_rule(DEFS_CDDL, name))
         .collect();
     assert!(
         parked.is_empty(),
@@ -535,18 +844,58 @@ fn every_cited_rule_matches_the_vendored_cddl() {
 
     let stale: Vec<&str> = NOT_RULES
         .iter()
+        .chain(LEIOS_FETCH_RULES)
         .copied()
         .filter(|name| !cited.contains(*name))
         .collect();
     assert!(
         stale.is_empty(),
-        "no doc comment names {stale:?} any more, so the not-a-rule list has entries nothing needs"
+        "no doc comment names {stale:?} any more, so a list has entries nothing needs"
     );
 
     // No list above can pass by the predicate always agreeing.
-    assert!(defines_rule("block_body"));
-    assert!(!defines_rule("block_bod"));
-    assert!(!defines_rule("no_such_rule_exists"));
+    assert!(defines_rule(DEFS_CDDL, "block_body"));
+    assert!(!defines_rule(DEFS_CDDL, "block_bod"));
+    assert!(!defines_rule(DEFS_CDDL, "no_such_rule_exists"));
+}
+
+#[cfg(feature = "blueprint")]
+#[test]
+fn every_leios_fetch_citation_matches_the_leios_fetch_messages() {
+    let unsourced: Vec<&str> = LEIOS_FETCH_RULES
+        .iter()
+        .copied()
+        .filter(|name| !defines_rule(LEIOS_FETCH_CDDL, name))
+        .collect();
+    assert!(
+        unsourced.is_empty(),
+        "the leios-fetch messages do not define {unsourced:?}, so they do not belong on its list"
+    );
+
+    let words = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let quoted: Vec<String> = citations()
+        .into_iter()
+        .filter(|(name, body)| LEIOS_FETCH_RULES.contains(&name.as_str()) && !body.is_empty())
+        .map(|(name, body)| words(&format!("{name} ={body}")))
+        .collect();
+    for rule in LEIOS_FETCH_RULES {
+        assert!(
+            quoted
+                .iter()
+                .any(|quote| quote.starts_with(&format!("{rule} ="))),
+            "no doc comment quotes `{rule}`, so nothing checks its text against the leios-fetch messages"
+        );
+    }
+    for quote in &quoted {
+        assert!(
+            LEIOS_FETCH_CDDL.lines().any(|line| words(line) == *quote),
+            "a doc comment quotes `{quote}`, which is no line of the leios-fetch messages"
+        );
+    }
+
+    // The list cannot pass by the predicate always agreeing.
+    assert!(defines_rule(LEIOS_FETCH_CDDL, "endorser_block"));
+    assert!(!defines_rule(LEIOS_FETCH_CDDL, "block_body"));
 }
 
 #[test]
@@ -564,33 +913,21 @@ fn conway_header_is_refused_as_dijkstra() {
 
 /// A `proposal_procedure` whose `gov_action` is a `parameter_change_action`
 /// setting one key. Hand built, because no fixture carries a proposal.
-fn proposal_setting(key: u64, value: u64) -> Vec<u8> {
-    let mut e = minicbor::Encoder::new(Vec::new());
+fn proposal_setting(key: u64) -> Vec<u8> {
+    let hex_str = match key {
+        0 => include_str!("../../../test_data/proposal-param-change-key0.hex"),
+        48 => include_str!("../../../test_data/proposal-param-change-key48.hex"),
+        other => panic!("no proposal fixture sets key {other}"),
+    };
 
-    e.array(4).unwrap();
-    e.u64(1_000_000).unwrap();
-    e.bytes(&[0xe0; 29]).unwrap();
-
-    e.array(4).unwrap();
-    e.u16(0).unwrap();
-    e.null().unwrap();
-    e.map(1).unwrap();
-    e.u64(key).unwrap();
-    e.u64(value).unwrap();
-    e.null().unwrap();
-
-    e.array(2).unwrap();
-    e.str("https://example.invalid/anchor").unwrap();
-    e.bytes(&[0x00; 32]).unwrap();
-
-    e.into_writer()
+    hex::decode(hex_str).expect("invalid hex")
 }
 
 /// A short type would turn a key 48 change into an update that changes nothing.
 #[test]
 fn a_proposal_keeps_the_dijkstra_parameter_keys() {
     // Key 0 exists in every era, so a failure here is about the proposal shape.
-    let shared_key = proposal_setting(0, 1_000);
+    let shared_key = proposal_setting(0);
     let decoded: ProposalProcedure =
         minicbor::decode(&shared_key).expect("a proposal setting key 0 must decode");
     assert_eq!(
@@ -599,7 +936,7 @@ fn a_proposal_keeps_the_dijkstra_parameter_keys() {
         "a proposal setting key 0 lost bytes on re-encode"
     );
 
-    let dijkstra_key = proposal_setting(48, 20_000);
+    let dijkstra_key = proposal_setting(48);
     let decoded: ProposalProcedure =
         minicbor::decode(&dijkstra_key).expect("a proposal setting key 48 must decode");
     assert_eq!(

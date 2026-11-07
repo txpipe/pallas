@@ -78,17 +78,16 @@ async fn do_chainsync(
                                 tracing::info!("epoch boundary");
                                 None
                             }
-                            MultiEraHeader::ShelleyCompatible(_)
-                            | MultiEraHeader::BabbageCompatible(_) => {
+                            MultiEraHeader::Byron(_) => {
+                                tracing::info!("ignoring byron header");
+                                None
+                            }
+                            _ => {
                                 if next_log.elapsed().as_secs() > 1 {
                                     tracing::info!("chainsync block header: {}", number);
                                     next_log = Instant::now();
                                 }
                                 Some(Point::Specific(slot, hash))
-                            }
-                            MultiEraHeader::Byron(_) => {
-                                tracing::info!("ignoring byron header");
-                                None
                             }
                         }
                     }
