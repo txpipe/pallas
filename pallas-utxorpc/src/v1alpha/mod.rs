@@ -14,6 +14,7 @@ pub use utxorpc_spec::utxorpc::v1alpha as spec;
 pub struct Mapper<C: LedgerContext> {
     pub(crate) ledger: Option<C>,
     pub(crate) _mask: FieldMask,
+    pub(crate) omit_absent_datums: bool,
 }
 
 impl<C: LedgerContext> Mapper<C> {
@@ -21,6 +22,7 @@ impl<C: LedgerContext> Mapper<C> {
         Self {
             ledger: Some(ledger),
             _mask: FieldMask { paths: vec![] },
+            omit_absent_datums: false,
         }
     }
 
@@ -29,7 +31,18 @@ impl<C: LedgerContext> Mapper<C> {
         Self {
             ledger: self.ledger.clone(),
             _mask: mask,
+            omit_absent_datums: self.omit_absent_datums,
         }
+    }
+
+    /// Leaves `TxOutput.datum` unset on outputs with no datum.
+    ///
+    /// By default those outputs carry an empty `Datum` message. This applies to
+    /// every output this mapper produces, including those inside a mapped
+    /// transaction or block.
+    pub fn omit_absent_datums(mut self) -> Self {
+        self.omit_absent_datums = true;
+        self
     }
 }
 
@@ -45,8 +58,17 @@ impl<C: LedgerContext> Mapper<C> {
         u5c::native_script::NativeScript::ScriptPubkey(bytes.into())
     }
 
-    /// Maps the datum of an output, or `None` when the output has none.
+    /// Maps the datum of an output, or an empty message when the output has none.
     pub fn map_tx_datum(
+        &self,
+        x: &trv::MultiEraOutput,
+        tx: Option<&trv::MultiEraTx>,
+    ) -> u5c::Datum {
+        self.map_tx_datum_opt(x, tx).unwrap_or_default()
+    }
+
+    /// Maps the datum of an output, or `None` when the output has none.
+    pub fn map_tx_datum_opt(
         &self,
         x: &trv::MultiEraOutput,
         tx: Option<&trv::MultiEraTx>,
@@ -84,7 +106,11 @@ impl<C: LedgerContext> Mapper<C> {
                 .iter()
                 .map(|x| self.map_policy_assets(x))
                 .collect(),
-            datum: self.map_tx_datum(x, tx),
+            datum: if self.omit_absent_datums {
+                self.map_tx_datum_opt(x, tx)
+            } else {
+                Some(self.map_tx_datum(x, tx))
+            },
             script: self.map_output_script(x),
         }
     }
@@ -362,15 +388,57 @@ mod tests {
     }
 
     #[test]
-    fn an_output_with_no_datum_leaves_the_field_unset() {
+    fn an_output_with_no_datum_maps_to_an_empty_message_by_default() {
         let cbor = datum_fixture();
         let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
         let tx = &block.txs()[1];
         let output = &tx.outputs()[0];
         let mapper = Mapper::new(NoLedger);
+        let empty = u5c::Datum::default();
 
-        assert_eq!(mapper.map_tx_datum(output, Some(tx)), None);
+        assert_eq!(mapper.map_tx_datum(output, Some(tx)), empty);
+        assert_eq!(mapper.map_tx_output(output, Some(tx)).datum, Some(empty));
+    }
+
+    #[test]
+    fn an_output_with_no_datum_leaves_the_field_unset_when_opted_in() {
+        let cbor = datum_fixture();
+        let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
+        let tx = &block.txs()[1];
+        let output = &tx.outputs()[0];
+        let mapper = Mapper::new(NoLedger).omit_absent_datums();
+
+        assert_eq!(mapper.map_tx_datum_opt(output, Some(tx)), None);
         assert_eq!(mapper.map_tx_output(output, Some(tx)).datum, None);
+
+        let masked = mapper.masked(FieldMask::default());
+        assert_eq!(masked.map_tx_output(output, Some(tx)).datum, None);
+    }
+
+    #[test]
+    fn opting_in_only_unsets_empty_datums_across_a_block() {
+        let cbor = datum_fixture();
+        let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
+        let mapper = Mapper::new(NoLedger);
+
+        let mut expected = mapper.map_block(&block);
+        let mut unset = 0;
+        for tx in &mut expected.body.as_mut().unwrap().tx {
+            let collateral_return = tx
+                .collateral
+                .as_mut()
+                .and_then(|x| x.collateral_return.as_mut());
+
+            for output in tx.outputs.iter_mut().chain(collateral_return) {
+                if output.datum == Some(u5c::Datum::default()) {
+                    output.datum = None;
+                    unset += 1;
+                }
+            }
+        }
+
+        assert!(unset > 0);
+        assert_eq!(expected, mapper.omit_absent_datums().map_block(&block));
     }
 
     #[test]

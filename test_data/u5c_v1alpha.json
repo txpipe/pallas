@@ -14,7 +14,8 @@
             "address": "YbHy8gqHgaO6ln2Me1Bo0h15noCdzOIvZRZ51mE=",
             "coin": {
               "int": "59270328"
-            }
+            },
+            "datum": {}
           },
           "totalCollateral": {
             "int": "3000000"
@@ -1285,13 +1286,15 @@
             "address": "YbHy8gqHgaO6ln2Me1Bo0h15noCdzOIvZRZ51mE=",
             "coin": {
               "int": "975057"
-            }
+            },
+            "datum": {}
           },
           {
             "address": "YbHy8gqHgaO6ln2Me1Bo0h15noCdzOIvZRZ51mE=",
             "coin": {
               "int": "975058"
-            }
+            },
+            "datum": {}
           }
         ],
         "referenceInputs": [
@@ -1379,7 +1382,8 @@
             ],
             "coin": {
               "int": "19070000"
-            }
+            },
+            "datum": {}
           }
         ],
         "successful": true,
@@ -1483,7 +1487,8 @@
             "address": "AdvIO1ZRD7CFGoF/uIOsoV6AbvR9PmLsl1c+TO1W7DAFSIAhxcRh6X2sb8T277WRuBxWRWBmAGr9",
             "coin": {
               "int": "4526384"
-            }
+            },
+            "datum": {}
           },
           "totalCollateral": {
             "int": "473616"
@@ -1820,7 +1825,8 @@
             "address": "AdvIO1ZRD7CFGoF/uIOsoV6AbvR9PmLsl1c+TO1W7DAFSIAhxcRh6X2sb8T277WRuBxWRWBmAGr9",
             "coin": {
               "int": "56301735"
-            }
+            },
+            "datum": {}
           }
         ],
         "referenceInputs": [
@@ -2410,7 +2416,8 @@
             "address": "AYWtgPzNBzkpvzTsDi+F+GKxjwYgLc9fyACQvSbJYUpzo0v3d+qDVCPWQbGhbQCdvjY49oDQlkUo",
             "coin": {
               "int": "46874014"
-            }
+            },
+            "datum": {}
           },
           "totalCollateral": {
             "int": "604283"
@@ -2570,13 +2577,15 @@
             ],
             "coin": {
               "int": "1172320"
-            }
+            },
+            "datum": {}
           },
           {
             "address": "AYWtgPzNBzkpvzTsDi+F+GKxjwYgLc9fyACQvSbJYUpzo0v3d+qDVCPWQbGhbQCdvjY49oDQlkUo",
             "coin": {
               "int": "45903122"
-            }
+            },
+            "datum": {}
           }
         ],
         "successful": true,
@@ -2838,13 +2847,15 @@
             ],
             "coin": {
               "int": "1172320"
-            }
+            },
+            "datum": {}
           },
           {
             "address": "YdZAfjoj7nXOnSrW4gXMuXOt/kL/Ji6YOn15hPE=",
             "coin": {
               "int": "8120687"
-            }
+            },
+            "datum": {}
           }
         ],
         "successful": true,
@@ -3066,7 +3077,8 @@
             "address": "AetFDxwWdAZLqHxlpey+eo6C1tAsjc6/nVQdtj20fykvFlUEcyFK44MqfWEIDI1LO8HDIpsm+2mw",
             "coin": {
               "int": "166261084"
-            }
+            },
+            "datum": {}
           }
         ],
         "successful": true,
