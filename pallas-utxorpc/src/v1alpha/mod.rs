@@ -14,6 +14,7 @@ pub use utxorpc_spec::utxorpc::v1alpha as spec;
 pub struct Mapper<C: LedgerContext> {
     pub(crate) ledger: Option<C>,
     pub(crate) _mask: FieldMask,
+    pub(crate) omit_absent_datums: bool,
 }
 
 impl<C: LedgerContext> Mapper<C> {
@@ -21,6 +22,7 @@ impl<C: LedgerContext> Mapper<C> {
         Self {
             ledger: Some(ledger),
             _mask: FieldMask { paths: vec![] },
+            omit_absent_datums: false,
         }
     }
 
@@ -29,7 +31,18 @@ impl<C: LedgerContext> Mapper<C> {
         Self {
             ledger: self.ledger.clone(),
             _mask: mask,
+            omit_absent_datums: self.omit_absent_datums,
         }
+    }
+
+    /// Leaves `TxOutput.datum` unset on outputs with no datum.
+    ///
+    /// By default those outputs carry an empty `Datum` message. This applies to
+    /// every output this mapper produces, including those inside a mapped
+    /// transaction or block.
+    pub fn omit_absent_datums(mut self) -> Self {
+        self.omit_absent_datums = true;
+        self
     }
 }
 
@@ -45,29 +58,35 @@ impl<C: LedgerContext> Mapper<C> {
         u5c::native_script::NativeScript::ScriptPubkey(bytes.into())
     }
 
+    /// Maps the datum of an output, or an empty message when the output has none.
     pub fn map_tx_datum(
         &self,
         x: &trv::MultiEraOutput,
         tx: Option<&trv::MultiEraTx>,
     ) -> u5c::Datum {
-        u5c::Datum {
-            hash: match x.datum() {
-                Some(babbage::DatumOption::Data(x)) => x.original_hash().to_vec().into(),
-                Some(babbage::DatumOption::Hash(x)) => x.to_vec().into(),
-                _ => vec![].into(),
+        self.map_tx_datum_opt(x, tx).unwrap_or_default()
+    }
+
+    /// Maps the datum of an output, or `None` when the output has none.
+    pub fn map_tx_datum_opt(
+        &self,
+        x: &trv::MultiEraOutput,
+        tx: Option<&trv::MultiEraTx>,
+    ) -> Option<u5c::Datum> {
+        Some(match x.datum()? {
+            babbage::DatumOption::Data(x) => u5c::Datum {
+                hash: x.original_hash().to_vec().into(),
+                payload: self.map_plutus_datum(&x.0).into(),
+                original_cbor: x.raw_cbor().to_vec().into(),
             },
-            payload: match x.datum() {
-                Some(babbage::DatumOption::Data(x)) => self.map_plutus_datum(&x.0).into(),
-                Some(babbage::DatumOption::Hash(x)) => tx
+            babbage::DatumOption::Hash(x) => u5c::Datum {
+                hash: x.to_vec().into(),
+                payload: tx
                     .and_then(|tx| tx.find_plutus_data(&x))
                     .map(|d| self.map_plutus_datum(d)),
-                _ => None,
+                original_cbor: vec![].into(),
             },
-            original_cbor: match x.datum() {
-                Some(babbage::DatumOption::Data(x)) => x.raw_cbor().to_vec().into(),
-                _ => vec![].into(),
-            },
-        }
+        })
     }
 
     pub fn map_tx_output(
@@ -87,7 +106,11 @@ impl<C: LedgerContext> Mapper<C> {
                 .iter()
                 .map(|x| self.map_policy_assets(x))
                 .collect(),
-            datum: self.map_tx_datum(x, tx).into(),
+            datum: if self.omit_absent_datums {
+                self.map_tx_datum_opt(x, tx)
+            } else {
+                Some(self.map_tx_datum(x, tx))
+            },
             script: self.map_output_script(x),
         }
     }
@@ -356,6 +379,171 @@ mod tests {
 
             assert_eq!(expected, current)
         }
+    }
+
+    // In u5c1.block, transaction 0 opens with an output holding an inline datum, 1 with one
+    // holding no datum, and 2 with a hash its witnesses resolve. No output holds a hash its own
+    // witnesses lack; a test gets that shape by pairing an output with another transaction.
+    fn datum_fixture() -> Vec<u8> {
+        hex::decode(include_str!("../../../test_data/u5c1.block")).unwrap()
+    }
+
+    #[test]
+    fn an_output_with_no_datum_maps_to_an_empty_message_by_default() {
+        let cbor = datum_fixture();
+        let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
+        let tx = &block.txs()[1];
+        let output = &tx.outputs()[0];
+        let mapper = Mapper::new(NoLedger);
+        let empty = u5c::Datum::default();
+
+        assert_eq!(mapper.map_tx_datum(output, Some(tx)), empty);
+        assert_eq!(mapper.map_tx_datum_opt(output, Some(tx)), None);
+        assert_eq!(mapper.map_tx_output(output, Some(tx)).datum, Some(empty));
+    }
+
+    #[test]
+    fn an_output_with_no_datum_leaves_the_field_unset_when_opted_in() {
+        let cbor = datum_fixture();
+        let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
+        let tx = &block.txs()[1];
+        let output = &tx.outputs()[0];
+        let mapper = Mapper::new(NoLedger).omit_absent_datums();
+
+        assert_eq!(mapper.map_tx_datum_opt(output, Some(tx)), None);
+        assert_eq!(mapper.map_tx_datum(output, Some(tx)), u5c::Datum::default());
+        assert_eq!(mapper.map_tx_output(output, Some(tx)).datum, None);
+
+        let masked = mapper.masked(FieldMask::default());
+        assert_eq!(masked.map_tx_output(output, Some(tx)).datum, None);
+    }
+
+    #[test]
+    fn opting_in_only_unsets_empty_datums_across_a_block() {
+        let cbor = datum_fixture();
+        let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
+        let mapper = Mapper::new(NoLedger);
+
+        let mut expected = mapper.map_block(&block);
+        let mut unset = 0;
+        for tx in &mut expected.body.as_mut().unwrap().tx {
+            let collateral_return = tx
+                .collateral
+                .as_mut()
+                .and_then(|x| x.collateral_return.as_mut());
+
+            for output in tx.outputs.iter_mut().chain(collateral_return) {
+                if output.datum == Some(u5c::Datum::default()) {
+                    output.datum = None;
+                    unset += 1;
+                }
+            }
+        }
+
+        assert!(unset > 0);
+        assert_eq!(expected, mapper.omit_absent_datums().map_block(&block));
+    }
+
+    #[test]
+    fn a_resolved_input_with_no_datum_follows_the_opt_in() {
+        let cbor = datum_fixture();
+        let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
+        let tx = &block.txs()[1];
+        let output = &tx.outputs()[0];
+        let input = &tx.inputs()[0];
+        let resolved = Some(UtxoMap::from([(
+            (*input.hash(), input.index() as u32),
+            (output.era(), output.encode()),
+        )]));
+        let mapper = Mapper::new(NoLedger);
+
+        let datum = mapper
+            .map_tx_input(input, tx, 0, &resolved)
+            .as_output
+            .unwrap()
+            .datum;
+        assert_eq!(datum, Some(u5c::Datum::default()));
+
+        let datum = mapper
+            .omit_absent_datums()
+            .map_tx_input(input, tx, 0, &resolved)
+            .as_output
+            .unwrap()
+            .datum;
+        assert_eq!(datum, None);
+    }
+
+    #[test]
+    fn an_inline_datum_maps_its_hash_payload_and_cbor() {
+        let cbor = datum_fixture();
+        let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
+        let tx = &block.txs()[0];
+        let output = &tx.outputs()[0];
+
+        let datum = Mapper::new(NoLedger)
+            .map_tx_output(output, Some(tx))
+            .datum
+            .unwrap();
+
+        assert_eq!(
+            hex::encode(&datum.hash),
+            "58260815eb79c0e8168502dbe5c6e73ac0fa37b57fe2b0582f765778c9c63550"
+        );
+        assert_eq!(
+            datum.payload,
+            Some(u5c::PlutusData {
+                plutus_data: Some(u5c::plutus_data::PlutusData::BoundedBytes(
+                    vec![0xd8, 0x79, 0x80].into()
+                )),
+            })
+        );
+        assert_eq!(
+            datum.original_cbor,
+            prost::bytes::Bytes::from(vec![0x43, 0xd8, 0x79, 0x80])
+        );
+    }
+
+    #[test]
+    fn a_datum_hash_maps_with_or_without_a_resolvable_payload() {
+        let cbor = datum_fixture();
+        let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
+        let tx = &block.txs()[2];
+        let output = &tx.outputs()[0];
+        let mapper = Mapper::new(NoLedger);
+
+        let resolved = mapper.map_tx_output(output, Some(tx)).datum.unwrap();
+        let unresolved = mapper.map_tx_output(output, None).datum.unwrap();
+
+        assert_eq!(
+            hex::encode(&resolved.hash),
+            "c0b7784ae9fd96e36ae5eae00f1ab5572b540213f1d8e3d727dec251c578ec39"
+        );
+        assert!(resolved.payload.is_some());
+        assert_eq!(resolved.original_cbor, prost::bytes::Bytes::new());
+
+        assert_eq!(unresolved.hash, resolved.hash);
+        assert_eq!(unresolved.payload, None);
+        assert_eq!(unresolved.original_cbor, prost::bytes::Bytes::new());
+    }
+
+    #[test]
+    fn a_datum_hash_its_transaction_does_not_witness_keeps_its_hash() {
+        let cbor = datum_fixture();
+        let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
+        let txs = block.txs();
+        let output = &txs[2].outputs()[0];
+        let mapper = Mapper::new(NoLedger);
+        let expected = mapper.map_tx_output(output, None).datum;
+
+        assert!(expected.as_ref().is_some_and(|x| !x.hash.is_empty()));
+        assert_eq!(mapper.map_tx_output(output, Some(&txs[5])).datum, expected);
+        assert_eq!(
+            mapper
+                .omit_absent_datums()
+                .map_tx_output(output, Some(&txs[5]))
+                .datum,
+            expected
+        );
     }
 
     #[test]
