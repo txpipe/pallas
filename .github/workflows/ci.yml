@@ -124,10 +124,10 @@ jobs:
   # main is the v1 lineage, where public API changes must be additive; see
   # "API compatibility" in AGENTS.md. Other targets, such as vnext, may break.
   #
-  # Both jobs compare the PR's merge commit with its first parent, the target
-  # branch's tip, so a stale PR branch doesn't read as removing newer items.
-  # Neither tool is enough alone: cargo-semver-checks catches breaks that look
-  # like additions but not type changes, and cargo-public-api is the reverse.
+  # Both jobs compare the PR's merge commit with the target branch tip, so a
+  # stale PR branch doesn't read as removing newer items. Neither tool is enough
+  # alone: cargo-semver-checks catches breaks that look like additions but not
+  # type changes, and cargo-public-api is the reverse.
   semver-checks:
     name: API compatibility (semver-checks)
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
@@ -135,52 +135,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
           submodules: true
-      - name: Find the target branch tip
-        id: base
-        run: echo "sha=$(git rev-parse HEAD^1)" >> "$GITHUB_OUTPUT"
       - uses: obi1kenobi/cargo-semver-checks-action@v2
         with:
-          baseline-rev: ${{ steps.base.outputs.sha }}
+          baseline-rev: ${{ github.event.pull_request.base.sha }}
           # The version alone won't do: main can sit on a prerelease.
           release-type: minor
 
   public-api:
-    name: API compatibility (public-api)
+    name: API compatibility (public-api, ${{ matrix.crate }})
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
     runs-on: ubuntu-latest
-    env:
-      # cargo-public-api reads nightly rustdoc JSON, whose format changes often.
-      # Bump these two together, per the tool's compatibility matrix.
-      PUBLIC_API_VERSION: 0.52.0
-      PUBLIC_API_NIGHTLY: nightly-2026-05-25
+    strategy:
+      fail-fast: false
+      matrix:
+        # The published crates. Add a new crate here once it's on main; until
+        # then the base revision doesn't have it to diff against.
+        crate:
+          - pallas
+          - pallas-addresses
+          - pallas-codec
+          - pallas-configs
+          - pallas-crypto
+          - pallas-hardano
+          - pallas-math
+          - pallas-network
+          - pallas-network2
+          - pallas-primitives
+          - pallas-traverse
+          - pallas-txbuilder
+          - pallas-utxorpc
+          - pallas-validate
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
           submodules: true
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install the nightly toolchain
-        run: rustup toolchain install "$PUBLIC_API_NIGHTLY" --profile minimal
-      - uses: Swatinem/rust-cache@v2
-      - name: Install cargo-public-api
-        run: cargo +stable install cargo-public-api --version "$PUBLIC_API_VERSION" --locked
-      - name: Deny changed or removed public items
-        run: |
-          head=$(git rev-parse HEAD)
-          base=$(git rev-parse HEAD^1)
-          # List crates at the base, so a crate this PR adds isn't diffed
-          # against a revision that doesn't have it.
-          git checkout --quiet "$base"
-          crates=$(cargo metadata --no-deps --format-version 1 \
-            | jq -r '.packages[] | select(.manifest_path | contains("/examples/") | not) | .name')
-          git checkout --quiet "$head"
-          status=0
-          for crate in $crates; do
-            echo "::group::$crate"
-            cargo "+$PUBLIC_API_NIGHTLY" public-api -p "$crate" diff \
-              --deny=changed --deny=removed "$base..$head" || status=1
-            echo "::endgroup::"
-          done
-          exit "$status"
+      - uses: ./.github/actions/public-api-diff
+        with:
+          crate: ${{ matrix.crate }}
+          base: ${{ github.event.pull_request.base.sha }}
