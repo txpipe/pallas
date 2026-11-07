@@ -4,7 +4,7 @@
 
 ## Start here
 
-- [pallas](https://docs.rs/pallas/latest/pallas/): umbrella crate that re-exports the others under one module tree
+- [pallas](https://docs.rs/pallas/latest/pallas/): umbrella crate that re-exports the others under one module tree; docs.rs `latest` pages show the latest stable release, which can trail `main`
 - [README](https://github.com/txpipe/pallas/blob/main/README.md): module tree, feature flags and MSRV
 - [AGENTS.md](https://github.com/txpipe/pallas/blob/main/AGENTS.md): repository layout, commands, conventions and which crate to start from
 
@@ -24,7 +24,7 @@
 ## Core
 
 - [pallas-codec](https://docs.rs/pallas-codec/latest/pallas_codec/): shared CBOR encoding and decoding
-- [pallas-crypto](https://docs.rs/pallas-crypto/latest/pallas_crypto/): hashes, Ed25519, KES, VRF and nonce derivation
+- [pallas-crypto](https://docs.rs/pallas-crypto/latest/pallas_crypto/): hashes, Ed25519 and nonce derivation, plus KES behind this crate's own `kes` feature, which the umbrella doesn't forward and this page doesn't show
 - [pallas-math](https://docs.rs/pallas-math/latest/pallas_math/): fixed-precision arithmetic for protocol calculations
 
 ## Interop

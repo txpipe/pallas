@@ -11,7 +11,7 @@ Library crates:
 |---|---|
 | `pallas` | umbrella crate that re-exports the others under one module tree, see `pallas/src/lib.rs` |
 | `pallas-codec` | shared CBOR encoding and decoding on `minicbor`, plus the Plutus Core flat codec |
-| `pallas-crypto` | hashes, Ed25519, KES, VRF and nonce derivation |
+| `pallas-crypto` | hashes, Ed25519 and nonce derivation, plus KES behind this crate's own `kes` feature, which the umbrella doesn't forward |
 | `pallas-math` | fixed-precision arithmetic for the leader check and reward calculations |
 | `pallas-addresses` | encode and decode Cardano addresses of any type |
 | `pallas-primitives` | ledger types and their CBOR codec, one module per era |
@@ -115,7 +115,13 @@ cargo +1.88 check --workspace --all-targets
 ## Using Pallas from another project
 
 Depend on the umbrella crate, `cargo add pallas`, or on individual crates. `README.md` has the module
-tree and the umbrella's feature flags. Where to start for common jobs:
+tree and the umbrella's feature flags.
+
+This section describes the current `main` (1.5.0-rc.1). Plain `cargo add` picks the latest stable
+release, which differs on `unstable`, so use `cargo add pallas@1.5.0-rc.1` to get what's described
+here until 1.5.0 ships.
+
+Where to start for common jobs:
 
 | job | crate | start from |
 |---|---|---|
