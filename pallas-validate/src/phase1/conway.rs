@@ -15,7 +15,7 @@ use crate::utils::{
 use pallas_addresses::{
     Address, Network, ScriptHash, ShelleyAddress, ShelleyPaymentPart, StakeAddress, StakePayload,
 };
-use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, NonEmptySet};
+use pallas_codec::utils::{Bytes, KeepRaw, NonEmptySet};
 use pallas_primitives::{
     AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin, TransactionInput, babbage,
     conway::{
@@ -1751,7 +1751,7 @@ fn cost_model_for_tx(
 mod tests {
     use super::*;
     use pallas_codec::minicbor;
-    use pallas_codec::utils::Set;
+    use pallas_codec::utils::{CborWrap, Set};
     use pallas_primitives::alonzo::NativeScript;
     use std::collections::HashMap;
 
