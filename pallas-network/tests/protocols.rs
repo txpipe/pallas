@@ -28,7 +28,7 @@ use pallas_network::{
         txsubmission,
         txsubmission::{EraTxBody, TxIdAndSize},
     },
-    multiplexer::{Bearer, Plexer},
+    multiplexer::{Bearer, Header, Plexer},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -2307,4 +2307,256 @@ pub async fn handshake_server_refuses_a_legacy_payload_on_a_modern_n2c_version()
 
     assert_refused(&confirmation, 32784);
     assert_eq!(accepted, None);
+}
+
+/// Propose `versions` over a raw stream, as an initiator would. Returns the
+/// server's reply and whether the server closed the connection after it.
+async fn propose_over_raw_stream<S, D>(
+    mut stream: S,
+    versions: handshake::VersionTable<D>,
+) -> (handshake::Message<D>, bool)
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    D: std::fmt::Debug + Clone,
+    handshake::Message<D>: pallas_codec::Fragment,
+{
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let payload = pallas_codec::minicbor::to_vec(handshake::Message::Propose(versions)).unwrap();
+    let header: [u8; 8] = Header {
+        protocol: 0,
+        timestamp: 0,
+        payload_len: payload.len() as u16,
+    }
+    .into();
+    stream.write_all(&header).await.unwrap();
+    stream.write_all(&payload).await.unwrap();
+
+    let mut header = [0u8; 8];
+    stream.read_exact(&mut header).await.unwrap();
+    let header = Header::from(header.as_slice());
+    assert_eq!(
+        header.protocol, 0x8000,
+        "reply on the handshake responder channel"
+    );
+
+    let mut payload = vec![0u8; header.payload_len as usize];
+    stream.read_exact(&mut payload).await.unwrap();
+    let reply = pallas_codec::minicbor::decode(&payload).unwrap();
+
+    // End of stream or a reset both mean the server closed the connection.
+    let mut next = [0u8; 1];
+    let closed = !matches!(stream.read(&mut next).await, Ok(n) if n > 0);
+
+    (reply, closed)
+}
+
+/// Run `accept` against a raw initiator proposing `versions`, and check that
+/// it fails with `IncompatibleVersion` and leaves no task behind. Returns the
+/// reply the initiator read off the bearer.
+async fn refusal_from_facade<S, D, F, T>(
+    connect: impl std::future::Future<Output = S> + Send + 'static,
+    versions: handshake::VersionTable<D>,
+    accept: F,
+) -> handshake::Message<D>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
+    D: std::fmt::Debug + Clone + Send + 'static,
+    handshake::Message<D>: pallas_codec::Fragment,
+    F: std::future::Future<Output = Result<T, pallas_network::facades::Error>>,
+{
+    let tasks = tokio::runtime::Handle::current().metrics();
+    let before = tasks.num_alive_tasks();
+
+    let initiator =
+        tokio::spawn(async move { propose_over_raw_stream(connect.await, versions).await });
+
+    let accepted = tokio::time::timeout(HANDSHAKE_TIMEOUT, accept)
+        .await
+        .expect("accept timed out");
+    assert!(
+        matches!(
+            accepted,
+            Err(pallas_network::facades::Error::IncompatibleVersion)
+        ),
+        "expected IncompatibleVersion"
+    );
+
+    let (reply, closed) = tokio::time::timeout(HANDSHAKE_TIMEOUT, initiator)
+        .await
+        .expect("initiator timed out")
+        .unwrap();
+    assert!(
+        closed,
+        "the server keeps the connection open after refusing"
+    );
+    assert_eq!(
+        tasks.num_alive_tasks(),
+        before,
+        "a task of the refused connection is still running"
+    );
+
+    reply
+}
+
+async fn refusal_from_peer_server(
+    versions: handshake::n2n::VersionTable,
+) -> handshake::Message<VersionData> {
+    let (listener, addr) = local_listener().await;
+    let connect = async move { tokio::net::TcpStream::connect(addr).await.unwrap() };
+
+    refusal_from_facade(
+        connect,
+        versions,
+        PeerServer::accept(&listener, MAINNET_MAGIC),
+    )
+    .await
+}
+
+/// Bind a Unix listener on a fresh socket path for `name`.
+#[cfg(unix)]
+fn local_unix_listener(name: &str) -> (UnixListener, std::path::PathBuf) {
+    let path = std::env::temp_dir().join(format!("pallas-{}-{name}.socket", std::process::id()));
+    let _ = fs::remove_file(&path);
+    let listener = UnixListener::bind(&path).unwrap();
+
+    (listener, path)
+}
+
+#[cfg(unix)]
+async fn refusal_from_unix_facade<F, T>(
+    name: &str,
+    versions: handshake::n2c::VersionTable,
+    accept: impl FnOnce(UnixListener) -> F,
+) -> handshake::Message<handshake::n2c::VersionData>
+where
+    F: std::future::Future<Output = Result<T, pallas_network::facades::Error>>,
+{
+    let (listener, path) = local_unix_listener(name);
+    let connect = {
+        let path = path.clone();
+        async move { tokio::net::UnixStream::connect(path).await.unwrap() }
+    };
+
+    let reply = refusal_from_facade(connect, versions, accept(listener)).await;
+    let _ = fs::remove_file(&path);
+
+    reply
+}
+
+/// Assert that a raw reply is a refusal of `version`.
+fn assert_refuse_message<D: std::fmt::Debug + Clone>(reply: &handshake::Message<D>, version: u64) {
+    assert!(
+        matches!(
+            reply,
+            handshake::Message::Refuse(handshake::RefuseReason::Refused(v, _)) if *v == version
+        ),
+        "expected a refusal of version {version}, got {reply:?}"
+    );
+}
+
+/// Assert that a raw reply is a version mismatch listing `ours`.
+fn assert_version_mismatch<D: std::fmt::Debug + Clone>(
+    reply: &handshake::Message<D>,
+    ours: &[u64],
+) {
+    match reply {
+        handshake::Message::Refuse(handshake::RefuseReason::VersionMismatch(versions)) => {
+            let mut versions = versions.clone();
+            versions.sort();
+            assert_eq!(versions, ours);
+        }
+        other => panic!("expected a version mismatch, got {other:?}"),
+    }
+}
+
+/// `PeerServer` delivers its refusal of a node on another network before closing.
+#[tokio::test]
+pub async fn peer_server_delivers_refusal_of_another_network() {
+    let reply = refusal_from_peer_server(cardano_node_proposal(1)).await;
+
+    assert_refuse_message(&reply, 14);
+}
+
+/// `PeerServer` delivers a version mismatch before closing.
+#[tokio::test]
+pub async fn peer_server_delivers_version_mismatch() {
+    let unknown = handshake::n2n::VersionTable {
+        values: [(
+            99,
+            VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false)),
+        )]
+        .into_iter()
+        .collect(),
+    };
+
+    let reply = refusal_from_peer_server(unknown).await;
+
+    let ours = handshake::n2n::VersionTable::v7_and_above(MAINNET_MAGIC);
+    let mut ours = ours.values.into_keys().collect::<Vec<_>>();
+    ours.sort();
+    assert_version_mismatch(&reply, &ours);
+}
+
+/// `NodeServer` delivers its refusal of a client on another network before closing.
+#[cfg(unix)]
+#[tokio::test]
+pub async fn node_server_delivers_refusal_of_another_network() {
+    use handshake::n2c;
+
+    let other_network = n2c::VersionTable {
+        values: [(32791, n2c::VersionData::new(1, Some(false)))]
+            .into_iter()
+            .collect(),
+    };
+
+    let reply = refusal_from_unix_facade("node-refusal", other_network, |listener| async move {
+        pallas_network::facades::NodeServer::accept(&listener, MAINNET_MAGIC).await
+    })
+    .await;
+
+    assert_refuse_message(&reply, 32791);
+}
+
+/// `NodeServer` delivers a version mismatch before closing.
+#[cfg(unix)]
+#[tokio::test]
+pub async fn node_server_delivers_version_mismatch() {
+    use handshake::n2c;
+
+    let only_v1 = n2c::VersionTable::v1_and_above(MAINNET_MAGIC);
+    let only_v1 = n2c::VersionTable {
+        values: only_v1
+            .values
+            .into_iter()
+            .filter(|(v, _)| *v == 1)
+            .collect(),
+    };
+
+    let reply = refusal_from_unix_facade("node-mismatch", only_v1, |listener| async move {
+        pallas_network::facades::NodeServer::accept(&listener, MAINNET_MAGIC).await
+    })
+    .await;
+
+    let ours = n2c::VersionTable::v10_and_above(MAINNET_MAGIC);
+    let mut ours = ours.values.into_keys().collect::<Vec<_>>();
+    ours.sort();
+    assert_version_mismatch(&reply, &ours);
+}
+
+/// `DmqServer` delivers its refusal of a client on another network before closing.
+#[cfg(unix)]
+#[tokio::test]
+pub async fn dmq_server_delivers_refusal_of_another_network() {
+    use handshake::n2c;
+
+    let other_network = n2c::VersionTable::dmq(1);
+    let version = *other_network.values.keys().next().unwrap();
+
+    let reply = refusal_from_unix_facade("dmq-refusal", other_network, |listener| async move {
+        pallas_network::facades::DmqServer::accept(&listener, MAINNET_MAGIC).await
+    })
+    .await;
+
+    assert_refuse_message(&reply, version);
 }

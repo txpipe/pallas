@@ -1,11 +1,13 @@
 //! A multiplexer of several mini-protocols through a single bearer
 
 use std::collections::HashMap;
+use std::time::Duration;
 
 use byteorder::{ByteOrder, NetworkEndian};
 use pallas_codec::{Fragment, minicbor};
 use thiserror::Error;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
 use tokio::{select, sync::mpsc::error::SendError};
@@ -441,6 +443,36 @@ impl Muxer {
             }
         }
     }
+
+    /// Run the mux loop until an error occurs or `stop` fires. On stop, write
+    /// the messages already queued and return. A dropped `stop` sender is not
+    /// a stop: the loop keeps running, as [`Self::run`] does.
+    async fn run_until(&mut self, stop: oneshot::Receiver<()>) -> Result<(), Error> {
+        let stop = async {
+            if stop.await.is_err() {
+                std::future::pending::<()>().await
+            }
+        };
+        tokio::pin!(stop);
+
+        loop {
+            select! {
+                biased;
+                _ = &mut stop => break,
+                msg = self.2.1.recv() => {
+                    if let Some(msg) = msg {
+                        self.mux(msg).await?;
+                    }
+                }
+            }
+        }
+
+        while let Ok(msg) = self.2.1.try_recv() {
+            self.mux(msg).await?;
+        }
+
+        Ok(())
+    }
 }
 
 type ToPlexerPort = tokio::sync::mpsc::Sender<(Protocol, Payload)>;
@@ -497,6 +529,7 @@ impl AgentChannel {
 pub struct RunningPlexer {
     demuxer: JoinHandle<Result<(), Error>>,
     muxer: JoinHandle<Result<(), Error>>,
+    stop_muxer: oneshot::Sender<()>,
 }
 
 impl RunningPlexer {
@@ -504,6 +537,34 @@ impl RunningPlexer {
     pub async fn abort(self) {
         self.demuxer.abort();
         self.muxer.abort();
+    }
+
+    /// Write the messages already queued, close our side of the bearer and
+    /// give the peer until `timeout` to close theirs. Then abort whatever is
+    /// still running, and return once both tasks are gone.
+    pub(crate) async fn close(self, timeout: Duration) {
+        let Self {
+            mut demuxer,
+            mut muxer,
+            stop_muxer,
+        } = self;
+        let deadline = Instant::now() + timeout;
+
+        // Dropping the write half when the muxer returns half-closes the bearer.
+        let _ = stop_muxer.send(());
+        if tokio::time::timeout_at(deadline, &mut muxer).await.is_err() {
+            muxer.abort();
+            let _ = muxer.await;
+        }
+
+        // The demuxer returns once the peer closes its side.
+        if tokio::time::timeout_at(deadline, &mut demuxer)
+            .await
+            .is_err()
+        {
+            demuxer.abort();
+            let _ = demuxer.await;
+        }
     }
 }
 
@@ -544,10 +605,16 @@ impl Plexer {
         let mut demuxer = self.demuxer;
         let mut muxer = self.muxer;
 
-        let demuxer = tokio::spawn(async move { demuxer.run().await });
-        let muxer = tokio::spawn(async move { muxer.run().await });
+        let (stop_muxer, stop) = oneshot::channel();
 
-        RunningPlexer { demuxer, muxer }
+        let demuxer = tokio::spawn(async move { demuxer.run().await });
+        let muxer = tokio::spawn(async move { muxer.run_until(stop).await });
+
+        RunningPlexer {
+            demuxer,
+            muxer,
+            stop_muxer,
+        }
     }
 }
 
