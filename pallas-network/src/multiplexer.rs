@@ -7,7 +7,6 @@ use byteorder::{ByteOrder, NetworkEndian};
 use pallas_codec::{Fragment, minicbor};
 use thiserror::Error;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
 use tokio::{select, sync::mpsc::error::SendError};
@@ -447,9 +446,9 @@ impl Muxer {
     /// Run the mux loop until an error occurs or `stop` fires. On stop, write
     /// the messages already queued and return. A dropped `stop` sender is not
     /// a stop: the loop keeps running, as [`Self::run`] does.
-    async fn run_until(&mut self, stop: oneshot::Receiver<()>) -> Result<(), Error> {
+    async fn run_until(&mut self, mut stop: tokio::sync::mpsc::Receiver<()>) -> Result<(), Error> {
         let stop = async {
-            if stop.await.is_err() {
+            if stop.recv().await.is_none() {
                 std::future::pending::<()>().await
             }
         };
@@ -529,7 +528,7 @@ impl AgentChannel {
 pub struct RunningPlexer {
     demuxer: JoinHandle<Result<(), Error>>,
     muxer: JoinHandle<Result<(), Error>>,
-    stop_muxer: oneshot::Sender<()>,
+    stop_muxer: tokio::sync::mpsc::Sender<()>,
 }
 
 impl RunningPlexer {
@@ -551,7 +550,7 @@ impl RunningPlexer {
         let deadline = Instant::now() + timeout;
 
         // Dropping the write half when the muxer returns half-closes the bearer.
-        let _ = stop_muxer.send(());
+        let _ = stop_muxer.try_send(());
         if tokio::time::timeout_at(deadline, &mut muxer).await.is_err() {
             muxer.abort();
             let _ = muxer.await;
@@ -605,7 +604,7 @@ impl Plexer {
         let mut demuxer = self.demuxer;
         let mut muxer = self.muxer;
 
-        let (stop_muxer, stop) = oneshot::channel();
+        let (stop_muxer, stop) = tokio::sync::mpsc::channel(1);
 
         let demuxer = tokio::spawn(async move { demuxer.run().await });
         let muxer = tokio::spawn(async move { muxer.run_until(stop).await });
