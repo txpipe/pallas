@@ -974,7 +974,7 @@ fn get_script_hash_from_reference_input(
                         return Some(pallas_crypto::hash::Hasher::<224>::hash(&val_to_hash));
                     }
                     ScriptRef::PlutusV3Script(plutus_v3_script) => {
-                        // First, the PlutusV2Script header.
+                        // First, the PlutusV3Script header.
                         let mut val_to_hash: Vec<u8> = vec![3];
                         // Then, the CBOR content.
                         val_to_hash.extend_from_slice(plutus_v3_script.as_ref());
