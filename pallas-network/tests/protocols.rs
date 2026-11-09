@@ -2309,11 +2309,16 @@ pub async fn handshake_server_refuses_a_legacy_payload_on_a_modern_n2c_version()
     assert_eq!(accepted, None);
 }
 
-/// Propose `versions` over a raw stream, as an initiator would. Returns the
-/// server's reply and whether the server closed the connection after it.
+/// How long a refusal may hold `accept`: it must not wait for the peer.
+const PROMPT_REFUSAL: Duration = Duration::from_millis(500);
+
+/// Propose `versions` over a raw stream, as an initiator would, and keep the
+/// stream open until `read` fires. Returns the server's reply, read only then,
+/// and whether the server had closed the connection.
 async fn propose_over_raw_stream<S, D>(
     mut stream: S,
     versions: handshake::VersionTable<D>,
+    read: tokio::sync::oneshot::Receiver<()>,
 ) -> (handshake::Message<D>, bool)
 where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
@@ -2331,6 +2336,8 @@ where
     .into();
     stream.write_all(&header).await.unwrap();
     stream.write_all(&payload).await.unwrap();
+
+    read.await.unwrap();
 
     let mut header = [0u8; 8];
     stream.read_exact(&mut header).await.unwrap();
@@ -2351,9 +2358,19 @@ where
     (reply, closed)
 }
 
-/// Run `accept` against a raw initiator proposing `versions`, and check that
-/// it fails with `IncompatibleVersion` and leaves no task behind. Returns the
-/// reply the initiator read off the bearer.
+/// Fail if `accept` takes longer than a refusal may.
+async fn promptly<T>(
+    accept: impl std::future::Future<Output = Result<T, pallas_network::facades::Error>>,
+) -> Result<T, pallas_network::facades::Error> {
+    tokio::time::timeout(PROMPT_REFUSAL, accept)
+        .await
+        .expect("accept did not return promptly after refusing")
+}
+
+/// Run `accept` against a raw initiator proposing `versions` that keeps its
+/// stream open and reads nothing until `accept` returns. Checks that `accept`
+/// fails with `IncompatibleVersion` and leaves no task of the connection
+/// behind, then returns the reply the initiator read off the bearer.
 async fn refusal_from_facade<S, D, F, T>(
     connect: impl std::future::Future<Output = S> + Send + 'static,
     versions: handshake::VersionTable<D>,
@@ -2368,12 +2385,13 @@ where
     let tasks = tokio::runtime::Handle::current().metrics();
     let before = tasks.num_alive_tasks();
 
+    let (read_tx, read_rx) = tokio::sync::oneshot::channel();
     let initiator =
-        tokio::spawn(async move { propose_over_raw_stream(connect.await, versions).await });
+        tokio::spawn(
+            async move { propose_over_raw_stream(connect.await, versions, read_rx).await },
+        );
 
-    let accepted = tokio::time::timeout(HANDSHAKE_TIMEOUT, accept)
-        .await
-        .expect("accept timed out");
+    let accepted = accept.await;
     assert!(
         matches!(
             accepted,
@@ -2381,19 +2399,17 @@ where
         ),
         "expected IncompatibleVersion"
     );
+    assert_eq!(
+        tasks.num_alive_tasks(),
+        before + 1,
+        "a task of the refused connection outlives accept"
+    );
 
-    let (reply, closed) = tokio::time::timeout(HANDSHAKE_TIMEOUT, initiator)
-        .await
-        .expect("initiator timed out")
-        .unwrap();
+    read_tx.send(()).unwrap();
+    let (reply, closed) = initiator.await.unwrap();
     assert!(
         closed,
         "the server keeps the connection open after refusing"
-    );
-    assert_eq!(
-        tasks.num_alive_tasks(),
-        before,
-        "a task of the refused connection is still running"
     );
 
     reply
@@ -2408,7 +2424,7 @@ async fn refusal_from_peer_server(
     refusal_from_facade(
         connect,
         versions,
-        PeerServer::accept(&listener, MAINNET_MAGIC),
+        promptly(PeerServer::accept(&listener, MAINNET_MAGIC)),
     )
     .await
 }
@@ -2438,7 +2454,7 @@ where
         async move { tokio::net::UnixStream::connect(path).await.unwrap() }
     };
 
-    let reply = refusal_from_facade(connect, versions, accept(listener)).await;
+    let reply = refusal_from_facade(connect, versions, promptly(accept(listener))).await;
     let _ = fs::remove_file(&path);
 
     reply
@@ -2559,4 +2575,36 @@ pub async fn dmq_server_delivers_refusal_of_another_network() {
     .await;
 
     assert_refuse_message(&reply, version);
+}
+
+/// `PeerServer` delivers its refusal on a runtime without the time driver.
+#[test]
+pub fn peer_server_delivers_refusal_without_timers() {
+    let (done_tx, done_rx) = std::sync::mpsc::channel();
+
+    std::thread::spawn(move || {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_io()
+            .build()
+            .unwrap();
+
+        let reply = runtime.block_on(async {
+            let (listener, addr) = local_listener().await;
+            let connect = async move { tokio::net::TcpStream::connect(addr).await.unwrap() };
+
+            refusal_from_facade(
+                connect,
+                cardano_node_proposal(1),
+                PeerServer::accept(&listener, MAINNET_MAGIC),
+            )
+            .await
+        });
+
+        done_tx.send(reply).unwrap();
+    });
+
+    let reply = done_rx
+        .recv_timeout(HANDSHAKE_TIMEOUT)
+        .expect("the refusal did not complete");
+    assert_refuse_message(&reply, 14);
 }

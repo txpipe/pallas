@@ -54,10 +54,6 @@ pub enum Error {
 /// Default interval between keep-alive pings.
 pub const DEFAULT_KEEP_ALIVE_INTERVAL_SEC: u64 = 20;
 
-/// How long a server waits for the peer to close after refusing its handshake,
-/// before it drops the connection anyway.
-const REFUSAL_LINGER: Duration = Duration::from_secs(2);
-
 /// Handle to a spawned keep-alive loop.
 pub type KeepAliveHandle = tokio::task::JoinHandle<Result<(), Error>>;
 
@@ -342,7 +338,7 @@ impl PeerServer {
             client.accepted_version = Some((version, data));
             Ok(client)
         } else {
-            client.plexer.close(REFUSAL_LINGER).await;
+            client.plexer.close().await;
             Err(Error::IncompatibleVersion)
         }
     }
@@ -615,7 +611,7 @@ impl NodeServer {
             client.accpeted_version = Some(version);
             Ok(client)
         } else {
-            client.plexer.close(REFUSAL_LINGER).await;
+            client.plexer.close().await;
             Err(Error::IncompatibleVersion)
         }
     }
@@ -860,7 +856,7 @@ impl DmqServer {
             client.accpeted_version = Some(version);
             Ok(client)
         } else {
-            client.plexer.close(REFUSAL_LINGER).await;
+            client.plexer.close().await;
             Err(Error::IncompatibleVersion)
         }
     }

@@ -1,7 +1,6 @@
 //! A multiplexer of several mini-protocols through a single bearer
 
 use std::collections::HashMap;
-use std::time::Duration;
 
 use byteorder::{ByteOrder, NetworkEndian};
 use pallas_codec::{Fragment, minicbor};
@@ -248,6 +247,14 @@ impl BearerWriteHalf {
             Self::NamedPipe(x) => x.flush().await,
         }
     }
+
+    /// Let the OS deliver what was written after the bearer is closed, instead
+    /// of resetting the connection and discarding it.
+    fn deliver_on_close(&self) {
+        if let Self::Tcp(x) = self {
+            let _ = socket2::SockRef::from(x.as_ref()).set_linger(None);
+        }
+    }
 }
 
 /// Errors produced by the multiplexer and its agent channels.
@@ -470,6 +477,8 @@ impl Muxer {
             self.mux(msg).await?;
         }
 
+        self.0.deliver_on_close();
+
         Ok(())
     }
 }
@@ -538,32 +547,22 @@ impl RunningPlexer {
         self.muxer.abort();
     }
 
-    /// Write the messages already queued, close our side of the bearer and
-    /// give the peer until `timeout` to close theirs. Then abort whatever is
-    /// still running, and return once both tasks are gone.
-    pub(crate) async fn close(self, timeout: Duration) {
+    /// Write the messages already queued and close the bearer, letting the OS
+    /// deliver them without waiting for the peer. Returns once both tasks are
+    /// gone; if cancelled, the muxer still finishes on its own.
+    pub(crate) async fn close(self) {
         let Self {
-            mut demuxer,
-            mut muxer,
+            demuxer,
+            muxer,
             stop_muxer,
         } = self;
-        let deadline = Instant::now() + timeout;
 
-        // Dropping the write half when the muxer returns half-closes the bearer.
+        // The bearer closes only once the muxer drops the write half too.
+        demuxer.abort();
         let _ = stop_muxer.try_send(());
-        if tokio::time::timeout_at(deadline, &mut muxer).await.is_err() {
-            muxer.abort();
-            let _ = muxer.await;
-        }
 
-        // The demuxer returns once the peer closes its side.
-        if tokio::time::timeout_at(deadline, &mut demuxer)
-            .await
-            .is_err()
-        {
-            demuxer.abort();
-            let _ = demuxer.await;
-        }
+        let _ = muxer.await;
+        let _ = demuxer.await;
     }
 }
 
@@ -769,5 +768,36 @@ mod tests {
             .unwrap();
 
         assert_eq!(msg, out_msg);
+    }
+
+    #[tokio::test]
+    async fn stopped_muxer_writes_the_queue_and_lets_the_os_deliver_it() {
+        let listener = tcp::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (peer, accepted) =
+            tokio::join!(tcp::TcpStream::connect(addr), Bearer::accept_tcp(&listener));
+        let mut peer = peer.unwrap();
+        let (read, write) = accepted.unwrap().0.into_split();
+        let BearerReadHalf::Tcp(read) = read else {
+            unreachable!()
+        };
+        let socket = socket2::SockRef::from(read.as_ref());
+        assert_eq!(socket.linger().unwrap(), Some(std::time::Duration::ZERO));
+
+        let mut muxer = Muxer::new(write);
+        muxer
+            .clone_sender()
+            .send((0x8000, vec![1, 2, 3]))
+            .await
+            .unwrap();
+        let (stop_tx, stop) = tokio::sync::mpsc::channel(1);
+        stop_tx.send(()).await.unwrap();
+        muxer.run_until(stop).await.unwrap();
+
+        assert_eq!(socket.linger().unwrap(), None);
+
+        let mut segment = [0u8; HEADER_LEN + 3];
+        peer.read_exact(&mut segment).await.unwrap();
+        assert_eq!(&segment[HEADER_LEN..], &[1, 2, 3]);
     }
 }
