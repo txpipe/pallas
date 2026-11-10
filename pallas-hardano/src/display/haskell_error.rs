@@ -79,7 +79,26 @@ enum TxValidationErrorJson {
         #[serde(with = "ShelleyBasedEraJson")]
         era: ShelleyBasedEra,
     },
+    /// No Haskell rendering of the Dijkstra failures yet: their `Debug` form.
+    #[cfg(feature = "unstable")]
+    DijkstraTxValidationError {
+        #[serde(serialize_with = "use_debug_display")]
+        error: pallas_network::miniprotocols::localtxsubmission::dijkstra::ApplyTxError,
+        #[serde(with = "ShelleyBasedEraJson")]
+        era: ShelleyBasedEra,
+    },
     Plutus(String),
+}
+
+#[cfg(feature = "unstable")]
+fn use_debug_display<S>(
+    error: &pallas_network::miniprotocols::localtxsubmission::dijkstra::ApplyTxError,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.collect_seq(error.0.iter().map(|fail| format!("{fail:?}")))
 }
 
 /// This is copy of ApplyTxError from pallas-network/src/miniprotocols/localtxsubmission/primitives.rs for Haskell json serialization
@@ -106,6 +125,9 @@ enum ShelleyBasedEraJson {
     Babbage,
     #[serde(rename = "ShelleyBasedEraConway")]
     Conway,
+    #[cfg(feature = "unstable")]
+    #[serde(rename = "ShelleyBasedEraDijkstra")]
+    Dijkstra,
 }
 
 fn use_haskell_display<S>(fails: &[ConwayLedgerFailure], serializer: S) -> Result<S::Ok, S::Error>
@@ -135,4 +157,16 @@ fn decode_error(cbor: &str) -> TxValidationError {
     let bytes = hex::decode(cbor).unwrap();
     let mut decoder = minicbor::Decoder::new(&bytes);
     decoder.decode().unwrap()
+}
+
+#[cfg(feature = "unstable")]
+#[test]
+fn test_submit_api_serialization_dijkstra() {
+    // `AllInputsAreSpent` rejected by the Dijkstra ledger (era 7).
+    let error = decode_error("818207818103");
+
+    assert_eq!(
+        "{\"tag\":\"TxSubmitFail\",\"contents\":{\"tag\":\"TxCmdTxSubmitValidationError\",\"contents\":{\"tag\":\"TxValidationErrorInCardanoMode\",\"contents\":{\"kind\":\"DijkstraTxValidationError\",\"error\":[\"AllInputsAreSpent\"],\"era\":\"ShelleyBasedEraDijkstra\"}}}}",
+        as_node_submit_error(error)
+    );
 }

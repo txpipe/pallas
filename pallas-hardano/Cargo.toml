@@ -29,3 +29,7 @@ serde_json.workspace = true
 
 [dev-dependencies]
 tracing-subscriber = "0.3.17"
+
+[features]
+# Dijkstra era rejections (see `pallas-network/unstable`).
+unstable = ["pallas-network/unstable"]

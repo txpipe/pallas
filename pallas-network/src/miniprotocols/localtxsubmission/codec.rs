@@ -3,6 +3,8 @@ use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 use pallas_codec::utils::decode_bytes_def_or_indef;
 
 use crate::miniprotocols::localstate::queries_v16::{BigInt, BoundedBytes, Constr, DatumOption};
+#[cfg(feature = "unstable")]
+use crate::miniprotocols::localtxsubmission::ShelleyBasedEra;
 use crate::miniprotocols::localtxsubmission::primitives::Voter;
 use crate::miniprotocols::localtxsubmission::{
     ConwayLedgerFailure, EpochNo, EraTx, Message, Mismatch, Network, PlutusPurpose, SMaybe,
@@ -143,6 +145,12 @@ impl<'b, C> Decode<'b, C> for TxValidationError {
     fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
         d.array()?;
         d.array()?;
+        #[cfg(feature = "unstable")]
+        if d.probe().decode_with::<C, ShelleyBasedEra>(ctx)? == ShelleyBasedEra::Dijkstra {
+            let era = d.decode_with(ctx)?;
+            let error = d.decode_with(ctx)?;
+            return Ok(TxValidationError::DijkstraTxValidationError { error, era });
+        }
         let era = d.decode_with(ctx)?;
         let error = d.decode_with(ctx)?;
         Ok(TxValidationError::ShelleyTxValidationError { error, era })
@@ -157,6 +165,12 @@ impl<C> Encode<C> for TxValidationError {
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
             TxValidationError::ShelleyTxValidationError { error, era } => {
+                e.array(2)?;
+                e.encode_with(era, ctx)?;
+                e.encode_with(error, ctx)?;
+            }
+            #[cfg(feature = "unstable")]
+            TxValidationError::DijkstraTxValidationError { error, era } => {
                 e.array(2)?;
                 e.encode_with(era, ctx)?;
                 e.encode_with(error, ctx)?;
@@ -965,8 +979,57 @@ where
 mod tests {
     use pallas_codec::minicbor::{self, encode};
 
-    use crate::miniprotocols::localtxsubmission::TxValidationError;
+    use crate::miniprotocols::localtxsubmission::{ShelleyBasedEra, TxValidationError};
     use crate::multiplexer::Error;
+
+    #[test]
+    fn every_shelley_based_era_round_trips_through_its_tag() {
+        #[allow(unused_mut)]
+        let mut eras = vec![
+            (1u16, ShelleyBasedEra::Shelley),
+            (2, ShelleyBasedEra::Allegra),
+            (3, ShelleyBasedEra::Mary),
+            (4, ShelleyBasedEra::Alonzo),
+            (5, ShelleyBasedEra::Babbage),
+            (6, ShelleyBasedEra::Conway),
+        ];
+        #[cfg(feature = "unstable")]
+        eras.push((7, ShelleyBasedEra::Dijkstra));
+
+        for (tag, era) in eras {
+            let bytes = minicbor::to_vec(&era).unwrap();
+            assert_eq!(
+                bytes,
+                minicbor::to_vec(tag).unwrap(),
+                "{era:?} must encode to tag {tag}"
+            );
+            let back: ShelleyBasedEra = minicbor::decode(&bytes).unwrap();
+            assert_eq!(back, era, "tag {tag} did not round trip");
+        }
+    }
+
+    #[test]
+    fn unknown_shelley_based_era_tags_are_still_refused() {
+        for tag in [0u16, 8, 4242] {
+            let bytes = minicbor::to_vec(tag).unwrap();
+            assert!(
+                minicbor::decode::<ShelleyBasedEra>(&bytes).is_err(),
+                "tag {tag} must be refused"
+            );
+        }
+    }
+
+    #[cfg(not(feature = "unstable"))]
+    #[test]
+    fn dijkstra_rejection_is_refused_without_the_feature() {
+        assert!(
+            minicbor::decode::<ShelleyBasedEra>(&minicbor::to_vec(7u16).unwrap()).is_err(),
+            "era 7 must be refused when the Dijkstra era is not compiled in"
+        );
+        // `AllInputsAreSpent` rejected by the Dijkstra ledger, see `dijkstra.rs`.
+        let reject = hex::decode("818207818103").unwrap();
+        assert!(minicbor::decode::<TxValidationError>(&reject).is_err());
+    }
 
     #[test]
     #[allow(non_snake_case)]
