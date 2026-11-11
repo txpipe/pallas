@@ -10,10 +10,14 @@ use pallas_network::miniprotocols::{
 };
 use std::{cmp::Ordering, mem::ManuallyDrop};
 
+/// Nesting below the decode depth cap, with a level to spare for the tests
+/// that wrap it in one more node.
+const DEEP: usize = pallas_codec::MAX_DECODE_DEPTH - 2;
+
 fn nested(prefix: &[u8], leaf: &[u8], suffix: &[u8]) -> Vec<u8> {
-    let mut b = prefix.repeat(50000);
+    let mut b = prefix.repeat(DEEP);
     b.extend(leaf);
-    b.extend(suffix.repeat(50000));
+    b.extend(suffix.repeat(DEEP));
     b
 }
 fn lifecycle<T>(bytes: &[u8])

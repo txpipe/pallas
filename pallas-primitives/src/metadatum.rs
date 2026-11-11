@@ -323,6 +323,10 @@ mod tests {
     use pallas_codec::tree::{Visit, walk_tree};
     use pallas_codec::utils::Int;
 
+    /// Nesting below the decode depth cap, with a level to spare for the
+    /// tests that wrap it in one more node.
+    const DEEP: usize = pallas_codec::MAX_DECODE_DEPTH - 2;
+
     fn nested(level: &[u8], depth: usize, leaf: &[u8], close: &[u8]) -> Vec<u8> {
         let mut bytes = level.repeat(depth);
         bytes.extend_from_slice(leaf);
@@ -360,7 +364,7 @@ mod tests {
             .stack_size(128 * 1024)
             .spawn(|| {
                 for (level, close) in SHAPES {
-                    let depth = 20_000;
+                    let depth = DEEP;
                     let bytes = nested(level, depth, &[0x00], close);
                     let datum: Metadatum = minicbor::decode(&bytes).unwrap();
                     // Drop still recurses; leak so only decoding is under test.
@@ -403,8 +407,8 @@ mod tests {
                     // Cut before the leaf, so no subtree completes, and cut
                     // the last byte, which for indefinite shapes leaves a
                     // completed deep child for error cleanup to release.
-                    let bytes = nested(level, 20_000, &[0x00], close);
-                    for cut in [level.len() * 20_000, bytes.len() - 1] {
+                    let bytes = nested(level, DEEP, &[0x00], close);
+                    for cut in [level.len() * DEEP, bytes.len() - 1] {
                         assert!(
                             minicbor::decode::<Metadatum>(&bytes[..cut]).is_err(),
                             "shape {level:02x?} cut at {cut}"
@@ -416,7 +420,7 @@ mod tests {
                 // deep, the second is missing or malformed.
                 for tail in [&[][..], &[0xff][..]] {
                     let mut bytes = vec![0x82];
-                    bytes.extend(nested(&[0x81], 20_000, &[0x00], &[]));
+                    bytes.extend(nested(&[0x81], DEEP, &[0x00], &[]));
                     bytes.extend_from_slice(tail);
                     assert!(minicbor::decode::<Metadatum>(&bytes).is_err());
                 }
@@ -425,7 +429,7 @@ mod tests {
                 // key: the dangling key is released during error cleanup.
                 for (level, close) in SHAPES {
                     let mut bytes = vec![0xbf];
-                    bytes.extend(nested(level, 20_000, &[0x00], close));
+                    bytes.extend(nested(level, DEEP, &[0x00], close));
                     bytes.push(0xff);
                     assert!(
                         minicbor::decode::<Metadatum>(&bytes).is_err(),
@@ -548,7 +552,7 @@ mod tests {
             .stack_size(128 * 1024)
             .spawn(|| {
                 for (level, close) in SHAPES {
-                    let depth = 20_000;
+                    let depth = DEEP;
                     let same = nested(level, depth, &[0x00], close);
                     let bigger = nested(level, depth, &[0x01], close);
                     let deeper = nested(level, depth + 1, &[0x00], close);

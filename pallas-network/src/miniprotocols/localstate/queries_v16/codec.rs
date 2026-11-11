@@ -198,6 +198,11 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             let tag = d.u16()?;
             if tag == 9 {
                 depth += 1;
+                if depth >= pallas_codec::MAX_DECODE_DEPTH {
+                    return Err(decode::Error::message(
+                        "CBOR nesting exceeds the decode depth limit",
+                    ));
+                }
                 continue;
             }
             let mut query = match tag {

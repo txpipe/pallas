@@ -34,3 +34,15 @@ for input in tx.transaction_body.inputs.iter() {
   `TransactionInput`, `ExUnits`, `PlutusScript<V>`, …).
 - Re-exports from `pallas-codec` (`Bytes`, `KeepRaw`, `KeyValuePairs`,
   `NonEmptySet`, `Set`, `Nullable`, …) and `pallas-crypto` (`Hash`).
+
+## Decode depth limit
+
+`PlutusData`, `Metadatum` and the native script types refuse CBOR nested
+`pallas_codec::MAX_DECODE_DEPTH` (16,384) levels deep or more, with a decode
+error. The error propagates, so a block or transaction that contains such a
+value fails to decode as a whole. The ledger's maximum transaction size keeps
+real on-chain values well under the limit.
+
+Dropping these values still recurses once per nesting level. The limit keeps
+that within a 2 MiB thread stack in release builds, not in debug builds or on
+smaller stacks. Derived `Debug` and Serde also still recurse.

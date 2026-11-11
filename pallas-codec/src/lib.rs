@@ -59,6 +59,8 @@ pub use minicbor;
 /// Stack-safe decoding of recursive CBOR structures.
 pub mod tree;
 
+pub use tree::MAX_DECODE_DEPTH;
+
 /// Round-trip friendly common helper structs (`Bytes`, `Nullable`, `Set`, …).
 pub mod utils;
 

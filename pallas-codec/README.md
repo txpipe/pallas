@@ -35,3 +35,15 @@ let back: Pair = minicbor::decode(&bytes)?;
 - `codec_by_datatype!` macro — derives a tag-free CBOR codec for enums
   whose variants are distinguished by their data-type rather than a
   discriminant.
+
+## Decode depth limit
+
+`tree::decode_tree` decodes recursive types without call-stack recursion, but
+it refuses input nested `MAX_DECODE_DEPTH` (16,384) levels deep or more, and
+returns a decode error instead. Each level takes at least one byte and a
+mainnet transaction is at most 16,384 bytes, so no on-chain value is refused.
+
+Dropping a decoded value still recurses once per level. The limit keeps that
+within a 2 MiB thread stack, the `std::thread` and tokio worker default, in
+release builds. It does not protect debug builds or smaller stacks. Derived
+`Debug` and Serde also still recurse.
