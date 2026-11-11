@@ -1348,6 +1348,24 @@ mod tests {
                     assert!(minicbor::decode::<PlutusData>(&bytes).is_err());
                 }
 
+                // Constructors that fail after a complete, deep field: one
+                // with its second field missing, and a tag 102 pair that
+                // never closes.
+                for head in [&[0xd8, 0x79, 0x82][..], &[0xd8, 0x66, 0x9f, 0x00, 0x81][..]] {
+                    let mut bytes = head.to_vec();
+                    bytes.extend(nested(&[0x81], 20_000, &[0x00], &[]));
+                    assert!(
+                        minicbor::decode::<PlutusData>(&bytes).is_err(),
+                        "constructor {head:02x?}"
+                    );
+                }
+
+                // A parent missing its second child after a complete child
+                // whose map keys nest deeply.
+                let mut bytes = vec![0x82];
+                bytes.extend(nested(&[0xa1], 20_000, &[0x00], &[0x00]));
+                assert!(minicbor::decode::<PlutusData>(&bytes).is_err());
+
                 // An indefinite map that breaks right after a complete, deep
                 // key: the dangling key is released during error cleanup.
                 for (level, close) in SHAPES {

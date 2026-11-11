@@ -319,8 +319,8 @@ impl<'b, C> TreeDecode<'b, C> for Node {
         _: &mut minicbor::Decoder<'b>,
         _: &mut C,
     ) -> Result<Node, minicbor::decode::Error> {
-        // Checked while the builder still owns the items, so a chain-deep
-        // dangling key is released iteratively by its drop.
+        // Checked while the builder still owns the items; on error they drop
+        // recursively, like every `PlutusData`.
         if let Partial::Map { items, .. } = builder.partial()
             && items.len() % 2 != 0
         {
