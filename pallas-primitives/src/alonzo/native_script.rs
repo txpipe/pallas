@@ -12,6 +12,10 @@ mod tests {
     use pallas_codec::minicbor::{self, Decoder, Encoder};
     use proptest::prelude::*;
 
+    /// Nesting below the decode depth cap, with a level to spare for the
+    /// tests that wrap it in one more node.
+    const DEEP: usize = pallas_codec::MAX_DECODE_DEPTH - 2;
+
     fn scripts() -> impl Strategy<Value = NativeScript> {
         prop_oneof![
             any::<[u8; 28]>().prop_map(|x| NativeScript::ScriptPubkey(x.into())),
@@ -114,7 +118,7 @@ mod tests {
     #[test]
     fn deep_script_lifecycle_on_small_stack() {
         small_stack(|| {
-            let bytes = deep_cbor(20_000);
+            let bytes = deep_cbor(DEEP);
             let script: NativeScript = minicbor::decode(&bytes).unwrap();
             let cloned = script.clone();
             assert!(script == cloned);
@@ -140,12 +144,12 @@ mod tests {
             // An outer All has a fully decoded deep child followed by a
             // malformed sibling. Error cleanup must drop that completed tree.
             let mut bytes = vec![0x82, 1, 0x82];
-            bytes.extend(deep_cbor(20_000));
+            bytes.extend(deep_cbor(DEEP));
             bytes.extend_from_slice(&[0x82, 0, 0x40]); // pubkey of incorrect size
             assert!(minicbor::decode::<NativeScript>(&bytes).is_err());
 
             // Also exercise cleanup of thousands of incomplete parent frames.
-            let mut bytes = deep_cbor(20_000);
+            let mut bytes = deep_cbor(DEEP);
             bytes.pop();
             assert!(minicbor::decode::<NativeScript>(&bytes).is_err());
         });

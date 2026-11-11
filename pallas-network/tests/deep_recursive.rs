@@ -10,10 +10,19 @@ use pallas_network::miniprotocols::{
 };
 use std::{cmp::Ordering, mem::ManuallyDrop};
 
+/// Nesting below the decode depth cap.
+const DEEP: usize = pallas_codec::MAX_DECODE_DEPTH - 2;
+
+/// `GetCBOR` wrappers just below `BlockQuery`'s own limit of 1,024.
+const DEEP_QUERY: usize = 1_023;
+
 fn nested(prefix: &[u8], leaf: &[u8], suffix: &[u8]) -> Vec<u8> {
-    let mut b = prefix.repeat(50000);
+    nested_to(DEEP, prefix, leaf, suffix)
+}
+fn nested_to(depth: usize, prefix: &[u8], leaf: &[u8], suffix: &[u8]) -> Vec<u8> {
+    let mut b = prefix.repeat(depth);
     b.extend(leaf);
-    b.extend(suffix.repeat(50000));
+    b.extend(suffix.repeat(depth));
     b
 }
 fn lifecycle<T>(bytes: &[u8])
@@ -56,7 +65,7 @@ fn protocol_trees_decode_clone_compare_and_encode_on_small_stack() {
             ] {
                 lifecycle::<NativeScript>(&nested(prefix, &[0x82, 4, 0], suffix));
             }
-            let bytes = nested(&[0x82, 9], &[0x81, 0], &[]);
+            let bytes = nested_to(DEEP_QUERY, &[0x82, 9], &[0x81, 0], &[]);
             lifecycle::<BlockQuery>(&bytes);
             let mut other = bytes.clone();
             *other.last_mut().unwrap() = 1;

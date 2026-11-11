@@ -1,6 +1,11 @@
 use super::*;
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, data::Tag, decode, encode};
 
+/// Decoding refuses a query nested in this many `GetCBOR` wrappers or more.
+/// Lower than `MAX_DECODE_DEPTH` because each wrapper's recursive drop takes
+/// more stack than a ledger value's level; real clients send one wrapper.
+const MAX_GET_CBOR_DEPTH: usize = 1_024;
+
 impl Encode<()> for BlockQuery {
     fn encode<W: encode::Write>(
         &self,
@@ -198,6 +203,11 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             let tag = d.u16()?;
             if tag == 9 {
                 depth += 1;
+                if depth >= MAX_GET_CBOR_DEPTH {
+                    return Err(decode::Error::message(
+                        "CBOR nesting exceeds the decode depth limit",
+                    ));
+                }
                 continue;
             }
             let mut query = match tag {

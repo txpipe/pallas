@@ -32,7 +32,8 @@ mod plutus_data;
 
 // https://github.com/input-output-hk/ouroboros-consensus/blob/main/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query.hs
 /// Node-to-client block query. GetCBOR chains use iterative codecs, clone
-/// and equality. Debug and Drop still recurse.
+/// and equality. Debug and Drop still recurse, so decoding refuses a chain of
+/// 1,024 or more GetCBOR wrappers.
 #[derive(Debug)]
 #[repr(u16)]
 pub enum BlockQuery {

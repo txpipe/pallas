@@ -34,3 +34,20 @@ for input in tx.transaction_body.inputs.iter() {
   `TransactionInput`, `ExUnits`, `PlutusScript<V>`, …).
 - Re-exports from `pallas-codec` (`Bytes`, `KeepRaw`, `KeyValuePairs`,
   `NonEmptySet`, `Set`, `Nullable`, …) and `pallas-crypto` (`Hash`).
+
+## Decode depth limit
+
+`PlutusData`, `Metadatum` and the native script types refuse CBOR in which a
+node would sit under `pallas_codec::MAX_DECODE_DEPTH` (16,384) enclosing
+nodes, with a decode error. The error propagates, so a block or transaction
+that contains such a value fails to decode as a whole. Each level takes at
+least one byte, so at the current maximum transaction size of 16,384 bytes no
+on-chain value reaches the limit.
+
+Native scripts drop iteratively. Dropping `PlutusData` and `Metadatum` values
+still recurses once per nesting level, and the stack that takes depends on
+how the consuming binary compiles the drop code. In
+release builds, a `PlutusData` value at the limit has needed more than the
+2 MiB thread default in some builds, so give threads that drop deeply nested
+untrusted values at least 4 MiB of stack, and more in debug builds. Derived
+`Debug` and Serde also still recurse.

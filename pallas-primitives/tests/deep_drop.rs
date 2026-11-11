@@ -4,10 +4,14 @@ use pallas_codec::minicbor::{self, Decode};
 use pallas_primitives::{Metadatum, PlutusData};
 use std::mem::ManuallyDrop;
 
+/// Nesting below the decode depth cap, with room for the two nodes the wide
+/// case wraps it in.
+const DEEP: usize = pallas_codec::MAX_DECODE_DEPTH - 3;
+
 fn nested(prefix: &[u8], suffix: &[u8]) -> Vec<u8> {
-    let mut bytes = prefix.repeat(50_000);
+    let mut bytes = prefix.repeat(DEEP);
     bytes.push(0);
-    bytes.extend(suffix.repeat(50_000));
+    bytes.extend(suffix.repeat(DEEP));
     bytes
 }
 
