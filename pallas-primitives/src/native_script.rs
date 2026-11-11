@@ -13,7 +13,8 @@
 
 use pallas_codec::minicbor::{self, Decoder, Encoder};
 use pallas_codec::tree::{
-    Arity, TreeDecode, TreeNode, Visit, decode_tree, eq_tree, fold_tree, walk_tree,
+    Arity, MAX_DECODE_DEPTH, TreeDecode, TreeNode, Visit, decode_tree_with_max_depth, eq_tree,
+    fold_tree, walk_tree,
 };
 
 /// An era's native script enum, as the drivers below see it.
@@ -120,7 +121,7 @@ pub(crate) fn decode<'b, C, S: NativeScript>(
     d: &mut Decoder<'b>,
     ctx: &mut C,
 ) -> Result<S, minicbor::decode::Error> {
-    decode_tree::<C, Node<S>>(d, ctx).map(|node| node.0)
+    decode_tree_with_max_depth::<C, Node<S>>(d, ctx, MAX_DECODE_DEPTH).map(|node| node.0)
 }
 
 pub(crate) fn encode<C, W: minicbor::encode::Write, S: NativeScript>(

@@ -2,7 +2,10 @@
 use super::primitives::NativeScript as Script;
 use pallas_codec::{
     minicbor::{self, Decode, Decoder, Encode, Encoder},
-    tree::{Arity, TreeDecode, TreeNode, Visit, decode_tree, eq_tree, fold_tree, walk_tree},
+    tree::{
+        Arity, MAX_DECODE_DEPTH, TreeDecode, TreeNode, Visit, decode_tree_with_max_depth, eq_tree,
+        fold_tree, walk_tree,
+    },
 };
 
 impl TreeNode for Script {
@@ -82,7 +85,7 @@ impl Script {
 }
 impl<'b, C> Decode<'b, C> for Script {
     fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        decode_tree::<C, Node>(d, ctx).map(|node| node.0)
+        decode_tree_with_max_depth::<C, Node>(d, ctx, MAX_DECODE_DEPTH).map(|node| node.0)
     }
 }
 impl<C> Encode<C> for Script {

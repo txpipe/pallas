@@ -38,10 +38,13 @@ let back: Pair = minicbor::decode(&bytes)?;
 
 ## Decode depth limit
 
-`tree::decode_tree` decodes recursive types without call-stack recursion, but
-it refuses input nested `MAX_DECODE_DEPTH` (16,384) levels deep or more, and
-returns a decode error instead. Each level takes at least one byte and a
-mainnet transaction is at most 16,384 bytes, so no on-chain value is refused.
+`tree::decode_tree` decodes recursive types without call-stack recursion and
+accepts any nesting depth. `tree::decode_tree_with_max_depth` takes a depth
+limit and returns a decode error for input nested that many levels deep or
+more. Pallas's own recursive types (`PlutusData`, `Metadatum`, native scripts)
+decode through it with `MAX_DECODE_DEPTH` (16,384). Each level takes at least
+one byte and a mainnet transaction is at most 16,384 bytes, so no on-chain
+value is refused.
 
 Dropping a decoded value still recurses once per level, so the limit bounds
 the stack a drop needs rather than removing the need. How much stack that is

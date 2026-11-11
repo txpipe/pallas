@@ -19,15 +19,18 @@
 //!   copying into another tree (clone, protobuf or JSON values), emitting a
 //!   linear encoding, comparison and destruction.
 //!
-//! [`decode_tree`](crate::tree::decode_tree) refuses input nested
-//! [`MAX_DECODE_DEPTH`] levels deep or more.
+//! [`decode_tree`](crate::tree::decode_tree) accepts any depth.
+//! [`decode_tree_with_max_depth`](crate::tree::decode_tree_with_max_depth)
+//! refuses input nested a given number of levels deep or more; Pallas's own
+//! recursive types decode through it with [`MAX_DECODE_DEPTH`].
 
 use std::cmp::Ordering;
 
 use minicbor::{Decoder, data::Type, decode::Error};
 
-/// Deepest nesting [`decode_tree`] accepts: it fails once a node would sit
-/// under this many enclosing nodes. Each level takes at least one byte, and a
+/// Depth limit Pallas's own recursive types decode with, through
+/// [`decode_tree_with_max_depth`]: they fail once a node would sit under this
+/// many enclosing nodes. Each level takes at least one byte, and a
 /// transaction, auxiliary data included, is at most 16,384 bytes (the mainnet
 /// `maxTxSize`), so no on-chain value reaches this depth. The cap bounds the
 /// stack a decoded value's recursive drop needs, but that need depends on how
@@ -104,8 +107,21 @@ impl<B> Frame<B> {
 
 /// Decode a [`TreeDecode`] value using a heap-backed stack of open nodes.
 ///
-/// Fails on input nested [`MAX_DECODE_DEPTH`] levels deep or more.
+/// Accepts any nesting depth; [`decode_tree_with_max_depth`] bounds it.
 pub fn decode_tree<'b, C, T>(d: &mut Decoder<'b>, ctx: &mut C) -> Result<T, Error>
+where
+    T: TreeDecode<'b, C>,
+{
+    decode_tree_with_max_depth(d, ctx, usize::MAX)
+}
+
+/// Like [`decode_tree`], but fails once a node would sit under `max_depth`
+/// enclosing nodes, before decoding that node.
+pub fn decode_tree_with_max_depth<'b, C, T>(
+    d: &mut Decoder<'b>,
+    ctx: &mut C,
+    max_depth: usize,
+) -> Result<T, Error>
 where
     T: TreeDecode<'b, C>,
 {
@@ -113,7 +129,7 @@ where
     let mut current = Frame::begin::<C, T>(d, ctx)?;
     loop {
         if current.expects_child(d)? {
-            if parents.len() + 1 >= MAX_DECODE_DEPTH {
+            if parents.len() + 1 >= max_depth {
                 return Err(Error::message(
                     "CBOR nesting exceeds the decode depth limit",
                 ));
@@ -391,7 +407,18 @@ mod tests {
         }
     }
 
+    fn decode_with(bytes: &[u8], max_depth: usize) -> Result<Node, Error> {
+        let mut d = Decoder::new(bytes);
+        let node = decode_tree_with_max_depth(&mut d, &mut (), max_depth)?;
+        assert_eq!(d.position(), bytes.len());
+        Ok(node)
+    }
+
     fn decode(bytes: &[u8]) -> Result<Node, Error> {
+        decode_with(bytes, MAX_DECODE_DEPTH)
+    }
+
+    fn decode_unbounded(bytes: &[u8]) -> Result<Node, Error> {
         let mut d = Decoder::new(bytes);
         let node = decode_tree(&mut d, &mut ())?;
         assert_eq!(d.position(), bytes.len());
@@ -463,6 +490,33 @@ mod tests {
     #[test]
     fn rejects_nesting_at_the_depth_cap() {
         assert_depth_error(decode(&nested_lists(MAX_DECODE_DEPTH)));
+    }
+
+    #[test]
+    fn rejects_nesting_at_a_given_depth() {
+        assert_depth_error(decode_with(&nested_lists(3), 3));
+        assert!(decode_with(&nested_lists(2), 3).is_ok());
+        assert_depth_error(decode_with(&nested_lists(1), 1));
+        assert!(decode_with(&nested_lists(0), 1).is_ok());
+    }
+
+    #[test]
+    fn decode_tree_has_no_depth_limit() {
+        std::thread::Builder::new()
+            .stack_size(64 * 1024)
+            .spawn(|| {
+                let depth = 4 * MAX_DECODE_DEPTH;
+                let mut cursor = &decode_unbounded(&nested_lists(depth)).unwrap();
+                let mut seen = 0;
+                while let Node::List(children) = cursor {
+                    cursor = &children[0];
+                    seen += 1;
+                }
+                assert_eq!(seen, depth);
+            })
+            .unwrap()
+            .join()
+            .unwrap();
     }
 
     #[test]

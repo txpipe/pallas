@@ -2,7 +2,8 @@
 //! its existing structural ordering and definite-map wire normalization.
 use super::{BigInt, BoundedBytes, Constr, PlutusData};
 use pallas_codec::tree::{
-    Arity, IndexedNode, TreeDecode, Visit, cmp_tree, decode_tree, fold_tree, walk_tree,
+    Arity, IndexedNode, MAX_DECODE_DEPTH, TreeDecode, Visit, cmp_tree, decode_tree_with_max_depth,
+    fold_tree, walk_tree,
 };
 use pallas_codec::{
     minicbor::{
@@ -354,7 +355,7 @@ impl<'b, C> TreeDecode<'b, C> for Node {
 /// stack well before that.
 impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        decode_tree::<C, Node>(d, ctx).map(|node| node.0)
+        decode_tree_with_max_depth::<C, Node>(d, ctx, MAX_DECODE_DEPTH).map(|node| node.0)
     }
 }
 
