@@ -12,36 +12,6 @@ use pallas_codec::{
     utils::{Int, KeyValuePairs, MaybeIndefArray},
 };
 use std::cmp::Ordering;
-// Empty every node before its fields are dropped. The work list lives on the
-// heap, so destruction uses constant call-stack depth, including map keys.
-impl PlutusData {
-    fn detach_children(&mut self, pending: &mut Vec<Self>) {
-        match self {
-            Self::Array(MaybeIndefArray::Def(xs) | MaybeIndefArray::Indef(xs)) => {
-                pending.append(xs)
-            }
-            Self::Map(KeyValuePairs::Def(kvs) | KeyValuePairs::Indef(kvs)) => {
-                for (k, v) in std::mem::take(kvs) {
-                    pending.push(k);
-                    pending.push(v);
-                }
-            }
-            Self::Constr(c) => match &mut c.fields {
-                MaybeIndefArray::Def(xs) | MaybeIndefArray::Indef(xs) => pending.append(xs),
-            },
-            _ => {}
-        }
-    }
-}
-impl Drop for PlutusData {
-    fn drop(&mut self) {
-        let mut pending = Vec::new();
-        self.detach_children(&mut pending);
-        while let Some(mut child) = pending.pop() {
-            child.detach_children(&mut pending);
-        }
-    }
-}
 
 impl PlutusData {
     /// Extracts the `Constr` payload without cloning it.
@@ -242,8 +212,9 @@ enum Partial {
     },
 }
 
-/// Holds partial decoding state. Completed children use the node's
-/// stack-safe destructor, including when decoding fails.
+/// Holds a node's state while its children decode. `PlutusData` drops
+/// recursively, so completed children are released recursively when decoding
+/// fails.
 struct Builder(Option<Partial>);
 
 impl Builder {

@@ -387,6 +387,8 @@ mod tests {
             .stack_size(128 * 1024)
             .spawn(|| {
                 for (data, expected) in deep_datum_shapes(20_000) {
+                    // PlutusData's Drop still recurses; leak the value.
+                    let data = std::mem::ManuallyDrop::new(data);
                     assert_eq!(data.to_json_string(), expected);
                 }
             })
@@ -401,8 +403,9 @@ mod tests {
             .stack_size(128 * 1024)
             .spawn(|| {
                 for (data, _) in deep_datum_shapes(20_000) {
-                    // serde_json::Value still drops recursively; only that
-                    // representation needs to be leaked in this test.
+                    let data = std::mem::ManuallyDrop::new(data);
+                    // Neither the datum nor serde_json::Value has a
+                    // stack-safe Drop; leak both, the conversion is the test.
                     let json = std::mem::ManuallyDrop::new(data.to_json());
 
                     let mut depth = 0;

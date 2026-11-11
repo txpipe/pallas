@@ -31,9 +31,8 @@ mod codec;
 mod plutus_data;
 
 // https://github.com/input-output-hk/ouroboros-consensus/blob/main/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query.hs
-/// Node-to-client block query. GetCBOR chains use iterative codecs, clone,
-/// equality and destruction. Debug still recurses. Owned payload extraction
-/// now requires a borrowed match and take/replace, or into_cbor().
+/// Node-to-client block query. GetCBOR chains use iterative codecs, clone
+/// and equality. Debug and Drop still recurse.
 #[derive(Debug)]
 #[repr(u16)]
 pub enum BlockQuery {
@@ -820,9 +819,8 @@ pub enum DatumOption {
 }
 
 pub type DatumHash = Hash<32>;
-/// Datum received through node-to-client queries. CBOR, clone, comparison
-/// and destruction are stack-safe; Debug still recurses. Use the consuming
-/// accessors or mutable borrowed matches to extract non-Copy payloads.
+/// Datum received through node-to-client queries. CBOR, clone and
+/// comparison are stack-safe; Debug and Drop still recurse.
 #[derive(Debug)]
 pub enum PlutusData {
     Constr(Constr<PlutusData>),

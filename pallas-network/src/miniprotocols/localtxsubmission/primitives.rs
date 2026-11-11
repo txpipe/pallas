@@ -176,9 +176,7 @@ pub struct PlutusScript<const VERSION: usize>(#[n(0)] pub Bytes);
 
 /// Native script — pre-Plutus combinators (signatures + timelocks).
 ///
-/// CBOR, clone, equality and destruction are iterative; Debug still recurses.
-/// This type implements Drop: use borrowed matches or the consuming accessors
-/// when extracting child lists.
+/// CBOR, clone and equality are iterative; Debug and Drop still recurse.
 #[derive(Debug)]
 pub enum NativeScript {
     /// Require a signature from the given key hash.

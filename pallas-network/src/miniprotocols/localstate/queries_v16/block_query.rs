@@ -1,25 +1,11 @@
 //! Iterative operations for the unary GetCBOR query wrapper.
 use super::BlockQuery;
 impl BlockQuery {
-    fn take_child(&mut self) -> Option<Self> {
-        match self {
-            Self::GetCBOR(x) => Some(std::mem::replace(&mut **x, Self::GetLedgerTip)),
-            _ => None,
-        }
-    }
     /// Extracts the wrapped query, returning the original value on a mismatch.
     pub fn into_cbor(mut self) -> Result<Box<Self>, Self> {
         match &mut self {
             Self::GetCBOR(x) => Ok(std::mem::replace(x, Box::new(Self::GetLedgerTip))),
             _ => Err(self),
-        }
-    }
-}
-impl Drop for BlockQuery {
-    fn drop(&mut self) {
-        let mut next = self.take_child();
-        while let Some(mut node) = next {
-            next = node.take_child();
         }
     }
 }

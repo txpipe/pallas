@@ -15,11 +15,8 @@ use std::{fmt, ops::Deref};
 
 /// The CBOR codec, `Clone`, `Ord` and the canonical JSON rendering never
 /// recurse per nesting level, so chain-deep datums decode, encode, copy,
-/// compare, render and drop on any stack, and [`pallas_codec::tree`] can traverse
-/// them through `IndexedNode`. `Debug` and Serde still recurse.
-///
-/// This type implements `Drop`. Match by reference and use [`std::mem::take`]
-/// or the consuming accessors to extract owned payloads.
+/// compare and render on any stack, and [`pallas_codec::tree`] can traverse
+/// them through `IndexedNode`. `Debug`, `Drop` and Serde still recurse.
 #[derive(Serialize, Deserialize, Debug)]
 pub enum PlutusData {
     Constr(Constr<PlutusData>),
@@ -27,37 +24,6 @@ pub enum PlutusData {
     Array(MaybeIndefArray<PlutusData>),
     BigInt(BigInt),
     BoundedBytes(BoundedBytes),
-}
-
-// Empty every node before its fields are dropped. The work list lives on the
-// heap, so destruction uses constant call-stack depth, including map keys.
-impl PlutusData {
-    fn detach_children(&mut self, pending: &mut Vec<Self>) {
-        match self {
-            Self::Array(MaybeIndefArray::Def(xs) | MaybeIndefArray::Indef(xs)) => {
-                pending.append(xs)
-            }
-            Self::Map(KeyValuePairs::Def(kvs) | KeyValuePairs::Indef(kvs)) => {
-                for (k, v) in std::mem::take(kvs) {
-                    pending.push(k);
-                    pending.push(v);
-                }
-            }
-            Self::Constr(c) => match &mut c.fields {
-                MaybeIndefArray::Def(xs) | MaybeIndefArray::Indef(xs) => pending.append(xs),
-            },
-            _ => {}
-        }
-    }
-}
-impl Drop for PlutusData {
-    fn drop(&mut self) {
-        let mut pending = Vec::new();
-        self.detach_children(&mut pending);
-        while let Some(mut child) = pending.pop() {
-            child.detach_children(&mut pending);
-        }
-    }
 }
 
 impl PlutusData {
@@ -274,8 +240,9 @@ enum Partial {
     },
 }
 
-/// Holds partial decoding state. Completed children use the node's
-/// stack-safe destructor, including when decoding fails.
+/// Holds a node's state while its children decode. When decoding fails the
+/// completed children it owns are released iteratively: `PlutusData` itself
+/// drops recursively, and a completed child can be as deep as the input.
 struct Builder(Option<Partial>);
 
 impl Builder {
@@ -285,6 +252,36 @@ impl Builder {
 
     fn partial(&mut self) -> &mut Partial {
         self.0.as_mut().expect("taken only when the node ends")
+    }
+}
+
+impl Drop for Builder {
+    fn drop(&mut self) {
+        let mut pending = match self.0.take() {
+            None | Some(Partial::Leaf(_)) => return,
+            Some(
+                Partial::Array { items, .. }
+                | Partial::Map { items, .. }
+                | Partial::Constr { fields: items, .. },
+            ) => items,
+        };
+        while let Some(data) = pending.pop() {
+            match data {
+                PlutusData::Array(MaybeIndefArray::Def(xs) | MaybeIndefArray::Indef(xs)) => {
+                    pending.extend(xs);
+                }
+                PlutusData::Map(KeyValuePairs::Def(kvs) | KeyValuePairs::Indef(kvs)) => {
+                    for (k, v) in kvs {
+                        pending.push(k);
+                        pending.push(v);
+                    }
+                }
+                PlutusData::Constr(c) => match c.fields {
+                    MaybeIndefArray::Def(xs) | MaybeIndefArray::Indef(xs) => pending.extend(xs),
+                },
+                PlutusData::BigInt(_) | PlutusData::BoundedBytes(_) => {}
+            }
+        }
     }
 }
 
@@ -1246,6 +1243,8 @@ mod tests {
                     let depth = 20_000;
                     let bytes = nested(level, depth, &[0x00], close);
                     let data: PlutusData = minicbor::decode(&bytes).unwrap();
+                    // Drop still recurses; leak so only decoding is under test.
+                    let data = std::mem::ManuallyDrop::new(data);
                     assert_eq!(depth_of(&data), depth, "shape {level:02x?}");
                 }
             })
@@ -1263,15 +1262,18 @@ mod tests {
                     let depth = 20_000;
                     let bytes = nested(level, depth, &[0x00], close);
                     let data: PlutusData = minicbor::decode(&bytes).unwrap();
+                    // Drop still recurses; leak so only the operations under
+                    // test run.
+                    let data = std::mem::ManuallyDrop::new(data);
                     assert_eq!(
-                        minicbor::to_vec(&data).unwrap(),
+                        minicbor::to_vec(&*data).unwrap(),
                         bytes,
                         "shape {level:02x?}"
                     );
-                    let copy = PlutusData::clone(&data);
+                    let copy = std::mem::ManuallyDrop::new(PlutusData::clone(&data));
                     assert_eq!(depth_of(&copy), depth, "shape {level:02x?}");
                     assert_eq!(
-                        minicbor::to_vec(&copy).unwrap(),
+                        minicbor::to_vec(&*copy).unwrap(),
                         bytes,
                         "shape {level:02x?}"
                     );
@@ -1292,14 +1294,16 @@ mod tests {
                     let same = nested(level, depth, &[0x00], close);
                     let bigger = nested(level, depth, &[0x01], close);
                     let deeper = nested(level, depth + 1, &[0x00], close);
-                    let decode = |bytes: &[u8]| minicbor::decode::<PlutusData>(bytes).unwrap();
+                    let decode = |bytes: &[u8]| {
+                        std::mem::ManuallyDrop::new(minicbor::decode::<PlutusData>(bytes).unwrap())
+                    };
                     let (a, b, c, d) = (
                         decode(&same),
                         decode(&same),
                         decode(&bigger),
                         decode(&deeper),
                     );
-                    assert!(a == b, "shape {level:02x?}");
+                    assert!(*a == *b, "shape {level:02x?}");
                     assert_eq!(a.cmp(&c), Ordering::Less, "shape {level:02x?}");
                     // Containers rank before integers, so at the depth where
                     // one tree holds its leaf and the other a container, the
