@@ -1,6 +1,7 @@
 //! Decoding refuses nesting at `MAX_DECODE_DEPTH`, so whatever decodes also
 //! drops. Debug builds overflow well below the cap on a 2 MiB stack, so they
-//! drop on 16 MiB; `cargo test --release` drops on 2 MiB.
+//! drop on 16 MiB; `cargo test --release` drops on 2 MiB, and `PlutusData` on
+//! 4 MiB because its drop's stack use at the cap varies from build to build.
 use pallas_codec::{
     MAX_DECODE_DEPTH,
     minicbor::{self, Decode},
@@ -11,6 +12,12 @@ const DROP_STACK: usize = if cfg!(debug_assertions) {
     16 << 20
 } else {
     2 << 20
+};
+
+const PLUTUS_DROP_STACK: usize = if cfg!(debug_assertions) {
+    16 << 20
+} else {
+    4 << 20
 };
 
 /// One nesting level as the bytes before and after its child, and a leaf.
@@ -62,10 +69,10 @@ fn assert_depth_error<T: for<'b> Decode<'b, ()>>(bytes: &[u8]) {
     );
 }
 
-fn check_cap<T: for<'b> Decode<'b, ()> + 'static>(shapes: &'static [Shape]) {
+fn check_cap<T: for<'b> Decode<'b, ()> + 'static>(shapes: &'static [Shape], stack: usize) {
     for &shape in shapes {
         assert_depth_error::<T>(&nested(shape, MAX_DECODE_DEPTH));
-        on_stack(DROP_STACK, move || {
+        on_stack(stack, move || {
             let value = minicbor::decode::<T>(&nested(shape, MAX_DECODE_DEPTH - 1)).unwrap();
             drop(value);
         });
@@ -77,22 +84,22 @@ fn check_cap<T: for<'b> Decode<'b, ()> + 'static>(shapes: &'static [Shape]) {
 
 #[test]
 fn metadatum_stops_at_the_depth_cap() {
-    check_cap::<Metadatum>(ARRAYS_AND_MAPS);
+    check_cap::<Metadatum>(ARRAYS_AND_MAPS, DROP_STACK);
 }
 
 #[test]
 fn plutus_data_stops_at_the_depth_cap() {
-    check_cap::<PlutusData>(ARRAYS_AND_MAPS);
-    check_cap::<PlutusData>(CONSTRS);
+    check_cap::<PlutusData>(ARRAYS_AND_MAPS, PLUTUS_DROP_STACK);
+    check_cap::<PlutusData>(CONSTRS, PLUTUS_DROP_STACK);
 }
 
 #[test]
 fn native_script_stops_at_the_depth_cap() {
-    check_cap::<NativeScript>(SCRIPTS);
+    check_cap::<NativeScript>(SCRIPTS, DROP_STACK);
 }
 
 #[cfg(feature = "unstable")]
 #[test]
 fn dijkstra_native_script_stops_at_the_depth_cap() {
-    check_cap::<pallas_primitives::dijkstra::NativeScript>(SCRIPTS);
+    check_cap::<pallas_primitives::dijkstra::NativeScript>(SCRIPTS, DROP_STACK);
 }

@@ -29,8 +29,9 @@ use minicbor::{Decoder, data::Type, decode::Error};
 /// Deepest nesting [`decode_tree`] accepts: it fails once a node would sit
 /// under this many enclosing nodes. Each level takes at least one byte, and a
 /// transaction, auxiliary data included, is at most 16,384 bytes (the mainnet
-/// `maxTxSize`), so no on-chain value reaches this depth. The cap keeps the
-/// recursive drop of a decoded value within a 2 MiB stack in release builds.
+/// `maxTxSize`), so no on-chain value reaches this depth. The cap bounds the
+/// stack a decoded value's recursive drop needs, but that need depends on how
+/// the consuming binary compiles the drop, so no stack size is guaranteed.
 pub const MAX_DECODE_DEPTH: usize = 16_384;
 
 /// Number of children that follow a node's header in the input.

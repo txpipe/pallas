@@ -1,7 +1,8 @@
 //! Decoding refuses nesting at `MAX_DECODE_DEPTH` (`GetCBOR` wrappers at a
 //! lower limit of their own), so whatever decodes also drops. Debug builds
 //! overflow well below the cap on a 2 MiB stack, so they drop on 16 MiB;
-//! `cargo test --release` drops on 2 MiB.
+//! `cargo test --release` drops on 2 MiB, and `PlutusData` on 4 MiB because
+//! its drop's stack use at the cap varies from build to build.
 use pallas_codec::{
     MAX_DECODE_DEPTH,
     minicbor::{self, Decode},
@@ -15,6 +16,12 @@ const DROP_STACK: usize = if cfg!(debug_assertions) {
     16 << 20
 } else {
     2 << 20
+};
+
+const PLUTUS_DROP_STACK: usize = if cfg!(debug_assertions) {
+    16 << 20
+} else {
+    4 << 20
 };
 
 /// One nesting level as the bytes before and after its child, and a leaf.
@@ -69,10 +76,14 @@ fn assert_depth_error<T: for<'b> Decode<'b, ()>>(bytes: &[u8]) {
 /// `BlockQuery`'s own, lower limit on `GetCBOR` wrappers.
 const GET_CBOR_CAP: usize = 1_024;
 
-fn check_cap<T: for<'b> Decode<'b, ()> + 'static>(shapes: &'static [Shape], cap: usize) {
+fn check_cap<T: for<'b> Decode<'b, ()> + 'static>(
+    shapes: &'static [Shape],
+    cap: usize,
+    stack: usize,
+) {
     for &shape in shapes {
         assert_depth_error::<T>(&nested(shape, cap));
-        on_stack(DROP_STACK, move || {
+        on_stack(stack, move || {
             let value = minicbor::decode::<T>(&nested(shape, cap - 1)).unwrap();
             drop(value);
         });
@@ -84,15 +95,15 @@ fn check_cap<T: for<'b> Decode<'b, ()> + 'static>(shapes: &'static [Shape], cap:
 
 #[test]
 fn plutus_data_stops_at_the_depth_cap() {
-    check_cap::<PlutusData>(PLUTUS, MAX_DECODE_DEPTH);
+    check_cap::<PlutusData>(PLUTUS, MAX_DECODE_DEPTH, PLUTUS_DROP_STACK);
 }
 
 #[test]
 fn native_script_stops_at_the_depth_cap() {
-    check_cap::<NativeScript>(SCRIPTS, MAX_DECODE_DEPTH);
+    check_cap::<NativeScript>(SCRIPTS, MAX_DECODE_DEPTH, DROP_STACK);
 }
 
 #[test]
 fn block_query_stops_at_the_depth_cap() {
-    check_cap::<BlockQuery>(QUERIES, GET_CBOR_CAP);
+    check_cap::<BlockQuery>(QUERIES, GET_CBOR_CAP, DROP_STACK);
 }

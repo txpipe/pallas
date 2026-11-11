@@ -43,7 +43,11 @@ it refuses input nested `MAX_DECODE_DEPTH` (16,384) levels deep or more, and
 returns a decode error instead. Each level takes at least one byte and a
 mainnet transaction is at most 16,384 bytes, so no on-chain value is refused.
 
-Dropping a decoded value still recurses once per level. The limit keeps that
-within a 2 MiB thread stack, the `std::thread` and tokio worker default, in
-release builds. It does not protect debug builds or smaller stacks. Derived
-`Debug` and Serde also still recurse.
+Dropping a decoded value still recurses once per level, so the limit bounds
+the stack a drop needs rather than removing the need. How much stack that is
+depends on how the consuming binary compiles the drop code, so it varies with
+the type, the compiler and the surrounding code. In release builds, a value at
+the limit has needed anything from about 1 MiB to more than 2 MiB, the
+`std::thread` and tokio worker default. Threads that drop deeply nested
+untrusted values should have at least 4 MiB of stack in release builds, and
+more in debug builds. Derived `Debug` and Serde also still recurse.
