@@ -1,6 +1,7 @@
-//! Decoding refuses nesting at `MAX_DECODE_DEPTH`, so whatever decodes also
-//! drops. Debug builds overflow well below the cap on a 2 MiB stack, so they
-//! drop on 16 MiB; `cargo test --release` drops on 2 MiB.
+//! Decoding refuses nesting at `MAX_DECODE_DEPTH` (`GetCBOR` wrappers at a
+//! lower limit of their own), so whatever decodes also drops. Debug builds
+//! overflow well below the cap on a 2 MiB stack, so they drop on 16 MiB;
+//! `cargo test --release` drops on 2 MiB.
 use pallas_codec::{
     MAX_DECODE_DEPTH,
     minicbor::{self, Decode},
@@ -65,11 +66,14 @@ fn assert_depth_error<T: for<'b> Decode<'b, ()>>(bytes: &[u8]) {
     );
 }
 
-fn check_cap<T: for<'b> Decode<'b, ()> + 'static>(shapes: &'static [Shape]) {
+/// `BlockQuery`'s own, lower limit on `GetCBOR` wrappers.
+const GET_CBOR_CAP: usize = 1_024;
+
+fn check_cap<T: for<'b> Decode<'b, ()> + 'static>(shapes: &'static [Shape], cap: usize) {
     for &shape in shapes {
-        assert_depth_error::<T>(&nested(shape, MAX_DECODE_DEPTH));
+        assert_depth_error::<T>(&nested(shape, cap));
         on_stack(DROP_STACK, move || {
-            let value = minicbor::decode::<T>(&nested(shape, MAX_DECODE_DEPTH - 1)).unwrap();
+            let value = minicbor::decode::<T>(&nested(shape, cap - 1)).unwrap();
             drop(value);
         });
         on_stack(256 << 10, move || {
@@ -80,15 +84,15 @@ fn check_cap<T: for<'b> Decode<'b, ()> + 'static>(shapes: &'static [Shape]) {
 
 #[test]
 fn plutus_data_stops_at_the_depth_cap() {
-    check_cap::<PlutusData>(PLUTUS);
+    check_cap::<PlutusData>(PLUTUS, MAX_DECODE_DEPTH);
 }
 
 #[test]
 fn native_script_stops_at_the_depth_cap() {
-    check_cap::<NativeScript>(SCRIPTS);
+    check_cap::<NativeScript>(SCRIPTS, MAX_DECODE_DEPTH);
 }
 
 #[test]
 fn block_query_stops_at_the_depth_cap() {
-    check_cap::<BlockQuery>(QUERIES);
+    check_cap::<BlockQuery>(QUERIES, GET_CBOR_CAP);
 }
