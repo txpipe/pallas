@@ -20,7 +20,7 @@
 //!   linear encoding, comparison and destruction.
 //!
 //! [`decode_tree`](crate::tree::decode_tree) refuses input nested
-//! [`MAX_DECODE_DEPTH`](crate::tree::MAX_DECODE_DEPTH) levels deep or more.
+//! [`MAX_DECODE_DEPTH`] levels deep or more.
 
 use std::cmp::Ordering;
 
