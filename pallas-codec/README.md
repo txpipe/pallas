@@ -48,8 +48,9 @@ that contains such a value fails to decode as a whole. Each level takes at
 least one byte and a mainnet transaction is at most 16,384 bytes at the
 current `maxTxSize`, so no on-chain value is refused.
 
-Dropping a decoded value still recurses once per level, so the limit bounds
-the stack a drop needs rather than removing the need. How much stack that is
+Native scripts drop iteratively. Dropping a decoded `PlutusData` or
+`Metadatum` value still recurses once per level, so the limit bounds the stack
+a drop needs rather than removing the need. How much stack that is
 depends on how the consuming binary compiles the drop code, so it varies with
 the type, the compiler and the surrounding code. In release builds, a value at
 the limit has needed anything from about 1 MiB to more than 2 MiB, the
