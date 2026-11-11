@@ -1,7 +1,7 @@
 use super::*;
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, data::Tag, decode, encode};
 
-/// Most `GetCBOR` wrappers a query may nest before decoding refuses it.
+/// Decoding refuses a query nested in this many `GetCBOR` wrappers or more.
 /// Lower than `MAX_DECODE_DEPTH` because each wrapper's recursive drop takes
 /// more stack than a ledger value's level; real clients send one wrapper.
 const MAX_GET_CBOR_DEPTH: usize = 1_024;

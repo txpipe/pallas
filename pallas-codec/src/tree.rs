@@ -21,8 +21,8 @@
 //!
 //! [`decode_tree`](crate::tree::decode_tree) accepts any depth.
 //! [`decode_tree_with_max_depth`](crate::tree::decode_tree_with_max_depth)
-//! refuses input nested a given number of levels deep or more; Pallas's own
-//! recursive types decode through it with [`MAX_DECODE_DEPTH`].
+//! fails once a node would sit under a given number of enclosing nodes;
+//! Pallas's own recursive types decode through it with [`MAX_DECODE_DEPTH`].
 
 use std::cmp::Ordering;
 
@@ -31,8 +31,8 @@ use minicbor::{Decoder, data::Type, decode::Error};
 /// Depth limit Pallas's own recursive types decode with, through
 /// [`decode_tree_with_max_depth`]: they fail once a node would sit under this
 /// many enclosing nodes. Each level takes at least one byte, and a
-/// transaction, auxiliary data included, is at most 16,384 bytes (the mainnet
-/// `maxTxSize`), so no on-chain value reaches this depth. The cap bounds the
+/// transaction, auxiliary data included, is at most 16,384 bytes (the current
+/// mainnet `maxTxSize`), so no on-chain value reaches this depth. The cap bounds the
 /// stack a decoded value's recursive drop needs, but that need depends on how
 /// the consuming binary compiles the drop, so no stack size is guaranteed.
 pub const MAX_DECODE_DEPTH: usize = 16_384;
@@ -116,7 +116,8 @@ where
 }
 
 /// Like [`decode_tree`], but fails once a node would sit under `max_depth`
-/// enclosing nodes, before decoding that node.
+/// enclosing nodes, before decoding that node. The root is always decoded, so
+/// a `max_depth` of 0 acts like 1.
 pub fn decode_tree_with_max_depth<'b, C, T>(
     d: &mut Decoder<'b>,
     ctx: &mut C,
@@ -488,6 +489,11 @@ mod tests {
     }
 
     #[test]
+    fn depth_cap_matches_the_mainnet_max_tx_size() {
+        assert_eq!(MAX_DECODE_DEPTH, 16_384);
+    }
+
+    #[test]
     fn rejects_nesting_at_the_depth_cap() {
         assert_depth_error(decode(&nested_lists(MAX_DECODE_DEPTH)));
     }
@@ -498,6 +504,8 @@ mod tests {
         assert!(decode_with(&nested_lists(2), 3).is_ok());
         assert_depth_error(decode_with(&nested_lists(1), 1));
         assert!(decode_with(&nested_lists(0), 1).is_ok());
+        assert_depth_error(decode_with(&nested_lists(1), 0));
+        assert!(decode_with(&nested_lists(0), 0).is_ok());
     }
 
     #[test]

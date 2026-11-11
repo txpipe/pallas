@@ -10,8 +10,7 @@ use pallas_network::miniprotocols::{
 };
 use std::{cmp::Ordering, mem::ManuallyDrop};
 
-/// Nesting below the decode depth cap, with a level to spare for the tests
-/// that wrap it in one more node.
+/// Nesting below the decode depth cap.
 const DEEP: usize = pallas_codec::MAX_DECODE_DEPTH - 2;
 
 /// `GetCBOR` wrappers just below `BlockQuery`'s own limit of 1,024.
