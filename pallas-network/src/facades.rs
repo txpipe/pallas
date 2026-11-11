@@ -329,7 +329,7 @@ impl PeerServer {
 
         let accepted_version = client
             .handshake()
-            .handshake(n2n::VersionTable::v7_and_above(magic))
+            .handshake_negotiated(n2n::VersionTable::v7_and_above(magic))
             .await
             .map_err(Error::HandshakeProtocol)?;
 
@@ -602,7 +602,7 @@ impl NodeServer {
 
         let accepted_version = client
             .handshake()
-            .handshake(n2c::VersionTable::v10_and_above(magic))
+            .handshake_negotiated(n2c::VersionTable::v10_and_above(magic))
             .await
             .map_err(Error::HandshakeProtocol)?;
 
@@ -847,7 +847,7 @@ impl DmqServer {
 
         let accepted_version = client
             .handshake()
-            .handshake(n2c::VersionTable::dmq(magic))
+            .handshake_negotiated(n2c::VersionTable::dmq(magic))
             .await
             .map_err(Error::HandshakeProtocol)?;
 

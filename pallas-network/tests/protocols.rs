@@ -2189,9 +2189,36 @@ pub async fn peer_server_accepts_a_duplex_node_on_a_legacy_version() {
     server.abort().await;
 }
 
+/// Which [`handshake::Server`] method answers the client's proposal.
+#[derive(Clone, Copy)]
+enum ServerHandshake {
+    Negotiated,
+    /// The deprecated method, which requires identical version data.
+    Legacy,
+}
+
 /// Run a low-level [`handshake::Server`] against a client proposing `proposal`.
 /// The server's bearer stays open until the client has read the reply.
 async fn low_level_handshake<D>(
+    ours: handshake::VersionTable<D>,
+    proposal: handshake::VersionTable<D>,
+) -> (handshake::Confirmation<D>, Option<(u64, D)>)
+where
+    D: std::fmt::Debug
+        + Clone
+        + PartialEq
+        + handshake::NegotiateVersionData
+        + Send
+        + Sync
+        + 'static,
+    handshake::Message<D>: pallas_codec::Fragment,
+{
+    low_level_handshake_with(ServerHandshake::Negotiated, ours, proposal).await
+}
+
+/// Like [`low_level_handshake`], answering with the given server `method`.
+async fn low_level_handshake_with<D>(
+    method: ServerHandshake,
     ours: handshake::VersionTable<D>,
     proposal: handshake::VersionTable<D>,
 ) -> (handshake::Confirmation<D>, Option<(u64, D)>)
@@ -2214,7 +2241,12 @@ where
         let mut server_hs = handshake::Server::<D>::new(plexer.subscribe_server(0));
         let plexer = plexer.spawn();
 
-        let accepted = server_hs.handshake(ours).await.unwrap();
+        let accepted = match method {
+            ServerHandshake::Negotiated => server_hs.handshake_negotiated(ours).await,
+            #[allow(deprecated)]
+            ServerHandshake::Legacy => server_hs.handshake(ours).await,
+        }
+        .unwrap();
 
         let _ = read_rx.await;
         plexer.abort().await;
@@ -2253,6 +2285,129 @@ fn assert_refused<D: std::fmt::Debug + Clone>(
         ),
         "expected a refusal of version {version}, got {confirmation:?}"
     );
+}
+
+/// A proposal that differs from our v14 data only in peer sharing, which the
+/// negotiated handshake settles to the lower of the two.
+fn peer_sharing_proposal() -> handshake::n2n::VersionTable {
+    handshake::n2n::VersionTable {
+        values: [(
+            14,
+            VersionData::new(MAINNET_MAGIC, true, Some(1), Some(false)),
+        )]
+        .into_iter()
+        .collect(),
+    }
+}
+
+/// The deprecated server method keeps its v1.4.0 behaviour: version data that
+/// differ in a negotiable field are refused.
+#[tokio::test]
+pub async fn handshake_server_legacy_method_refuses_differing_version_data() {
+    let (confirmation, accepted) = low_level_handshake_with(
+        ServerHandshake::Legacy,
+        handshake::n2n::VersionTable::v7_and_above(MAINNET_MAGIC),
+        peer_sharing_proposal(),
+    )
+    .await;
+
+    match &confirmation {
+        handshake::Confirmation::Rejected(handshake::RefuseReason::Refused(14, reason)) => {
+            assert_eq!(reason, "Proposed extra params don't match")
+        }
+        other => panic!("expected a refusal of version 14, got {other:?}"),
+    }
+    assert_eq!(accepted, None);
+}
+
+/// The negotiated server method accepts the proposal the legacy method refuses.
+#[tokio::test]
+pub async fn handshake_server_negotiated_method_accepts_differing_version_data() {
+    let (confirmation, accepted) = low_level_handshake(
+        handshake::n2n::VersionTable::v7_and_above(MAINNET_MAGIC),
+        peer_sharing_proposal(),
+    )
+    .await;
+
+    let negotiated = VersionData::new(MAINNET_MAGIC, true, Some(0), Some(false));
+    match confirmation {
+        handshake::Confirmation::Accepted(14, data) => assert_eq!(data, negotiated),
+        other => panic!("expected acceptance of version 14, got {other:?}"),
+    }
+    assert_eq!(accepted, Some((14, negotiated)));
+}
+
+/// Version data that only implements `PartialEq`, not `NegotiateVersionData`.
+#[derive(Debug, Clone, PartialEq)]
+struct EqualityOnlyData(u64);
+
+impl pallas_codec::minicbor::Encode<()> for EqualityOnlyData {
+    fn encode<W: pallas_codec::minicbor::encode::Write>(
+        &self,
+        e: &mut pallas_codec::minicbor::Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), pallas_codec::minicbor::encode::Error<W::Error>> {
+        e.u64(self.0)?;
+        Ok(())
+    }
+}
+
+impl<'b> pallas_codec::minicbor::Decode<'b, ()> for EqualityOnlyData {
+    fn decode(
+        d: &mut pallas_codec::minicbor::Decoder<'b>,
+        _ctx: &mut (),
+    ) -> Result<Self, pallas_codec::minicbor::decode::Error> {
+        Ok(Self(d.u64()?))
+    }
+}
+
+/// The deprecated server method still accepts version data without
+/// `NegotiateVersionData`, as it did in v1.4.0.
+#[tokio::test]
+pub async fn handshake_server_legacy_method_accepts_equality_only_data() {
+    let (listener, addr) = local_listener().await;
+    let table = || handshake::VersionTable {
+        values: [(1, EqualityOnlyData(7))].into_iter().collect(),
+    };
+    let ours = table();
+    let (read_tx, read_rx) = tokio::sync::oneshot::channel::<()>();
+
+    let server = tokio::spawn(async move {
+        let (bearer, _) = Bearer::accept_tcp(&listener).await.unwrap();
+        let mut plexer = Plexer::new(bearer);
+        let mut server_hs = handshake::Server::<EqualityOnlyData>::new(plexer.subscribe_server(0));
+        let plexer = plexer.spawn();
+
+        #[allow(deprecated)]
+        let accepted = server_hs.handshake(ours).await.unwrap();
+
+        let _ = read_rx.await;
+        plexer.abort().await;
+        accepted
+    });
+
+    let bearer = Bearer::connect_tcp(addr).await.unwrap();
+    let mut plexer = Plexer::new(bearer);
+    let mut client_hs = handshake::Client::<EqualityOnlyData>::new(plexer.subscribe_client(0));
+    let plexer = plexer.spawn();
+
+    let confirmation = tokio::time::timeout(HANDSHAKE_TIMEOUT, client_hs.handshake(table()))
+        .await
+        .expect("handshake timed out")
+        .unwrap();
+    read_tx.send(()).unwrap();
+
+    let accepted = tokio::time::timeout(HANDSHAKE_TIMEOUT, server)
+        .await
+        .expect("server timed out")
+        .unwrap();
+
+    plexer.abort().await;
+    assert!(matches!(
+        confirmation,
+        handshake::Confirmation::Accepted(1, EqualityOnlyData(7))
+    ));
+    assert_eq!(accepted, Some((1, EqualityOnlyData(7))));
 }
 
 /// The low-level server refuses a proposal for another network.
