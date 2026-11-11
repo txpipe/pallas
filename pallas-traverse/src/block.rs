@@ -159,9 +159,11 @@ impl<'b> MultiEraBlock<'b> {
                 .map(|x| MultiEraTx::Conway(Box::new(Cow::Owned(x))))
                 .collect(),
             #[cfg(feature = "unstable")]
-            MultiEraBlock::Dijkstra(x) => support::clone_dijkstra_txs(x)
-                .into_iter()
-                .map(|x| MultiEraTx::Dijkstra(Box::new(Cow::Owned(x))))
+            MultiEraBlock::Dijkstra(x) => x
+                .block_body
+                .transactions
+                .iter()
+                .map(|x| MultiEraTx::Dijkstra(Box::new(Cow::Borrowed(x))))
                 .collect(),
             MultiEraBlock::EpochBoundary(_) => vec![],
         }
@@ -677,6 +679,31 @@ mod tests {
         }
 
         assert_eq!(seen, 8);
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn dijkstra_block_transactions_are_the_block_body_transactions() {
+        let cbor = dijkstra_block(include_str!("../../test_data/dijkstra6.block"));
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+        let body = &block.as_dijkstra().unwrap().block_body.transactions;
+
+        let txs = block.txs();
+
+        assert_eq!(txs.len(), 4);
+        for (tx, listed) in txs.iter().zip(body.iter()) {
+            let MultiEraTx::Dijkstra(tx) = tx else {
+                panic!("a Dijkstra block gave a {:?} transaction", tx.era());
+            };
+            assert_eq!(
+                tx.transaction_body.raw_cbor(),
+                listed.transaction_body.raw_cbor()
+            );
+            assert!(
+                matches!(&**tx, Cow::Borrowed(tx) if std::ptr::eq(*tx, listed)),
+                "the transaction must be the one the block body holds, not a copy of it"
+            );
+        }
     }
 
     #[cfg(feature = "unstable")]
