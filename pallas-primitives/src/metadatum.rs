@@ -428,7 +428,7 @@ mod tests {
                 // A parent missing its second child after a complete child
                 // whose map keys nest deeply.
                 let mut bytes = vec![0x82];
-                bytes.extend(nested(&[0xa1], 20_000, &[0x00], &[0x00]));
+                bytes.extend(nested(&[0xa1], DEEP, &[0x00], &[0x00]));
                 assert!(minicbor::decode::<Metadatum>(&bytes).is_err());
 
                 // An indefinite map that breaks right after a complete, deep
