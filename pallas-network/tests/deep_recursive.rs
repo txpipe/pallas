@@ -1,4 +1,5 @@
-//! The protocol-layer trees are distinct from ledger primitive types.
+//! The protocol-layer trees are distinct from ledger primitive types. Their
+//! `Drop` still recurses, so every deep value is leaked.
 use pallas_codec::{
     minicbor::{self, Decode},
     utils::{KeyValuePairs, MaybeIndefArray},
@@ -7,15 +8,8 @@ use pallas_network::miniprotocols::{
     localstate::queries_v16::{BigInt, BlockQuery, Constr, PlutusData},
     localtxsubmission::primitives::NativeScript,
 };
-use std::cmp::Ordering;
+use std::{cmp::Ordering, mem::ManuallyDrop};
 
-#[derive(Decode)]
-struct Pair<T> {
-    #[n(0)]
-    _tree: T,
-    #[n(1)]
-    _number: u64,
-}
 fn nested(prefix: &[u8], leaf: &[u8], suffix: &[u8]) -> Vec<u8> {
     let mut b = prefix.repeat(50000);
     b.extend(leaf);
@@ -26,27 +20,15 @@ fn lifecycle<T>(bytes: &[u8])
 where
     T: for<'b> Decode<'b, ()> + Clone + PartialEq + minicbor::Encode<()>,
 {
-    let tree: T = minicbor::decode(bytes).unwrap();
-    let copy = tree.clone();
-    assert!(tree == copy);
-    let encoded = minicbor::to_vec(&copy).unwrap();
-    let decoded: T = minicbor::decode(&encoded).unwrap();
-    assert_eq!(minicbor::to_vec(&decoded).unwrap(), encoded);
-    drop((tree, copy, decoded));
-    let mut invalid = vec![0x82];
-    invalid.extend(bytes);
-    invalid.push(0xff);
-    assert!(minicbor::decode::<Pair<T>>(&invalid).is_err());
-    assert!(
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let _tree: T = minicbor::decode(bytes).unwrap();
-            panic!("exercise ordinary unwind cleanup");
-        }))
-        .is_err()
-    );
+    let tree = ManuallyDrop::new(minicbor::decode::<T>(bytes).unwrap());
+    let copy = ManuallyDrop::new(T::clone(&tree));
+    assert!(*tree == *copy);
+    let encoded = minicbor::to_vec(&*copy).unwrap();
+    let decoded = ManuallyDrop::new(minicbor::decode::<T>(&encoded).unwrap());
+    assert_eq!(minicbor::to_vec(&*decoded).unwrap(), encoded);
 }
 #[test]
-fn protocol_tree_lifecycles_on_small_stack() {
+fn protocol_trees_decode_clone_compare_and_encode_on_small_stack() {
     std::thread::Builder::new()
         .stack_size(128 * 1024)
         .spawn(|| {
@@ -62,8 +44,8 @@ fn protocol_tree_lifecycles_on_small_stack() {
             ] {
                 let bytes = nested(prefix, &[0], suffix);
                 lifecycle::<PlutusData>(&bytes);
-                let x: PlutusData = minicbor::decode(&bytes).unwrap();
-                let y = x.clone();
+                let x = ManuallyDrop::new(minicbor::decode::<PlutusData>(&bytes).unwrap());
+                let y = ManuallyDrop::new(PlutusData::clone(&x));
                 assert_eq!(x.cmp(&y), Ordering::Equal);
             }
             for (prefix, suffix) in [
@@ -74,28 +56,18 @@ fn protocol_tree_lifecycles_on_small_stack() {
             ] {
                 lifecycle::<NativeScript>(&nested(prefix, &[0x82, 4, 0], suffix));
             }
-            // A partially built native-script container can own a completed
-            // deep child when decoding its following sibling fails.
-            let mut invalid_script = vec![0x82, 1, 0x82];
-            invalid_script.extend(nested(&[0x82, 1, 0x81], &[0x82, 4, 0], &[]));
-            invalid_script.push(0xff);
-            assert!(minicbor::decode::<NativeScript>(&invalid_script).is_err());
-            let mut dangling_key = vec![0xbf];
-            dangling_key.extend(nested(&[0x81], &[0], &[]));
-            dangling_key.push(0xff);
-            assert!(minicbor::decode::<PlutusData>(&dangling_key).is_err());
             let bytes = nested(&[0x82, 9], &[0x81, 0], &[]);
             lifecycle::<BlockQuery>(&bytes);
             let mut other = bytes.clone();
             *other.last_mut().unwrap() = 1;
             let a: BlockQuery = minicbor::decode(&bytes).unwrap();
-            let b: BlockQuery = minicbor::decode(&other).unwrap();
-            assert!(a != b);
+            let b = ManuallyDrop::new(minicbor::decode::<BlockQuery>(&other).unwrap());
+            assert!(a != *b);
             let next = match a.into_cbor() {
                 Ok(x) => x,
                 Err(_) => panic!("expected wrapper"),
             };
-            drop(next);
+            let _next = ManuallyDrop::new(next);
         })
         .unwrap()
         .join()

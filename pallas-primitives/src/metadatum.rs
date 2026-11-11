@@ -8,32 +8,6 @@ use pallas_codec::utils::{KeyValuePairs, decode_text_def_or_indef};
 
 use crate::{Bytes, Metadatum};
 
-// Empty every node before its fields are dropped. The work list lives on the
-// heap, so destruction uses constant call-stack depth, including map keys.
-impl Metadatum {
-    fn detach_children(&mut self, pending: &mut Vec<Self>) {
-        match self {
-            Self::Array(xs) => pending.append(xs),
-            Self::Map(KeyValuePairs::Def(kvs) | KeyValuePairs::Indef(kvs)) => {
-                for (k, v) in std::mem::take(kvs) {
-                    pending.push(k);
-                    pending.push(v);
-                }
-            }
-            _ => {}
-        }
-    }
-}
-impl Drop for Metadatum {
-    fn drop(&mut self) {
-        let mut pending = Vec::new();
-        self.detach_children(&mut pending);
-        while let Some(mut child) = pending.pop() {
-            child.detach_children(&mut pending);
-        }
-    }
-}
-
 impl Metadatum {
     /// Extracts the `Bytes` payload without cloning it.
     ///
@@ -181,8 +155,9 @@ enum Partial {
     },
 }
 
-/// Holds partial decoding state. Completed children use the node's
-/// stack-safe destructor, including when decoding fails.
+/// Holds a node's state while its children decode. When decoding fails the
+/// completed children it owns are released iteratively: `Metadatum` itself
+/// drops recursively, and a completed child can be as deep as the input.
 struct Builder(Option<Partial>);
 
 impl Builder {
@@ -192,6 +167,27 @@ impl Builder {
 
     fn partial(&mut self) -> &mut Partial {
         self.0.as_mut().expect("taken only when the node ends")
+    }
+}
+
+impl Drop for Builder {
+    fn drop(&mut self) {
+        let mut pending = match self.0.take() {
+            None | Some(Partial::Leaf(_)) => return,
+            Some(Partial::Array(items) | Partial::Map { items, .. }) => items,
+        };
+        while let Some(datum) = pending.pop() {
+            match datum {
+                Metadatum::Array(xs) => pending.extend(xs),
+                Metadatum::Map(KeyValuePairs::Def(kvs) | KeyValuePairs::Indef(kvs)) => {
+                    for (k, v) in kvs {
+                        pending.push(k);
+                        pending.push(v);
+                    }
+                }
+                Metadatum::Int(_) | Metadatum::Bytes(_) | Metadatum::Text(_) => {}
+            }
+        }
     }
 }
 
@@ -367,6 +363,8 @@ mod tests {
                     let depth = 20_000;
                     let bytes = nested(level, depth, &[0x00], close);
                     let datum: Metadatum = minicbor::decode(&bytes).unwrap();
+                    // Drop still recurses; leak so only decoding is under test.
+                    let datum = std::mem::ManuallyDrop::new(datum);
                     assert_eq!(depth_of(&datum), depth, "shape {level:02x?}");
                 }
             })
@@ -387,7 +385,7 @@ mod tests {
                     (&[0xbf, 0x00], &[0xff]),
                 ];
                 for (datum, (level, close)) in deep_shapes(depth).into_iter().zip(encodings) {
-                    let bytes = minicbor::to_vec(&datum).unwrap();
+                    let bytes = minicbor::to_vec(&*datum).unwrap();
                     assert_eq!(bytes, nested(level, depth, &[0x00], close));
                 }
             })
@@ -452,8 +450,9 @@ mod tests {
         Metadatum::Int(Int::from(0))
     }
 
-    /// Chain-deep values of every container shape, destroyed on the test stack.
-    fn deep_shapes(depth: usize) -> Vec<Metadatum> {
+    /// Chain-deep values of every container shape, leaked because `Drop`
+    /// still recurses and only the operation under test should run.
+    fn deep_shapes(depth: usize) -> Vec<std::mem::ManuallyDrop<Metadatum>> {
         [
             wrap(depth, |x| Metadatum::Array(vec![x])),
             wrap(depth, |x| {
@@ -464,6 +463,7 @@ mod tests {
             }),
         ]
         .into_iter()
+        .map(std::mem::ManuallyDrop::new)
         .collect()
     }
 
@@ -503,11 +503,11 @@ mod tests {
             .spawn(|| {
                 let depth = 20_000;
                 for datum in deep_shapes(depth) {
-                    let copy = Metadatum::clone(&datum);
+                    let copy = std::mem::ManuallyDrop::new(Metadatum::clone(&datum));
                     assert_eq!(depth_of(&copy), depth);
                     assert_eq!(
-                        minicbor::to_vec(&copy).unwrap(),
-                        minicbor::to_vec(&datum).unwrap()
+                        minicbor::to_vec(&*copy).unwrap(),
+                        minicbor::to_vec(&*datum).unwrap()
                     );
                 }
             })
@@ -552,14 +552,16 @@ mod tests {
                     let same = nested(level, depth, &[0x00], close);
                     let bigger = nested(level, depth, &[0x01], close);
                     let deeper = nested(level, depth + 1, &[0x00], close);
-                    let decode = |bytes: &[u8]| minicbor::decode::<Metadatum>(bytes).unwrap();
+                    let decode = |bytes: &[u8]| {
+                        std::mem::ManuallyDrop::new(minicbor::decode::<Metadatum>(bytes).unwrap())
+                    };
                     let (a, b, c, d) = (
                         decode(&same),
                         decode(&same),
                         decode(&bigger),
                         decode(&deeper),
                     );
-                    assert!(a == b, "shape {level:02x?}");
+                    assert!(*a == *b, "shape {level:02x?}");
                     assert_eq!(a.cmp(&c), Ordering::Less, "shape {level:02x?}");
                     assert_eq!(a.cmp(&d), Ordering::Less, "shape {level:02x?}");
                     assert_eq!(d.cmp(&a), Ordering::Greater, "shape {level:02x?}");

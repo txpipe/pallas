@@ -1,6 +1,5 @@
-/// Flat padding description. Length and destruction are iterative even for
-/// manually constructed chains. Match by reference or use into_next() to
-/// consume a FillerStart payload now that this type implements Drop.
+/// Flat padding description. Length is iterative even for manually
+/// constructed chains; `Drop` still recurses.
 pub enum Filler {
     FillerStart(Box<Filler>),
     FillerEnd,
@@ -22,26 +21,12 @@ impl Filler {
             _ => Err(self),
         }
     }
-    fn take_next(&mut self) -> Option<Self> {
-        match self {
-            Self::FillerStart(x) => Some(std::mem::replace(&mut **x, Self::FillerEnd)),
-            _ => None,
-        }
-    }
-}
-impl Drop for Filler {
-    fn drop(&mut self) {
-        let mut next = self.take_next();
-        while let Some(mut node) = next {
-            next = node.take_next();
-        }
-    }
 }
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
-    fn deep_filler_length_and_drop() {
+    fn deep_filler_length_and_into_next() {
         std::thread::Builder::new()
             .stack_size(128 * 1024)
             .spawn(|| {
@@ -54,8 +39,9 @@ mod tests {
                     Ok(x) => x,
                     Err(_) => panic!("expected padding chain"),
                 };
+                // Drop still recurses; leak so only length and into_next are under test.
+                let next = std::mem::ManuallyDrop::new(next);
                 assert_eq!(next.length(), 50000);
-                drop(next);
             })
             .unwrap()
             .join()

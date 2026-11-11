@@ -2,10 +2,7 @@
 use super::primitives::NativeScript as Script;
 use pallas_codec::{
     minicbor::{self, Decode, Decoder, Encode, Encoder},
-    tree::{
-        Arity, TreeDecode, TreeNode, Visit, decode_tree, drop_children, eq_tree, fold_tree,
-        walk_tree,
-    },
+    tree::{Arity, TreeDecode, TreeNode, Visit, decode_tree, eq_tree, fold_tree, walk_tree},
 };
 
 impl TreeNode for Script {
@@ -20,11 +17,6 @@ impl TreeNode for Script {
             Self::ScriptAll(x) | Self::ScriptAny(x) | Self::ScriptNOfK(_, x) => Some(x),
             _ => None,
         }
-    }
-}
-impl Drop for Script {
-    fn drop(&mut self) {
-        drop_children(self)
     }
 }
 struct Node(Script);
