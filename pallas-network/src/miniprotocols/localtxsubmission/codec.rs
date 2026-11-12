@@ -2,9 +2,7 @@ use pallas_codec::minicbor::data::{IanaTag, Tag};
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 use pallas_codec::utils::decode_bytes_def_or_indef;
 
-use crate::miniprotocols::localstate::queries_v16::{
-    BigInt, BoundedBytes, Constr, DatumOption, PlutusData,
-};
+use crate::miniprotocols::localstate::queries_v16::{BigInt, BoundedBytes, Constr, DatumOption};
 use crate::miniprotocols::localtxsubmission::primitives::Voter;
 use crate::miniprotocols::localtxsubmission::{
     ConwayLedgerFailure, EpochNo, EraTx, Message, Mismatch, Network, PlutusPurpose, SMaybe,
@@ -14,7 +12,7 @@ use crate::miniprotocols::localtxsubmission::{
 use std::ops::Deref;
 use std::str::from_utf8;
 
-use super::primitives::{Certificate, NativeScript, PseudoScript};
+use super::primitives::{Certificate, PseudoScript};
 use super::{ApplyTxError, ConwayTxCert, OHashMap, TxValidationError, Utxo, VotingProcedure};
 
 // `Ctx` generic needed after introducing `ValidityInterval`.
@@ -796,74 +794,6 @@ impl<C> Encode<C> for DatumOption {
     }
 }
 
-impl<'b, C> Decode<'b, C> for PlutusData {
-    fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
-        let type_ = d.datatype()?;
-
-        use pallas_codec::minicbor::data::Type::*;
-
-        match type_ {
-            Tag => {
-                let mut probe = d.probe();
-                let tag = probe.tag()?;
-
-                if tag == IanaTag::PosBignum.tag() || tag == IanaTag::NegBignum.tag() {
-                    Ok(Self::BigInt(d.decode_with(ctx)?))
-                } else {
-                    match tag.as_u64() {
-                        (121..=127) | (1280..=1400) | 102 => Ok(Self::Constr(d.decode_with(ctx)?)),
-                        _ => Err(decode::Error::message("unknown tag for plutus data tag")),
-                    }
-                }
-            }
-            U8 | U16 | U32 | U64 | I8 | I16 | I32 | I64 | Int => {
-                Ok(Self::BigInt(d.decode_with(ctx)?))
-            }
-            Map | MapIndef => Ok(Self::Map(d.decode_with(ctx)?)),
-            Bytes | BytesIndef => Ok(Self::BoundedBytes(d.decode_with(ctx)?)),
-            Array | ArrayIndef => Ok(Self::Array(d.decode_with(ctx)?)),
-
-            any => Err(decode::Error::message(format!(
-                "bad cbor data type ({any:?}) for plutus data"
-            ))),
-        }
-    }
-}
-
-impl<C> Encode<C> for PlutusData {
-    fn encode<W: encode::Write>(
-        &self,
-        e: &mut Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), encode::Error<W::Error>> {
-        match self {
-            Self::Constr(a) => {
-                e.encode_with(a, ctx)?;
-            }
-            Self::Map(a) => {
-                // we use definite array to match the approach used by haskell's plutus
-                // implementation https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L152
-                e.map(a.len().try_into().unwrap())?;
-                for (k, v) in a.iter() {
-                    k.encode(e, ctx)?;
-                    v.encode(e, ctx)?;
-                }
-            }
-            Self::BigInt(a) => {
-                e.encode_with(a, ctx)?;
-            }
-            Self::BoundedBytes(a) => {
-                e.encode_with(a, ctx)?;
-            }
-            Self::Array(a) => {
-                e.encode_with(a, ctx)?;
-            }
-        };
-
-        Ok(())
-    }
-}
-
 impl<'b, C> Decode<'b, C> for BigInt {
     fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
         let datatype = d.datatype()?;
@@ -989,72 +919,6 @@ where
                 Ok(())
             }
         }
-    }
-}
-
-impl<'b, C> Decode<'b, C> for NativeScript {
-    fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
-        d.array()?;
-        let variant = d.u32()?;
-
-        match variant {
-            0 => Ok(NativeScript::ScriptPubkey(d.decode_with(ctx)?)),
-            1 => Ok(NativeScript::ScriptAll(d.decode_with(ctx)?)),
-            2 => Ok(NativeScript::ScriptAny(d.decode_with(ctx)?)),
-            3 => Ok(NativeScript::ScriptNOfK(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            4 => Ok(NativeScript::InvalidBefore(d.decode_with(ctx)?)),
-            5 => Ok(NativeScript::InvalidHereafter(d.decode_with(ctx)?)),
-            _ => Err(decode::Error::message(
-                "unknown variant id for native script",
-            )),
-        }
-    }
-}
-
-impl<C> Encode<C> for NativeScript {
-    fn encode<W: encode::Write>(
-        &self,
-        e: &mut Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), encode::Error<W::Error>> {
-        match self {
-            NativeScript::ScriptPubkey(v) => {
-                e.array(2)?;
-                e.encode_with(0, ctx)?;
-                e.encode_with(v, ctx)?;
-            }
-            NativeScript::ScriptAll(v) => {
-                e.array(2)?;
-                e.encode_with(1, ctx)?;
-                e.encode_with(v, ctx)?;
-            }
-            NativeScript::ScriptAny(v) => {
-                e.array(2)?;
-                e.encode_with(2, ctx)?;
-                e.encode_with(v, ctx)?;
-            }
-            NativeScript::ScriptNOfK(a, b) => {
-                e.array(3)?;
-                e.encode_with(3, ctx)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-            }
-            NativeScript::InvalidBefore(v) => {
-                e.array(2)?;
-                e.encode_with(4, ctx)?;
-                e.encode_with(v, ctx)?;
-            }
-            NativeScript::InvalidHereafter(v) => {
-                e.array(2)?;
-                e.encode_with(5, ctx)?;
-                e.encode_with(v, ctx)?;
-            }
-        }
-
-        Ok(())
     }
 }
 

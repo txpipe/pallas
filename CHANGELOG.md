@@ -2,6 +2,87 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0-rc.2] - 2026-11-11
+
+### ⚠️ Upgrade notes
+
+- The public `Drop` impls that 1.5.0-rc.1 added are removed again (#864), so code written for 1.4 compiles unchanged. Code adapted to rc.1 keeps compiling, and the `into_*` accessors stay.
+- Decoding `PlutusData`, `Metadatum` and `NativeScript`, in both pallas-primitives and the node-to-client protocols, now fails at 16,384 nesting levels (`pallas_codec::MAX_DECODE_DEPTH`). The node-to-client `BlockQuery` fails at 1,024 nested `GetCBOR` wrappers (#867). No value valid under the current `maxTxSize` is rejected. `pallas_codec::tree::decode_tree` stays unlimited; use `decode_tree_with_max_depth` to bound your own types.
+- Values below the limit are dropped recursively, as in 1.4. The stack this needs depends on how your binary compiles. Give threads that decode chain data at least 4 MiB of stack in release builds, and more in debug builds.
+- `handshake::Server::handshake` is deprecated in favour of `handshake_negotiated`, which negotiates version data the way the node does (#832, #865).
+- Several traverse accessors are deprecated in favour of `multi_era_*` versions that can represent Dijkstra data: `MultiEraRedeemer::tag`, `MultiEraTx::native_scripts` and `aux_native_scripts`, and `MultiEraOutput::script_ref`. Builds that deny warnings will flag them.
+- The Leios message types in pallas-network2 changed shape to match current nodes (#836, already in rc.1). This breaks code that builds or matches them.
+
+### 🚀 Features
+
+- *(utxorpc)* Add an opt-in to leave datum unset on outputs with no datum (#855)
+- *(network)* Add a negotiating handshake server method beside the v1.4 one (#865)
+
+### 🐛 Bug Fixes
+
+- *(primitives)* Decode tag 102 constrs in the indefinite form (#840)
+- *(network)* Negotiate handshake version data instead of requiring equality (#832)
+- *(validate)* Do not treat native reference scripts as phase-2 (#820)
+- Keep the v1 API by removing the Drop impls from #845 (#864)
+- *(codec)* Cap the nesting depth of recursive CBOR decoding (#867)
+
+### 📚 Documentation
+
+- Add AGENTS.md and llms.txt (#854)
+
+### 🔧 Continuous Integration
+
+- Check public API compatibility on PRs to main (#856)
+
+### ⚡ Performance
+
+- *(codec)* Encode and decode flat big words in linear time (#839)
+
+### 🧪 Testing
+
+- *(primitives)* Cover a mainnet block at protocol version 11 (#853)
+- *(primitives)* Cover deep constructor fields and map keys in decode error cleanup (#866)
+
+### Build
+
+- *(deps)* Update criterion requirement from 0.5 to 0.8 (#774)
+
+## [1.5.0-rc.1] - 2026-11-05
+
+### 🚀 Features
+
+- *(traverse)* Support traverse of Dijkstra era structures (#800)
+- *(traverse)* Read a Dijkstra value through the accessors (#801)
+- *(traverse)* Introduce better multi-era certificate views (#815)
+- *(primitives)* Read leios endorser blocks (#816)
+- *(traverse)* Read Dijkstra certificates (#821)
+
+### 🐛 Bug Fixes
+
+- *(configs)* Read the extraConfig block of a shelley genesis (#797)
+- *(math)* Align fixed-point arithmetic with Cardano node (#822)
+- *(network2)* Stop sending a request twice before the Sent event (#818)
+- *(traverse)* Judge a sub tx validity by its parent (#817)
+- *(utxorpc)* Map PlutusV3 and PlutusV4 witness scripts (#838)
+- Read indefinite length byte and text strings (#831)
+- *(utxorpc)* Map Dijkstra scripts and votes (#833)
+- *(utxorpc)* Map the pool retirement epoch bound (#837)
+- *(network2)* Decode the leios-notify and leios-fetch messages of current nodes (#836)
+- *(traverse)* Include Dijkstra sub transaction inputs in requires (#830)
+- [**breaking**] Harden recursive data destruction and protocol codecs (#845)
+
+### 🔧 Continuous Integration
+
+- Publish with the org-level CRATES_IO_TOKEN (#834)
+
+### ⚡ Performance
+
+- *(network2)* Send queued fetch requests as soon as a peer is idle (#819)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.5.0-rc.1
+
 ## [1.4.0] - 2026-09-17
 
 ### 🐛 Bug Fixes
@@ -16,6 +97,7 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - *(primitives)* Align stack-safe tree code on fold_tree and walk_tree (#812)
+- Release v1.4.0
 
 ## [1.3.0] - 2026-09-17
 
@@ -962,22 +1044,16 @@ All notable changes to this project will be documented in this file.
 
 ### 🚀 Features
 
-- *(addresses)* Add hex and bech32 for Shelley parts (#181)
-
-## [0.13.2] - 2022-08-20
-
-### 🚀 Features
-
 - *(primitives)* Enable serde of ledger structs (#169)
 - Introduce Bech32 crate (#176)
 - Add magic constants for preview and preprod environments (#179)
 - *(traverse)* Introduce new MultiEraTx helpers (#184)
+- *(addresses)* Add hex and bech32 for Shelley parts (#181)
 
 ### 🐛 Bug Fixes
 
 - *(codec)* Make Int struct copy (#170)
 - Use correct prefix when hashing plutus v2 script (#182)
-- *(addresses)* Skip error on pointer address overflow (#178)
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -990,6 +1066,12 @@ All notable changes to this project will be documented in this file.
 
 - *(deps)* Update bech32 requirement from 0.8.1 to 0.9.1 (#177)
 - *(deps)* Update minicbor requirement from 0.17 to 0.18 (#134)
+
+## [0.13.2] - 2022-08-20
+
+### 🐛 Bug Fixes
+
+- *(addresses)* Skip error on pointer address overflow (#178)
 
 ## [0.13.1] - 2022-08-08
 

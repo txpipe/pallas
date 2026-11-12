@@ -1,0 +1,47 @@
+# Pallas
+
+> Pallas is a collection of Rust crates that re-implement Ouroboros and Cardano logic: CBOR codecs, multi-era ledger types, chain and transaction traversal, node networking, transaction building and validation. It is a library for building explorers, wallets, indexers and similar tools. Use the umbrella `pallas` crate or the individual `pallas-*` crates.
+
+## Start here
+
+- [pallas](https://docs.rs/pallas/latest/pallas/): umbrella crate that re-exports the others under one module tree; docs.rs `latest` pages show the latest stable release, which can trail `main`
+- [README](https://github.com/txpipe/pallas/blob/main/README.md): module tree, feature flags and MSRV
+- [AGENTS.md](https://github.com/txpipe/pallas/blob/main/AGENTS.md): repository layout, commands, conventions and which crate to start from
+
+## Ledger
+
+- [pallas-traverse](https://docs.rs/pallas-traverse/latest/pallas_traverse/): read blocks and transactions of any era
+- [pallas-primitives](https://docs.rs/pallas-primitives/latest/pallas_primitives/): ledger types and CBOR codec for each era
+- [pallas-addresses](https://docs.rs/pallas-addresses/latest/pallas_addresses/): encode and decode Cardano addresses
+- [pallas-validate](https://docs.rs/pallas-validate/latest/pallas_validate/): phase-1 and optional phase-2 transaction validation
+- [pallas-txbuilder](https://docs.rs/pallas-txbuilder/latest/pallas_txbuilder/): build and sign Conway transactions
+
+## Network
+
+- [pallas-network](https://docs.rs/pallas-network/latest/pallas_network/): multiplexer, mini-protocols and per-role facades
+- [pallas-network2](https://docs.rs/pallas-network2/latest/pallas_network2/): P2P-first rewrite of the networking stack
+
+## Core
+
+- [pallas-codec](https://docs.rs/pallas-codec/latest/pallas_codec/): shared CBOR encoding and decoding
+- [pallas-crypto](https://docs.rs/pallas-crypto/latest/pallas_crypto/): hashes, Ed25519 and nonce derivation, plus KES behind this crate's own `kes` feature, which the umbrella doesn't forward and this page doesn't show
+- [pallas-math](https://docs.rs/pallas-math/latest/pallas_math/): fixed-precision arithmetic for protocol calculations
+
+## Interop
+
+- [pallas-configs](https://docs.rs/pallas-configs/latest/pallas_configs/): parse the Haskell node's genesis files
+- [pallas-hardano](https://docs.rs/pallas-hardano/latest/pallas_hardano/): read artifacts of the Haskell node
+- [pallas-utxorpc](https://docs.rs/pallas-utxorpc/latest/pallas_utxorpc/): map ledger types onto the UTxO RPC schema
+
+## Examples
+
+- [block-decode](https://github.com/txpipe/pallas/tree/main/examples/block-decode): decode blocks of several eras from CBOR
+- [block-download](https://github.com/txpipe/pallas/tree/main/examples/block-download): download one block from a remote node
+- [crawler](https://github.com/txpipe/pallas/tree/main/examples/crawler): consume chain-sync with block and transaction filters
+- [n2n-miniprotocols](https://github.com/txpipe/pallas/tree/main/examples/n2n-miniprotocols): node-to-node mini-protocols over TCP
+- [n2c-miniprotocols](https://github.com/txpipe/pallas/tree/main/examples/n2c-miniprotocols): node-to-client mini-protocols over a Unix socket
+- [p2p-initiator](https://github.com/txpipe/pallas/tree/main/examples/p2p-initiator): start a P2P connection with `pallas-network2`
+- [p2p-responder](https://github.com/txpipe/pallas/tree/main/examples/p2p-responder): accept P2P connections with `pallas-network2`
+- [p2p-discovery](https://github.com/txpipe/pallas/tree/main/examples/p2p-discovery): peer discovery with `pallas-network2`
+- [leios-testnet](https://github.com/txpipe/pallas/tree/main/examples/leios-testnet): follow the Leios testnet and fetch endorser blocks
+- [leios-tui](https://github.com/txpipe/pallas/tree/main/examples/leios-tui): the same flow as a terminal dashboard

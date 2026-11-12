@@ -26,10 +26,15 @@ use crate::miniprotocols::localtxsubmission::SMaybe;
 
 use super::{Client, ClientError};
 
+mod block_query;
 mod codec;
+mod plutus_data;
 
 // https://github.com/input-output-hk/ouroboros-consensus/blob/main/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query.hs
-#[derive(Debug, Clone, PartialEq)]
+/// Node-to-client block query. GetCBOR chains use iterative codecs, clone
+/// and equality. Debug and Drop still recurse, so decoding refuses a chain of
+/// 1,024 or more GetCBOR wrappers.
+#[derive(Debug)]
 #[repr(u16)]
 pub enum BlockQuery {
     GetLedgerTip,
@@ -815,7 +820,9 @@ pub enum DatumOption {
 }
 
 pub type DatumHash = Hash<32>;
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+/// Datum received through node-to-client queries. CBOR, clone and
+/// comparison are stack-safe; Debug and Drop still recurse.
+#[derive(Debug)]
 pub enum PlutusData {
     Constr(Constr<PlutusData>),
     Map(KeyValuePairs<PlutusData, PlutusData>),

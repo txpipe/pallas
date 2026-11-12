@@ -182,25 +182,13 @@ impl Encoder {
     /// repeating the above for the next 7 bits and so on.
     #[cfg(feature = "num-bigint")]
     pub fn big_word(&mut self, c: BigUint) -> &mut Self {
-        let mut d = c;
-        let zero = (0_u8).into();
-        loop {
-            let m: usize = 127;
-            let mut w = (d.clone() & <usize as Into<BigUint>>::into(m))
-                .to_bytes_be()
-                .pop()
-                .unwrap();
-
-            d >>= 7;
-
-            if d != zero {
-                w |= 128;
-            }
-            self.bits(8, w);
-
-            if d == zero {
-                break;
-            }
+        // The 7-bit groups, least significant first (zero is one group), in
+        // one pass: masking and shifting the whole number per group is
+        // quadratic.
+        let groups = c.to_radix_le(128);
+        let last = groups.len() - 1;
+        for (index, group) in groups.into_iter().enumerate() {
+            self.bits(8, if index < last { group | 128 } else { group });
         }
 
         self

@@ -18,10 +18,24 @@
 //!   when its children live elsewhere, such as in key-value pairs; they cover
 //!   copying into another tree (clone, protobuf or JSON values), emitting a
 //!   linear encoding, comparison and destruction.
+//!
+//! [`decode_tree`](crate::tree::decode_tree) accepts any depth.
+//! [`decode_tree_with_max_depth`](crate::tree::decode_tree_with_max_depth)
+//! fails once a node would sit under a given number of enclosing nodes;
+//! Pallas's own recursive types decode through it with [`MAX_DECODE_DEPTH`].
 
 use std::cmp::Ordering;
 
 use minicbor::{Decoder, data::Type, decode::Error};
+
+/// Depth limit Pallas's own recursive types decode with, through
+/// [`decode_tree_with_max_depth`]: they fail once a node would sit under this
+/// many enclosing nodes. Each level takes at least one byte, and a
+/// transaction, auxiliary data included, is at most 16,384 bytes (the current
+/// mainnet `maxTxSize`), so no on-chain value reaches this depth. The cap bounds the
+/// stack a decoded value's recursive drop needs, but that need depends on how
+/// the consuming binary compiles the drop, so no stack size is guaranteed.
+pub const MAX_DECODE_DEPTH: usize = 16_384;
 
 /// Number of children that follow a node's header in the input.
 pub enum Arity {
@@ -92,7 +106,23 @@ impl<B> Frame<B> {
 }
 
 /// Decode a [`TreeDecode`] value using a heap-backed stack of open nodes.
+///
+/// Accepts any nesting depth; [`decode_tree_with_max_depth`] bounds it.
 pub fn decode_tree<'b, C, T>(d: &mut Decoder<'b>, ctx: &mut C) -> Result<T, Error>
+where
+    T: TreeDecode<'b, C>,
+{
+    decode_tree_with_max_depth(d, ctx, usize::MAX)
+}
+
+/// Like [`decode_tree`], but fails once a node would sit under `max_depth`
+/// enclosing nodes, before decoding that node. The root is always decoded, so
+/// a `max_depth` of 0 acts like 1.
+pub fn decode_tree_with_max_depth<'b, C, T>(
+    d: &mut Decoder<'b>,
+    ctx: &mut C,
+    max_depth: usize,
+) -> Result<T, Error>
 where
     T: TreeDecode<'b, C>,
 {
@@ -100,6 +130,11 @@ where
     let mut current = Frame::begin::<C, T>(d, ctx)?;
     loop {
         if current.expects_child(d)? {
+            if parents.len() + 1 >= max_depth {
+                return Err(Error::message(
+                    "CBOR nesting exceeds the decode depth limit",
+                ));
+            }
             parents.push(current);
             current = Frame::begin::<C, T>(d, ctx)?;
             continue;
@@ -373,7 +408,18 @@ mod tests {
         }
     }
 
+    fn decode_with(bytes: &[u8], max_depth: usize) -> Result<Node, Error> {
+        let mut d = Decoder::new(bytes);
+        let node = decode_tree_with_max_depth(&mut d, &mut (), max_depth)?;
+        assert_eq!(d.position(), bytes.len());
+        Ok(node)
+    }
+
     fn decode(bytes: &[u8]) -> Result<Node, Error> {
+        decode_with(bytes, MAX_DECODE_DEPTH)
+    }
+
+    fn decode_unbounded(bytes: &[u8]) -> Result<Node, Error> {
         let mut d = Decoder::new(bytes);
         let node = decode_tree(&mut d, &mut ())?;
         assert_eq!(d.position(), bytes.len());
@@ -400,18 +446,32 @@ mod tests {
         assert!(decode(&[0x81]).is_err());
     }
 
+    /// A leaf under `depth` lists, alternating definite and indefinite.
+    fn nested_lists(depth: usize) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        for i in 0..depth {
+            bytes.push(if i % 2 == 0 { 0x81 } else { 0x9f });
+        }
+        bytes.push(0x00);
+        bytes.extend((0..depth).filter(|i| i % 2 == 1).map(|_| 0xff));
+        bytes
+    }
+
+    fn assert_depth_error(result: Result<Node, Error>) {
+        let error = result.unwrap_err();
+        assert!(
+            error.to_string().contains("decode depth limit"),
+            "unexpected error: {error}"
+        );
+    }
+
     #[test]
     fn decodes_deep_nesting_on_a_small_stack() {
         std::thread::Builder::new()
             .stack_size(64 * 1024)
             .spawn(|| {
-                let depth = 100_000;
-                let mut bytes = Vec::new();
-                for i in 0..depth {
-                    bytes.push(if i % 2 == 0 { 0x81 } else { 0x9f });
-                }
-                bytes.push(0x00);
-                bytes.extend((0..depth).filter(|i| i % 2 == 1).map(|_| 0xff));
+                let depth = MAX_DECODE_DEPTH - 1;
+                let mut bytes = nested_lists(depth);
                 let mut cursor = &decode(&bytes).unwrap();
                 let mut seen = 0;
                 while let Node::List(children) = cursor {
@@ -423,6 +483,55 @@ mod tests {
                 bytes.pop();
                 assert!(decode(&bytes).is_err());
             })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    #[test]
+    fn depth_cap_matches_the_mainnet_max_tx_size() {
+        assert_eq!(MAX_DECODE_DEPTH, 16_384);
+    }
+
+    #[test]
+    fn rejects_nesting_at_the_depth_cap() {
+        assert_depth_error(decode(&nested_lists(MAX_DECODE_DEPTH)));
+    }
+
+    #[test]
+    fn rejects_nesting_at_a_given_depth() {
+        assert_depth_error(decode_with(&nested_lists(3), 3));
+        assert!(decode_with(&nested_lists(2), 3).is_ok());
+        assert_depth_error(decode_with(&nested_lists(1), 1));
+        assert!(decode_with(&nested_lists(0), 1).is_ok());
+        assert_depth_error(decode_with(&nested_lists(1), 0));
+        assert!(decode_with(&nested_lists(0), 0).is_ok());
+    }
+
+    #[test]
+    fn decode_tree_has_no_depth_limit() {
+        std::thread::Builder::new()
+            .stack_size(64 * 1024)
+            .spawn(|| {
+                let depth = 4 * MAX_DECODE_DEPTH;
+                let mut cursor = &decode_unbounded(&nested_lists(depth)).unwrap();
+                let mut seen = 0;
+                while let Node::List(children) = cursor {
+                    cursor = &children[0];
+                    seen += 1;
+                }
+                assert_eq!(seen, depth);
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    #[test]
+    fn rejects_far_deeper_nesting_on_a_small_stack() {
+        std::thread::Builder::new()
+            .stack_size(256 * 1024)
+            .spawn(|| assert_depth_error(decode(&nested_lists(10 * MAX_DECODE_DEPTH))))
             .unwrap()
             .join()
             .unwrap();

@@ -31,7 +31,8 @@
 //! - [`flat`] — Rust port of the Haskell [flat] reference implementation,
 //!   used for Plutus Core scripts.
 //! - [`tree`] — stack-safe decoding and traversal of recursive types via
-//!   [`tree::TreeDecode`], [`tree::decode_tree`] and [`tree::TreeNode`].
+//!   [`tree::TreeDecode`], [`tree::decode_tree`] and [`tree::TreeNode`];
+//!   [`tree::decode_tree_with_max_depth`] bounds the nesting depth.
 //! - [`utils`] — round-trip-friendly helper types ([`utils::KeepRaw`],
 //!   [`utils::KeyValuePairs`], [`utils::MaybeIndefArray`],
 //!   [`utils::NonEmptySet`], [`utils::Nullable`], [`utils::PositiveCoin`],
@@ -58,6 +59,8 @@ pub use minicbor;
 
 /// Stack-safe decoding of recursive CBOR structures.
 pub mod tree;
+
+pub use tree::MAX_DECODE_DEPTH;
 
 /// Round-trip friendly common helper structs (`Bytes`, `Nullable`, `Set`, …).
 pub mod utils;

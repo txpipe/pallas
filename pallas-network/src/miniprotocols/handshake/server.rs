@@ -3,7 +3,9 @@ use std::marker::PhantomData;
 use pallas_codec::Fragment;
 use tracing::{debug, warn};
 
-use super::{Error, Message, RefuseReason, State, VersionNumber, VersionTable};
+use super::{
+    Error, Message, NegotiateVersionData, RefuseReason, State, VersionNumber, VersionTable,
+};
 use crate::multiplexer;
 
 /// Handshake server agent generic over the version-data payload type.
@@ -124,6 +126,16 @@ where
     ///
     /// Performs a full handshake with the client, where `versions` are the
     /// acceptable versions supported by the server.
+    ///
+    /// Deprecated: a version is accepted only when both sides propose
+    /// identical version data, so nodes that propose different peer sharing
+    /// or query flags are refused. Use [`Server::handshake_negotiated`],
+    /// which negotiates the version data instead.
+    #[deprecated(
+        since = "1.5.0",
+        note = "requires identical version data, so nodes that propose different \
+                peer sharing or query flags are refused; use `handshake_negotiated`"
+    )]
     pub async fn handshake(
         &mut self,
         versions: VersionTable<D>,
@@ -165,6 +177,74 @@ where
                         .await?;
 
                         return Ok(None);
+                    }
+                }
+            }
+        }
+
+        warn!(
+            "rejecting hs as no version intersect found - server: {:?}, client: {:?}",
+            versions, client_versions
+        );
+
+        // failed to find a version number intersection
+        self.refuse(RefuseReason::VersionMismatch(
+            versions.into_iter().map(|(num, _)| num).collect(),
+        ))
+        .await?;
+
+        Ok(None)
+    }
+
+    /// Perform a handshake with the client
+    ///
+    /// Performs a full handshake with the client, where `versions` are the
+    /// acceptable versions supported by the server. The highest version number
+    /// offered by both sides is selected, and its version data is negotiated
+    /// with [`NegotiateVersionData`] as the network specification describes;
+    /// the returned payload is the negotiated one sent in `MsgAcceptVersion`.
+    pub async fn handshake_negotiated(
+        &mut self,
+        versions: VersionTable<D>,
+    ) -> Result<Option<(VersionNumber, D)>, Error>
+    where
+        D: NegotiateVersionData,
+    {
+        // receive proposed versions
+        let client_versions = self
+            .receive_proposed_versions()
+            .await?
+            .values
+            .into_iter()
+            .collect::<Vec<(u64, D)>>();
+
+        // find the highest version number offered by both sides
+        let mut versions = versions.values.into_iter().collect::<Vec<(u64, D)>>();
+
+        versions.sort_by_key(|v| std::cmp::Reverse(v.0));
+
+        for (ver_num, ver_data) in versions.clone() {
+            for (client_ver_num, client_ver_data) in client_versions.clone() {
+                if ver_num == client_ver_num {
+                    match ver_data.negotiate(&client_ver_data) {
+                        Ok(accepted) => {
+                            debug!("accepting hs with ({}, {:?})", ver_num, accepted);
+
+                            self.accept_version(ver_num, accepted.clone()).await?;
+
+                            return Ok(Some((ver_num, accepted)));
+                        }
+                        Err(reason) => {
+                            warn!(
+                                "rejecting hs as params not acceptable - server: {:?}, client: {:?}: {}",
+                                ver_data, client_ver_data, reason
+                            );
+
+                            // found version number match but extra data not acceptable
+                            self.refuse(RefuseReason::Refused(ver_num, reason)).await?;
+
+                            return Ok(None);
+                        }
                     }
                 }
             }
