@@ -76,3 +76,7 @@ while let Some(event) = manager.poll_next().await {
 
 - `emulation` — enables the `emulation` module, an in-memory test harness
   for exercising behaviors without real network IO.
+- `unstable` — proposes node-to-node version 16 (needed for the Leios
+  mini-protocols) and reads its five-field version data, with the Peras
+  support flag. Version 16 is past the node's latest released version, so its
+  shape is outside this crate's semver promise.
