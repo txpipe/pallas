@@ -4,6 +4,7 @@ use std::{
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
+    time::Duration,
 };
 
 use futures::{
@@ -28,11 +29,11 @@ enum InternalEvent<M: Message> {
 
 type InterfaceFuture<M> = Pin<Box<dyn Future<Output = InternalEvent<M>> + Send>>;
 
-async fn connect<M: Message>(pid: PeerId) -> InternalEvent<M> {
+async fn connect<M: Message>(pid: PeerId, timeout: Duration) -> InternalEvent<M> {
     let pid = pid.clone();
 
     tracing::debug!(%pid, "connecting bearer");
-    let bearer = Bearer::connect_tcp((pid.host.clone(), pid.port)).await;
+    let bearer = Bearer::connect_tcp_timeout((pid.host.clone(), pid.port), timeout).await;
 
     match bearer {
         Ok(bearer) => InternalEvent::Connected(pid.clone(), bearer),
@@ -219,7 +220,13 @@ impl<M: Message> TcpConnectionPool<M> {
 /// dispatching connect/send/disconnect commands.
 pub struct TcpInterface<M: Message> {
     pool: TcpConnectionPool<M>,
+    connect_timeout: Duration,
 }
+
+/// How long [`TcpInterface::new`] lets a connection attempt run before giving
+/// up: the 3 minutes during which TCP must keep retransmitting a SYN
+/// (RFC 9293, section 3.8.3, MUST-23).
+pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(180);
 
 impl<M: Message> Default for TcpInterface<M> {
     fn default() -> Self {
@@ -229,9 +236,22 @@ impl<M: Message> Default for TcpInterface<M> {
 
 impl<M: Message> TcpInterface<M> {
     /// Creates a new TCP interface for initiating outbound connections.
+    ///
+    /// Connection attempts give up after [`DEFAULT_CONNECT_TIMEOUT`]; see
+    /// [`with_connect_timeout`](Self::with_connect_timeout) for another limit.
     pub fn new() -> Self {
+        Self::with_connect_timeout(DEFAULT_CONNECT_TIMEOUT)
+    }
+
+    /// Creates a new TCP interface whose connection attempts give up after
+    /// `timeout`.
+    ///
+    /// An attempt that runs out of time is reported as an
+    /// [`InterfaceEvent::Error`] for the peer, like a refused connection.
+    pub fn with_connect_timeout(timeout: Duration) -> Self {
         Self {
             pool: TcpConnectionPool::new(crate::protocol::PROTOCOL_CLIENT),
+            connect_timeout: timeout,
         }
     }
 }
@@ -240,7 +260,7 @@ impl<M: Message> Interface<M> for TcpInterface<M> {
     fn dispatch(&mut self, cmd: InterfaceCommand<M>) {
         match cmd {
             InterfaceCommand::Connect(pid) => {
-                let future = connect(pid.clone());
+                let future = connect(pid.clone(), self.connect_timeout);
                 self.pool.push_future(Box::pin(future));
             }
             InterfaceCommand::Send(pid, msg) => {
@@ -358,5 +378,35 @@ impl<M: Message> Stream for TcpListenerInterface<M> {
 
         // Then poll existing connections
         self.pool.poll_next_event(cx)
+    }
+}
+
+#[cfg(all(test, feature = "tokio"))]
+mod tests {
+    use super::*;
+    use crate::behavior::AnyMessage;
+
+    /// TEST-NET-1 (RFC 5737): never routed, so a connect to it hangs until the
+    /// caller gives up.
+    fn unreachable_peer() -> PeerId {
+        PeerId {
+            host: "192.0.2.1".to_string(),
+            port: 3001,
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn connect_gives_up_after_the_timeout() {
+        let mut interface =
+            TcpInterface::<AnyMessage>::with_connect_timeout(Duration::from_secs(1));
+        interface.dispatch(InterfaceCommand::Connect(unreachable_peer()));
+
+        match interface.next().await {
+            Some(InterfaceEvent::Error(pid, InterfaceError::Other(msg))) => {
+                assert_eq!(pid, unreachable_peer());
+                assert!(msg.contains("connect timeout"), "unexpected error: {msg}");
+            }
+            other => panic!("expected a connect timeout error, got {other:?}"),
+        }
     }
 }
