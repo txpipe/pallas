@@ -36,11 +36,13 @@ default = ["emulation"]
 blueprint = ["dep:cddl"]
 # Propose N2N v16 (Peras support flag, Leios mini-protocols) and read its
 # five-field version data. v16 is past the node's latest released version.
+# Write leios-fetch endorser blocks in tag 24 and read them with or without it.
 unstable = []
 
 [dev-dependencies]
 tokio = { version = "1.45.1", features = ["full", "test-util"] }
 criterion = { version = "0.8", features = ["async_tokio"] }
+pallas-crypto.workspace = true
 
 [[bench]]
 name = "protocol"
