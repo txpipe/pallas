@@ -535,6 +535,42 @@ mod tests {
     }
 
     #[test]
+    fn done_ends_the_protocol_only_from_idle() {
+        assert_eq!(
+            State::Idle(None).apply(&Message::Done).unwrap(),
+            State::Done
+        );
+        assert!(matches!(
+            State::AwaitingBlock(point()).apply(&Message::Done),
+            Err(Error::InvalidInbound)
+        ));
+    }
+
+    #[test]
+    fn block_txs_answer_only_a_block_txs_request() {
+        let txs = vec![raw([4, 5, 6])];
+        assert_eq!(
+            State::AwaitingBlockTxs(point(), bitmaps())
+                .apply(&Message::BlockTxs { txs: txs.clone() })
+                .unwrap(),
+            State::Idle(Some((point(), Response::BlockTxs { txs: txs.clone() })))
+        );
+        assert!(matches!(
+            State::AwaitingBlock(point()).apply(&Message::BlockTxs { txs }),
+            Err(Error::InvalidInbound)
+        ));
+    }
+
+    #[test]
+    fn bitmaps_from_indices_put_each_offset_in_its_64_wide_window() {
+        let b = Bitmaps::from_indices([63usize, 64, 200]);
+        assert_eq!(
+            b.0,
+            BTreeMap::from([(0u16, 1u64), (1, 1u64 << 63), (3, 1u64 << 55)])
+        );
+    }
+
+    #[test]
     fn bitmaps_all_is_msb_first() {
         assert_eq!(Bitmaps::all(0).0.len(), 0);
         assert_eq!(Bitmaps::all(1).0.get(&0), Some(&(1u64 << 63)));

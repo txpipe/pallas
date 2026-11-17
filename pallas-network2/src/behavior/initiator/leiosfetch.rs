@@ -294,4 +294,22 @@ mod tests {
         assert_eq!(b.requests.len(), 1);
         assert!(b.requests.iter().all(|(p, _)| p != &pid));
     }
+
+    #[test]
+    fn an_errored_peer_loses_only_its_queued_requests() {
+        let mut b = LeiosFetchBehavior::default();
+        let pid = PeerId::test(1);
+        let other = PeerId::test(2);
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        b.enqueue(pid.clone(), FetchRequest::Block(Point::Origin));
+        b.enqueue(other.clone(), FetchRequest::Block(Point::Origin));
+
+        b.visit_errored(&pid, &mut state, &mut outbound);
+        assert_eq!(
+            b.requests.iter().map(|(p, _)| p).collect::<Vec<_>>(),
+            vec![&other]
+        );
+    }
 }
