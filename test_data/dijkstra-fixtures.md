@@ -63,6 +63,25 @@ models is exercised by no fixture and is modelled from the CDDL alone.
 | dijkstra-rc-2026w42-7.block | 0, 1, 2 | 0 | map, array | none | tagged | 1 | nil | nil |
 | dijkstra-rc-2026w42-11.block | none | none | none | none | none | 0 | present | nil |
 
+## A certifying block from local ChainSync
+
+`dijkstra-rc-2026w45-23123.block` is lowercase hex of one block as the Musashi
+node's local ChainSync sent it on 2026-11-17, the tag 24 payload of
+`MsgRollForward` (wrapper and block), no trailing newline. The node runs the
+ouroboros-leios `rc-2026w45` image, network magic 164, and its consensus pin
+`1f2984cc9726f3c9f33a9e92298a6b3ce1237d88` sends a certifying block with the
+certified endorser block's transactions spliced into its body
+(`inlineCertifiedEbTxs` in `Ouroboros/Consensus/MiniProtocol/ChainSync/Server.hs`).
+The header is the one on chain, so its `block_body_size` of 73 and its
+`block_body_hash` describe the stored body, which held no transactions.
+
+| file | slot | block | hash | bytes | tag | txs | why |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| dijkstra-rc-2026w45-23123.block | 501373 | 23123 | `1cb41ea9a58a86f7c19740b8f0a94c54ac02dd0ca60d74ee02802cc598fd0eff` | 7784 | 8 | 13 | a Leios certificate with its endorser block's thirteen transactions in a definite length list |
+
+The hash, transaction hashes and certificate signers were read with Python's
+`cbor2` and `hashlib` rather than with pallas.
+
 ## Endorser block bodies
 
 Three files are endorser block bodies, each the `endorser_block` map from
