@@ -2,6 +2,51 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0-rc.2] - 2026-11-11
+
+### ⚠️ Upgrade notes
+
+- The public `Drop` impls that 1.5.0-rc.1 added are removed again (#864), so code written for 1.4 compiles unchanged. Code adapted to rc.1 keeps compiling, and the `into_*` accessors stay.
+- Decoding `PlutusData`, `Metadatum` and `NativeScript`, in both pallas-primitives and the node-to-client protocols, now fails at 16,384 nesting levels (`pallas_codec::MAX_DECODE_DEPTH`). The node-to-client `BlockQuery` fails at 1,024 nested `GetCBOR` wrappers (#867). No value valid under the current `maxTxSize` is rejected. `pallas_codec::tree::decode_tree` stays unlimited; use `decode_tree_with_max_depth` to bound your own types.
+- Values below the limit are dropped recursively, as in 1.4. The stack this needs depends on how your binary compiles. Give threads that decode chain data at least 4 MiB of stack in release builds, and more in debug builds.
+- `handshake::Server::handshake` is deprecated in favour of `handshake_negotiated`, which negotiates version data the way the node does (#832, #865).
+- Several traverse accessors are deprecated in favour of `multi_era_*` versions that can represent Dijkstra data: `MultiEraRedeemer::tag`, `MultiEraTx::native_scripts` and `aux_native_scripts`, and `MultiEraOutput::script_ref`. Builds that deny warnings will flag them.
+- The Leios message types in pallas-network2 changed shape to match current nodes (#836, already in rc.1). This breaks code that builds or matches them.
+
+### 🚀 Features
+
+- *(utxorpc)* Add an opt-in to leave datum unset on outputs with no datum (#855)
+- *(network)* Add a negotiating handshake server method beside the v1.4 one (#865)
+
+### 🐛 Bug Fixes
+
+- *(primitives)* Decode tag 102 constrs in the indefinite form (#840)
+- *(network)* Negotiate handshake version data instead of requiring equality (#832)
+- *(validate)* Do not treat native reference scripts as phase-2 (#820)
+- Keep the v1 API by removing the Drop impls from #845 (#864)
+- *(codec)* Cap the nesting depth of recursive CBOR decoding (#867)
+
+### 📚 Documentation
+
+- Add AGENTS.md and llms.txt (#854)
+
+### 🔧 Continuous Integration
+
+- Check public API compatibility on PRs to main (#856)
+
+### ⚡ Performance
+
+- *(codec)* Encode and decode flat big words in linear time (#839)
+
+### 🧪 Testing
+
+- *(primitives)* Cover a mainnet block at protocol version 11 (#853)
+- *(primitives)* Cover deep constructor fields and map keys in decode error cleanup (#866)
+
+### Build
+
+- *(deps)* Update criterion requirement from 0.5 to 0.8 (#774)
+
 ## [1.5.0-rc.1] - 2026-11-05
 
 ### 🚀 Features
@@ -33,6 +78,10 @@ All notable changes to this project will be documented in this file.
 ### ⚡ Performance
 
 - *(network2)* Send queued fetch requests as soon as a peer is idle (#819)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.5.0-rc.1
 
 ## [1.4.0] - 2026-09-17
 
