@@ -48,6 +48,11 @@ crate::shared::impl_cardano_mapper_shared!(utxorpc_spec::utxorpc::v1beta::cardan
 crate::before_v1::impl_cardano_mapper_before_v1!();
 crate::since_v1beta::impl_cardano_mapper_since_v1beta!();
 
+/// The original CBOR this schema maps for a datum a transaction witnesses by hash, which it leaves unset.
+fn witnessed_datum_cbor(_: &[u8]) -> Option<Vec<u8>> {
+    None
+}
+
 impl<C: LedgerContext> Mapper<C> {
     pub fn map_tx(&self, tx: &trv::MultiEraTx) -> u5c::Tx {
         let resolved = self.ledger.as_ref().and_then(|ctx| {

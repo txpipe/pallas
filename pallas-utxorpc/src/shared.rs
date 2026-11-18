@@ -3,13 +3,6 @@ macro_rules! impl_cardano_mapper_shared {
     ($u5c:path) => {
         use $u5c as u5c;
 
-        fn rational_number_to_u5c(value: pallas_primitives::RationalNumber) -> u5c::RationalNumber {
-            u5c::RationalNumber {
-                numerator: value.numerator as i32,
-                denominator: value.denominator as u32,
-            }
-        }
-
         fn u64_to_bigint(value: u64) -> Option<u5c::BigInt> {
             if value <= i64::MAX as u64 {
                 Some(u5c::BigInt {
@@ -464,7 +457,7 @@ macro_rules! impl_cardano_mapper_shared {
             pub fn map_plutus_bigint(&self, x: &pallas_primitives::alonzo::BigInt) -> u5c::BigInt {
                 use pallas_primitives::babbage;
                 let inner = match x {
-                    babbage::BigInt::Int(x) => u5c::big_int::BigInt::Int(i128::from(x.0) as i64),
+                    babbage::BigInt::Int(x) => map_plutus_int(i128::from(x.0)),
                     babbage::BigInt::BigUInt(x) => {
                         u5c::big_int::BigInt::BigUInt(Vec::<u8>::from(x.clone()).into())
                     }
@@ -1631,14 +1624,14 @@ macro_rules! impl_cardano_mapper_shared {
                                 )),
                             }),
                             cost: bigint(340_000_000),
-                            // The fixture's margin is 9223372036854775809 over
-                            // 10000000000000000000 and the schema's two fields
-                            // are 32 bits wide, so both arrive cut to their low
-                            // 32 bits.
-                            margin: Some(u5c::RationalNumber {
-                                numerator: 1,
-                                denominator: 2_313_682_944,
-                            }),
+                            // The fixture's margin is wider than the schema's 32 bit
+                            // fields, and each schema converts it by its own rule.
+                            margin: Some(rational_number_to_u5c(
+                                pallas_primitives::RationalNumber {
+                                    numerator: 9_223_372_036_854_775_809,
+                                    denominator: 10_000_000_000_000_000_000,
+                                }
+                            )),
                             reward_account: hex::decode(
                                 "e0b04dff59ee3b964a7d9f4fda04d98ef43de3abc832112cc37a35d138"
                             )

@@ -9,6 +9,19 @@ macro_rules! impl_cardano_mapper_before_v1 {
             value.unwrap_or_default()
         }
 
+        /// The schema's ratio for a ledger ratio, each field cut to its low 32 bits.
+        fn rational_number_to_u5c(value: pallas_primitives::RationalNumber) -> u5c::RationalNumber {
+            u5c::RationalNumber {
+                numerator: value.numerator as i32,
+                denominator: value.denominator as u32,
+            }
+        }
+
+        /// The schema's integer for a Plutus integer, cut to its low 64 bits.
+        fn map_plutus_int(n: i128) -> u5c::big_int::BigInt {
+            u5c::big_int::BigInt::Int(n as i64)
+        }
+
         /// Returns the mapped block unchanged, as this schema has no Leios field.
         fn with_leios_fields(
             mapped: u5c::Block,
@@ -173,6 +186,30 @@ macro_rules! impl_cardano_mapper_before_v1 {
                     Some(1),
                     "position one is indexed by a certificate redeemer"
                 );
+            }
+
+            #[test]
+            fn a_rational_wider_than_32_bits_keeps_the_low_32_bits_of_each_field() {
+                let x = rational_number_to_u5c(pallas_primitives::RationalNumber {
+                    numerator: (1 << 63) + 1,
+                    denominator: 10_000_000_000_000_000_000,
+                });
+
+                assert_eq!((x.numerator, x.denominator), (1, 2_313_682_944));
+            }
+
+            #[test]
+            fn a_plutus_integer_beyond_i64_keeps_its_low_64_bits() {
+                use u5c::big_int::BigInt::Int;
+
+                let mapper = Mapper::new(NoLedger);
+                let map = |n: i128| {
+                    let x = alonzo::BigInt::Int(pallas_primitives::Int::try_from(n).unwrap());
+                    mapper.map_plutus_bigint(&x).big_int.unwrap()
+                };
+
+                assert_eq!(map(1 << 63), Int(i64::MIN));
+                assert_eq!(map(-(1 << 63) - 1), Int(i64::MAX));
             }
 
             #[cfg(feature = "unstable")]

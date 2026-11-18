@@ -30,13 +30,17 @@ macro_rules! impl_cardano_mapper_since_v1beta {
                         payload: self.map_plutus_datum(&x.0).into(),
                         original_cbor: Some(x.raw_cbor().to_vec().into()),
                     },
-                    babbage::DatumOption::Hash(x) => u5c::Datum {
-                        hash: x.to_vec().into(),
-                        payload: tx
-                            .and_then(|tx| tx.find_plutus_data(&x))
-                            .map(|d| self.map_plutus_datum(d)),
-                        original_cbor: None,
-                    },
+                    babbage::DatumOption::Hash(x) => {
+                        let witnessed = tx.and_then(|tx| tx.find_plutus_data(&x));
+
+                        u5c::Datum {
+                            hash: x.to_vec().into(),
+                            payload: witnessed.map(|d| self.map_plutus_datum(d)),
+                            original_cbor: witnessed
+                                .and_then(|d| witnessed_datum_cbor(d.raw_cbor()))
+                                .map(Into::into),
+                        }
+                    }
                 })
             }
 
