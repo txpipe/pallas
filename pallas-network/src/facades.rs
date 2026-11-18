@@ -338,7 +338,7 @@ impl PeerServer {
             client.accepted_version = Some((version, data));
             Ok(client)
         } else {
-            client.abort().await;
+            client.plexer.close().await;
             Err(Error::IncompatibleVersion)
         }
     }
@@ -611,7 +611,7 @@ impl NodeServer {
             client.accpeted_version = Some(version);
             Ok(client)
         } else {
-            client.abort().await;
+            client.plexer.close().await;
             Err(Error::IncompatibleVersion)
         }
     }
@@ -856,7 +856,7 @@ impl DmqServer {
             client.accpeted_version = Some(version);
             Ok(client)
         } else {
-            client.abort().await;
+            client.plexer.close().await;
             Err(Error::IncompatibleVersion)
         }
     }
