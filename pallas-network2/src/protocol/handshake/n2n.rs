@@ -284,7 +284,7 @@ impl VersionData {
     /// Creates new version data with the given parameters.
     ///
     /// Peras support is left unset (`None`), which is the shape of every version
-    /// below v16. Use [`VersionData::with_peras_support`] to set it for v16+.
+    /// below v16. Use `VersionData::with_peras_support` to set it for v16+.
     pub fn new(
         network_magic: u64,
         initiator_only_diffusion_mode: bool,
