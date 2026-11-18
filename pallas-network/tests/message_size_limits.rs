@@ -270,8 +270,8 @@ async fn unlimited_receive_is_linear_in_message_size() {
 
     let (mut client, server, _link) = loopback(PROTOCOL_N2N_HANDSHAKE).await;
 
-    // The victim receives without a limit: it never returns for this input,
-    // but it must keep up with the bytes as they stream in.
+    // The receiver has no limit: it never returns for this input, but it must
+    // keep up with the bytes as they stream in.
     tokio::spawn(async move {
         let mut buffer = ChannelBuffer::new(server);
         let _ = buffer
@@ -289,9 +289,9 @@ async fn unlimited_receive_is_linear_in_message_size() {
     }
     let elapsed = start.elapsed();
 
-    // Backpressure makes this track the victim's work. The quadratic original
-    // took ~15 s for 1 MiB at this segment size; linear reassembly of twice
-    // that stays far under a generous bound.
+    // Backpressure makes this track the receiver's work. Linear reassembly
+    // absorbs these bytes well within this bound; the previous per-segment
+    // re-scan exceeded it by far.
     assert!(
         elapsed < Duration::from_secs(20),
         "absorbing {TARGET} bytes took {elapsed:?}",
