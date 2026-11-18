@@ -2,6 +2,20 @@ use thiserror::Error;
 
 use crate::multiplexer;
 
+/// Largest inbound message the agents accept in [`State::Init`], in bytes, as
+/// in the Ouroboros network specification.
+pub const INIT_SIZE_LIMIT: usize = 65_535;
+
+/// Largest inbound message the agents accept in [`State::Idle`], in bytes.
+pub const IDLE_SIZE_LIMIT: usize = 65_535;
+
+/// Largest inbound message the agents accept in [`State::TxIdsBlocking`] and
+/// [`State::TxIdsNonBlocking`], in bytes.
+pub const TX_IDS_SIZE_LIMIT: usize = 2_500_000;
+
+/// Largest inbound message the agents accept in [`State::Txs`], in bytes.
+pub const TXS_SIZE_LIMIT: usize = 2_500_000;
+
 /// Tx-submission state-machine state.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
@@ -17,6 +31,17 @@ pub enum State {
     Txs,
     /// Protocol terminated.
     Done,
+}
+
+impl State {
+    pub(crate) fn size_limit(&self) -> usize {
+        match self {
+            State::Init => INIT_SIZE_LIMIT,
+            State::Idle | State::Done => IDLE_SIZE_LIMIT,
+            State::TxIdsBlocking | State::TxIdsNonBlocking => TX_IDS_SIZE_LIMIT,
+            State::Txs => TXS_SIZE_LIMIT,
+        }
+    }
 }
 
 /// Whether a tx-id request should block until new txs are available.

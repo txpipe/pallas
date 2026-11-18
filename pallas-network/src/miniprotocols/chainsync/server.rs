@@ -42,6 +42,11 @@ pub enum ClientRequest {
 }
 
 /// Chain-sync server agent generic over the content type.
+///
+/// With node-to-node content, inbound messages larger than
+/// [`MESSAGE_SIZE_LIMIT`](super::MESSAGE_SIZE_LIMIT) fail with [`multiplexer::Error::Decoding`], unless
+/// [`Self::disable_size_limits`] is called. Other content types are received
+/// without limits.
 pub struct Server<O>(State, multiplexer::ChannelBuffer, PhantomData<O>)
 where
     Message<O>: Fragment;
@@ -57,11 +62,21 @@ where
     /// * `channel` - An instance of `multiplexer::AgentChannel` to be used for
     ///   communication.
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
-        Self(
-            State::Idle,
-            multiplexer::ChannelBuffer::new(channel),
-            PhantomData {},
-        )
+        let mut buffer = multiplexer::ChannelBuffer::new(channel);
+        buffer.set_size_limits(super::is_node_to_node::<O>());
+        Self(State::Idle, buffer, PhantomData {})
+    }
+
+    /// Receive inbound messages of any size, as releases before 1.5 did.
+    ///
+    /// By default a message larger than the size limit of its protocol state
+    /// fails with [`multiplexer::Error::Decoding`].
+    pub fn disable_size_limits(&mut self) {
+        self.1.set_size_limits(false);
+    }
+
+    fn size_limit(&self) -> usize {
+        super::MESSAGE_SIZE_LIMIT
     }
 
     /// Returns the current state of the server.
@@ -154,7 +169,11 @@ where
     async fn recv_message(&mut self) -> Result<Message<O>, ServerError> {
         self.assert_agency_is_theirs()?;
 
-        let msg = self.1.recv_full_msg().await.map_err(ServerError::Plexer)?;
+        let msg = self
+            .1
+            .recv_msg(Some(self.size_limit()))
+            .await
+            .map_err(ServerError::Plexer)?;
 
         self.assert_inbound_state(&msg)?;
 

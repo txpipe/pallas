@@ -1,4 +1,30 @@
 //! A multiplexer of several mini-protocols through a single bearer
+//!
+//! # Message reassembly and size limits
+//!
+//! [`ChannelBuffer`](crate::multiplexer::ChannelBuffer) reassembles mini-protocol messages from segments. It finds
+//! where a message ends by scanning each inbound byte once, then decodes the
+//! message once, so receiving takes time linear in the bytes received.
+//!
+//! [`recv_full_msg`](crate::multiplexer::ChannelBuffer::recv_full_msg) buffers a message of any size.
+//! [`recv_full_msg_with_limit`](crate::multiplexer::ChannelBuffer::recv_full_msg_with_limit) stops once the message being
+//! received is larger than a given number of bytes, checking after each
+//! segment, so it buffers at most one segment beyond the limit. It then fails
+//! with [`Error::Decoding`](crate::multiplexer::Error::Decoding) and the message
+//! `message of at least <seen> bytes exceeds the size limit of <limit> bytes`.
+//! Nothing is sent to the peer; drop the connection, as for any decoding error.
+//!
+//! The handshake agents and the node-to-node agents (chain-sync, block-fetch,
+//! tx-submission, keep-alive and peer-sharing) receive with the per-state
+//! limits of the Ouroboros network specification, published as constants in
+//! each protocol module. Each of these agents has a `disable_size_limits`
+//! method that restores unlimited receiving for that agent. The node-to-client
+//! agents receive without limits.
+//!
+//! Both receives refuse CBOR whose containers nest deeper than four times
+//! [`pallas_codec::MAX_DECODE_DEPTH`].
+
+mod scanner;
 
 use std::collections::HashMap;
 
@@ -651,10 +677,19 @@ where
     }
 }
 
+fn size_limit_error(limit: usize, seen: usize) -> Error {
+    // TODO(v2-breaking): replace with a dedicated size-limit error variant
+    Error::Decoding(format!(
+        "message of at least {seen} bytes exceeds the size limit of {limit} bytes"
+    ))
+}
+
 /// A channel abstraction to hide the complexity of partial payloads
 pub struct ChannelBuffer {
     channel: AgentChannel,
     temp: Vec<u8>,
+    scanner: scanner::Scanner,
+    limits_enabled: bool,
 }
 
 impl ChannelBuffer {
@@ -663,7 +698,16 @@ impl ChannelBuffer {
         Self {
             channel,
             temp: Vec::new(),
+            scanner: scanner::Scanner::default(),
+            limits_enabled: true,
         }
+    }
+
+    /// Turn the size limit passed to [`Self::recv_msg`] on or off. A buffer
+    /// whose limits are off ignores that limit and receives messages of any
+    /// size; this is how an agent restores unlimited receiving.
+    pub(crate) fn set_size_limits(&mut self, enabled: bool) {
+        self.limits_enabled = enabled;
     }
 
     /// Enqueues a msg as a sequence payload chunks
@@ -684,31 +728,100 @@ impl ChannelBuffer {
     }
 
     /// Reads from the channel until a complete message is found
+    ///
+    /// Buffers a message of any size. Use [`Self::recv_full_msg_with_limit`]
+    /// when the peer is not trusted.
     pub async fn recv_full_msg<M>(&mut self) -> Result<M, Error>
     where
         M: Fragment,
     {
+        self.recv_msg(None).await
+    }
+
+    /// Reads from the channel until a complete message of at most `max_size`
+    /// bytes is found.
+    ///
+    /// Fails with [`Error::Decoding`] once the message is larger than
+    /// `max_size`, checking after each segment, so at most one segment beyond
+    /// the limit is buffered. The error reads `message of at least <seen>
+    /// bytes exceeds the size limit of <limit> bytes`.
+    pub async fn recv_full_msg_with_limit<M>(&mut self, max_size: usize) -> Result<M, Error>
+    where
+        M: Fragment,
+    {
+        self.recv_msg(Some(max_size)).await
+    }
+
+    /// Receive a message, of at most `limit` bytes when one is given and this
+    /// buffer's limits are enabled (see [`Self::set_size_limits`]).
+    pub(crate) async fn recv_msg<M>(&mut self, limit: Option<usize>) -> Result<M, Error>
+    where
+        M: Fragment,
+    {
+        let limit = limit.filter(|_| self.limits_enabled);
+
         trace!(len = self.temp.len(), "waiting for full message");
 
-        if !self.temp.is_empty() {
-            trace!("buffer has data from previous payload");
-
-            if let Some(msg) = try_decode_message::<M>(&mut self.temp)? {
+        loop {
+            if let Some(msg) = self.try_take_msg::<M>(limit)? {
                 debug!("decoding done");
                 return Ok(msg);
             }
-        }
 
-        loop {
-            let chunk = self.channel.dequeue_chunk().await?;
-            self.temp.extend(chunk);
-
-            if let Some(msg) = try_decode_message::<M>(&mut self.temp)? {
-                debug!("decoding done");
-                return Ok(msg);
+            // Every buffered byte belongs to the incomplete message.
+            if let Some(limit) = limit
+                && self.temp.len() > limit
+            {
+                return Err(size_limit_error(limit, self.temp.len()));
             }
 
             trace!("not enough data");
+
+            let chunk = self.channel.dequeue_chunk().await?;
+            self.temp.extend(chunk);
+        }
+    }
+
+    /// Decode the message at the start of the buffer once its bytes are all
+    /// there, scanning only the bytes not scanned before.
+    fn try_take_msg<M>(&mut self, limit: Option<usize>) -> Result<Option<M>, Error>
+    where
+        M: Fragment,
+    {
+        loop {
+            let end = match self.scanner.scan(&self.temp) {
+                Ok(Some(end)) => end,
+                Ok(None) => return Ok(None),
+                Err(scanner::ScanError::TooDeep) => {
+                    return Err(Error::Decoding(format!(
+                        "CBOR nesting exceeds the limit of {} levels",
+                        scanner::MAX_NESTING
+                    )));
+                }
+                // The decoder reports the error, or decodes a message that
+                // ends before the malformed bytes.
+                Err(scanner::ScanError::Malformed) => {
+                    return match try_decode_message(&mut self.temp)? {
+                        Some(msg) => {
+                            self.scanner = scanner::Scanner::default();
+                            Ok(Some(msg))
+                        }
+                        None => Err(Error::Decoding("malformed CBOR".into())),
+                    };
+                }
+            };
+
+            if let Some(limit) = limit
+                && end > limit
+            {
+                return Err(size_limit_error(limit, end));
+            }
+
+            // A message type made of several top-level items needs the next.
+            if let Some(msg) = try_decode_message(&mut self.temp)? {
+                self.scanner = scanner::Scanner::default();
+                return Ok(Some(msg));
+            }
         }
     }
 

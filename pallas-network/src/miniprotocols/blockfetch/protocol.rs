@@ -1,5 +1,16 @@
 use crate::miniprotocols::Point;
 
+/// Largest inbound message the agents accept in [`State::Idle`], in bytes, as
+/// in the Ouroboros network specification.
+pub const IDLE_SIZE_LIMIT: usize = 65_535;
+
+/// Largest inbound message the agents accept in [`State::Busy`], in bytes.
+pub const BUSY_SIZE_LIMIT: usize = 65_535;
+
+/// Largest inbound message the agents accept in [`State::Streaming`], in
+/// bytes, which bounds the size of a block.
+pub const STREAMING_SIZE_LIMIT: usize = 2_500_000;
+
 /// Block-fetch state machine state.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
@@ -11,6 +22,16 @@ pub enum State {
     Streaming,
     /// Protocol is terminated.
     Done,
+}
+
+impl State {
+    pub(crate) fn size_limit(&self) -> usize {
+        match self {
+            State::Idle | State::Done => IDLE_SIZE_LIMIT,
+            State::Busy => BUSY_SIZE_LIMIT,
+            State::Streaming => STREAMING_SIZE_LIMIT,
+        }
+    }
 }
 
 /// Block-fetch protocol message.

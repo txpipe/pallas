@@ -20,6 +20,12 @@ pub enum Reply<TxId, TxBody> {
 
 /// A generic implementation of an ouroboros server protocol ready to request
 /// and receive transactions from a client
+///
+/// Inbound messages larger than the limit of the state they arrive in,
+/// [`INIT_SIZE_LIMIT`](super::INIT_SIZE_LIMIT), [`TX_IDS_SIZE_LIMIT`](super::TX_IDS_SIZE_LIMIT) or
+/// [`TXS_SIZE_LIMIT`](super::TXS_SIZE_LIMIT), fail with
+/// [`multiplexer::Error::Decoding`], unless [`Self::disable_size_limits`] is
+/// called.
 pub struct GenericServer<TxId, TxBody>(
     State,
     multiplexer::ChannelBuffer,
@@ -44,6 +50,18 @@ where
             PhantomData {},
             PhantomData {},
         )
+    }
+
+    /// Receive inbound messages of any size, as releases before 1.5 did.
+    ///
+    /// By default a message larger than the size limit of its protocol state
+    /// fails with [`multiplexer::Error::Decoding`].
+    pub fn disable_size_limits(&mut self) {
+        self.1.set_size_limits(false);
+    }
+
+    fn size_limit(&self) -> usize {
+        self.0.size_limit()
     }
 
     /// Current state-machine state.
@@ -109,7 +127,11 @@ where
     /// Low-level receive.
     pub async fn recv_message(&mut self) -> Result<Message<TxId, TxBody>, Error> {
         self.assert_agency_is_theirs()?;
-        let msg = self.1.recv_full_msg().await.map_err(Error::Plexer)?;
+        let msg = self
+            .1
+            .recv_msg(Some(self.size_limit()))
+            .await
+            .map_err(Error::Plexer)?;
         self.assert_inbound_state(&msg)?;
 
         Ok(msg)
