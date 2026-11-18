@@ -13,15 +13,18 @@ use pallas_codec::minicbor;
 use pallas_codec::utils::AnyCbor;
 use pallas_network::facades::{Error, PeerServer};
 use pallas_network::miniprotocols::blockfetch;
-use pallas_network::miniprotocols::chainsync::{self, HeaderContent};
+use pallas_network::miniprotocols::chainsync::{self, BlockContent, HeaderContent, Tip};
 use pallas_network::miniprotocols::handshake::{self, n2n};
 use pallas_network::miniprotocols::localstate;
+use pallas_network::miniprotocols::peersharing::{self, PeerAddress};
+use pallas_network::miniprotocols::txsubmission::{self, EraTxBody, EraTxId, TxIdAndSize};
 use pallas_network::miniprotocols::{
-    MAINNET_MAGIC, PROTOCOL_N2C_STATE_QUERY, PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC,
-    PROTOCOL_N2N_HANDSHAKE, Point,
+    MAINNET_MAGIC, PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_STATE_QUERY, PROTOCOL_N2N_BLOCK_FETCH,
+    PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE, PROTOCOL_N2N_KEEP_ALIVE,
+    PROTOCOL_N2N_PEER_SHARING, PROTOCOL_N2N_TX_SUBMISSION, Point, keepalive,
 };
 use pallas_network::multiplexer::{
-    AgentChannel, Bearer, ChannelBuffer, Header, Plexer, RunningPlexer,
+    AgentChannel, Bearer, ChannelBuffer, Header, MAX_SEGMENT_PAYLOAD_LENGTH, Plexer, RunningPlexer,
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -259,14 +262,11 @@ async fn node_to_client_receive_is_unbounded() {
 
 #[tokio::test]
 async fn unlimited_receive_is_linear_in_message_size() {
-    // A message prefix that never completes: an array whose declared length is
-    // never reached, followed by filler the old code re-scanned on every
-    // segment.
-    let mut prefix = vec![0x82, 0x00, 0x9b]; // [0, <array of u64::MAX items> ...
-    prefix.extend([0xff; 8]);
-
+    // A proposal whose version table never ends, sent as small segments of
+    // whole entries.
     const TARGET: usize = 2 * 1024 * 1024;
     const SEGMENT: usize = 16;
+    let prefix = never_ending_proposal_prefix();
 
     let (mut client, server, _link) = loopback(PROTOCOL_N2N_HANDSHAKE).await;
 
@@ -280,22 +280,25 @@ async fn unlimited_receive_is_linear_in_message_size() {
     });
 
     let start = Instant::now();
-    client.enqueue_chunk(prefix).await.unwrap();
-    let filler = vec![0u8; SEGMENT];
-    let mut sent = 0;
-    while sent < TARGET {
-        client.enqueue_chunk(filler.clone()).await.unwrap();
-        sent += SEGMENT;
-    }
-    let elapsed = start.elapsed();
+    let send = async {
+        client.enqueue_chunk(prefix).await.unwrap();
+        let filler = version_entries(SEGMENT);
+        let mut sent = 0;
+        while sent < TARGET {
+            client.enqueue_chunk(filler.clone()).await.unwrap();
+            sent += SEGMENT;
+        }
+    };
 
     // Backpressure makes this track the receiver's work. Linear reassembly
     // absorbs these bytes well within this bound; the previous per-segment
     // re-scan exceeded it by far.
+    let bound = Duration::from_secs(20);
     assert!(
-        elapsed < Duration::from_secs(20),
-        "absorbing {TARGET} bytes took {elapsed:?}",
+        tokio::time::timeout(bound, send).await.is_ok(),
+        "absorbing {TARGET} bytes took over {bound:?}",
     );
+    eprintln!("absorbed {TARGET} bytes in {:?}", start.elapsed());
 }
 
 #[tokio::test]
@@ -318,10 +321,10 @@ async fn peer_server_refuses_an_oversized_proposal() {
     .await
     .expect("accept returns after refusing the proposal");
 
-    assert!(
-        matches!(accepted, Err(Error::HandshakeProtocol(_))),
-        "the handshake fails with a protocol error",
-    );
+    let Err(Error::HandshakeProtocol(err)) = accepted else {
+        panic!("the handshake fails with a protocol error");
+    };
+    assert_refused_within_one_segment(err, handshake::MESSAGE_SIZE_LIMIT, PROPOSAL_SEGMENT);
     assert_eq!(
         tasks.num_alive_tasks(),
         before,
@@ -337,32 +340,99 @@ async fn peer_server_refuses_an_oversized_proposal() {
     assert!(!matches!(read, Ok(n) if n > 0), "the server wrote back");
 }
 
-/// Write a handshake proposal prefix that never completes, then stream filler
-/// well past the handshake limit, as 64 KiB segments.
-async fn stream_never_ending_proposal(stream: &mut TcpStream) {
-    let mut prefix = vec![0x82, 0x00, 0x9b];
-    prefix.extend([0xff; 8]);
-    write_segment(stream, &prefix).await;
+/// Segment size used to stream a never-ending proposal.
+const PROPOSAL_SEGMENT: usize = 1024;
 
-    let filler = vec![0u8; 32 * 1024];
-    let mut sent = 0;
-    while sent < 4 * handshake::MESSAGE_SIZE_LIMIT {
-        write_segment(stream, &filler).await;
-        sent += filler.len();
+/// `[0, {` with a declared entry count of `u64::MAX`: a proposal whose version
+/// table never ends.
+fn never_ending_proposal_prefix() -> Vec<u8> {
+    let mut prefix = vec![0x82, 0x00, 0xbb];
+    prefix.extend([0xff; 8]);
+    prefix
+}
+
+/// `len` bytes of whole version-table entries, each `0 => [0, false]`.
+fn version_entries(len: usize) -> Vec<u8> {
+    assert_eq!(len % 4, 0);
+    [0x00, 0x82, 0x00, 0xf4].repeat(len / 4)
+}
+
+/// Write a proposal that never ends as many small segments, stopping once the
+/// server closes the connection or well past the handshake limit.
+async fn stream_never_ending_proposal(stream: &mut TcpStream) {
+    if write_segment(stream, &never_ending_proposal_prefix())
+        .await
+        .is_err()
+    {
+        return;
+    }
+
+    let entries = version_entries(PROPOSAL_SEGMENT);
+    for _ in 0..(64 * handshake::MESSAGE_SIZE_LIMIT / PROPOSAL_SEGMENT) {
+        if write_segment(stream, &entries).await.is_err() {
+            return;
+        }
     }
 }
 
 /// Frame `payload` as one handshake segment and write it.
-async fn write_segment(stream: &mut TcpStream, payload: &[u8]) {
+async fn write_segment(stream: &mut TcpStream, payload: &[u8]) -> std::io::Result<()> {
     let header: [u8; HEADER_LEN] = Header {
         protocol: PROTOCOL_N2N_HANDSHAKE,
         timestamp: 0,
         payload_len: payload.len() as u16,
     }
     .into();
-    stream.write_all(&header).await.unwrap();
-    stream.write_all(payload).await.unwrap();
-    stream.flush().await.unwrap();
+    stream.write_all(&header).await?;
+    stream.write_all(payload).await?;
+    stream.flush().await
+}
+
+#[tokio::test]
+async fn handshake_server_stops_buffering_a_never_ending_proposal() {
+    let limit = handshake::MESSAGE_SIZE_LIMIT;
+    let (mut client, server, _link) = loopback(PROTOCOL_N2N_HANDSHAKE).await;
+    let mut server = handshake::N2NServer::new(server);
+
+    let send = async {
+        client
+            .enqueue_chunk(never_ending_proposal_prefix())
+            .await
+            .unwrap();
+        let entries = version_entries(PROPOSAL_SEGMENT);
+        for _ in 0..(64 * limit / PROPOSAL_SEGMENT) {
+            client.enqueue_chunk(entries.clone()).await.unwrap();
+        }
+        std::future::pending::<()>().await;
+    };
+
+    let received = tokio::time::timeout(Duration::from_secs(10), async {
+        tokio::select! {
+            received = server.receive_proposed_versions() => received,
+            _ = send => unreachable!(),
+        }
+    })
+    .await
+    .expect("the receive stops on its own");
+
+    assert_refused_within_one_segment(received.unwrap_err(), limit, PROPOSAL_SEGMENT);
+}
+
+/// Assert `err` is the size-limit error, raised once more than `limit` bytes
+/// and at most one further `segment` were buffered.
+fn assert_refused_within_one_segment(err: impl std::fmt::Debug, limit: usize, segment: usize) {
+    assert_size_limit_error(&err, limit);
+    let text = format!("{err:?}");
+    let seen: usize = text
+        .split_once("message of at least ")
+        .and_then(|(_, rest)| rest.split(' ').next())
+        .and_then(|n| n.parse().ok())
+        .unwrap_or_else(|| panic!("no size seen in: {text}"));
+    assert!(
+        seen > limit && seen <= limit + segment,
+        "refused at {seen} bytes, limit {limit}, segment {segment}",
+    );
+    assert!(segment <= MAX_SEGMENT_PAYLOAD_LENGTH);
 }
 
 /// Assert `err`'s string names the size limit and the bytes seen.
@@ -382,4 +452,407 @@ async fn drive_server_to_streaming(
     let request = server.recv_while_idle().await?;
     server.send_start_batch().await?;
     Ok(request)
+}
+
+/// What a limited receive does with the message the peer sent.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Expect {
+    /// Received.
+    Accepted,
+    /// Refused with the size-limit error.
+    Refused,
+    /// Past the size check, whatever the agent then makes of it: for states
+    /// whose valid messages are too small to reach the limit.
+    NotRefused,
+}
+
+/// The receives a limit test runs: under the limit, over it, and over it
+/// with the opt-out.
+fn cases<M>(under: M, over: M, over_opted_out: Expect) -> [(M, bool, Expect); 3]
+where
+    M: Clone,
+{
+    [
+        (under, false, Expect::Accepted),
+        (over.clone(), false, Expect::Refused),
+        (over, true, over_opted_out),
+    ]
+}
+
+/// Check a receive's result against what was expected of it.
+fn check<T, E: std::fmt::Debug>(result: Result<T, E>, expect: Expect, limit: usize) {
+    match expect {
+        Expect::Accepted => {
+            if let Err(err) = result {
+                panic!("the message is not received: {err:?}");
+            }
+        }
+        Expect::Refused => match result {
+            Ok(_) => panic!("an oversized message is received"),
+            Err(err) => assert_size_limit_error(err, limit),
+        },
+        Expect::NotRefused => {
+            if let Err(err) = result {
+                let text = format!("{err:?}");
+                assert!(!text.contains("exceeds the size limit"), "refused: {text}");
+            }
+        }
+    }
+}
+
+/// Bytes the peer sends: an encoded message, or raw CBOR.
+#[derive(Clone)]
+struct Wire(Vec<u8>);
+
+fn wire<M: minicbor::Encode<()>>(msg: &M) -> Wire {
+    let mut bytes = vec![];
+    minicbor::encode(msg, &mut bytes).unwrap();
+    Wire(bytes)
+}
+
+/// `[label, <byte string>]` of at least `len` bytes: a message larger than
+/// any valid message of a protocol whose messages are all small.
+fn oversized(label: u8, len: usize) -> Wire {
+    let mut bytes = vec![0x82, label, 0x5a];
+    bytes.extend((len as u32).to_be_bytes());
+    bytes.extend(std::iter::repeat_n(0u8, len));
+    Wire(bytes)
+}
+
+/// Send `wire` from the peer's channel, from a task of its own so a receive
+/// that stops early does not hold it up.
+fn send_from_peer(mut peer: AgentChannel, wire: Wire) {
+    tokio::spawn(async move {
+        for chunk in wire.0.chunks(MAX_SEGMENT_PAYLOAD_LENGTH) {
+            if peer.enqueue_chunk(chunk.to_vec()).await.is_err() {
+                break;
+            }
+        }
+        peer
+    });
+}
+
+/// A transaction id carrying `len` bytes.
+fn tx_id(len: usize) -> EraTxId {
+    EraTxId(6, vec![0xcd; len])
+}
+
+#[test]
+fn limits_match_the_network_specification() {
+    assert_eq!(handshake::MESSAGE_SIZE_LIMIT, 5_760);
+    assert_eq!(chainsync::MESSAGE_SIZE_LIMIT, 65_535);
+    assert_eq!(blockfetch::IDLE_SIZE_LIMIT, 65_535);
+    assert_eq!(blockfetch::BUSY_SIZE_LIMIT, 65_535);
+    assert_eq!(blockfetch::STREAMING_SIZE_LIMIT, 2_500_000);
+    assert_eq!(txsubmission::INIT_SIZE_LIMIT, 65_535);
+    assert_eq!(txsubmission::IDLE_SIZE_LIMIT, 65_535);
+    assert_eq!(txsubmission::TX_IDS_SIZE_LIMIT, 2_500_000);
+    assert_eq!(txsubmission::TXS_SIZE_LIMIT, 2_500_000);
+    assert_eq!(keepalive::MESSAGE_SIZE_LIMIT, 65_535);
+    assert_eq!(peersharing::MESSAGE_SIZE_LIMIT, 5_760);
+}
+
+#[tokio::test]
+async fn handshake_client_bounds_the_reply_size() {
+    let limit = handshake::MESSAGE_SIZE_LIMIT;
+    let refusal = |n: u64| {
+        handshake::Message::<n2n::VersionData>::Refuse(handshake::RefuseReason::VersionMismatch(
+            (0..n).map(|i| 1_000_000_000_000 + i).collect(),
+        ))
+    };
+    let (under, over) = (wire(&refusal(500)), wire(&refusal(700)));
+    assert!(under.0.len() < limit && over.0.len() > limit);
+
+    for (msg, disable, expect) in cases(under, over, Expect::Accepted) {
+        let (client, peer, _link) = loopback(PROTOCOL_N2N_HANDSHAKE).await;
+        let mut client = handshake::N2NClient::new(client);
+        if disable {
+            client.disable_size_limits();
+        }
+        client
+            .send_propose(handshake::VersionTable {
+                values: [(13, n2n::VersionData::new(MAINNET_MAGIC, true, None, None))].into(),
+            })
+            .await
+            .unwrap();
+
+        send_from_peer(peer, msg);
+        check(client.recv_message().await, expect, limit);
+    }
+}
+
+#[tokio::test]
+async fn chainsync_client_bounds_the_message_size() {
+    let limit = chainsync::MESSAGE_SIZE_LIMIT;
+    let found = |n: usize| {
+        chainsync::Message::<HeaderContent>::IntersectFound(point_of(n), Tip(point_of(32), 1))
+    };
+    let (under, over) = (wire(&found(limit - 2_000)), wire(&found(limit + 2_000)));
+
+    for (msg, disable, expect) in cases(under, over, Expect::Accepted) {
+        let (client, peer, _link) = loopback(PROTOCOL_N2N_CHAIN_SYNC).await;
+        let mut client = chainsync::N2NClient::new(client);
+        if disable {
+            client.disable_size_limits();
+        }
+        client
+            .send_find_intersect(vec![point_of(32)])
+            .await
+            .unwrap();
+
+        send_from_peer(peer, msg);
+        check(client.recv_message().await, expect, limit);
+    }
+}
+
+#[tokio::test]
+async fn blockfetch_client_bounds_the_busy_reply() {
+    let limit = blockfetch::BUSY_SIZE_LIMIT;
+    let under = wire(&blockfetch::Message::StartBatch);
+    let over = wire(&blockfetch::Message::Block {
+        body: vec![0; limit + 1_000],
+    });
+
+    for (msg, disable, expect) in cases(under, over, Expect::NotRefused) {
+        let (client, peer, _link) = loopback(PROTOCOL_N2N_BLOCK_FETCH).await;
+        let mut client = blockfetch::Client::new(client);
+        if disable {
+            client.disable_size_limits();
+        }
+        let point = point_of(32);
+        client
+            .send_request_range((point.clone(), point))
+            .await
+            .unwrap();
+
+        send_from_peer(peer, msg);
+        check(client.recv_message().await, expect, limit);
+    }
+}
+
+#[tokio::test]
+async fn blockfetch_server_bounds_the_range_request() {
+    let limit = blockfetch::IDLE_SIZE_LIMIT;
+    let request = |n: usize| blockfetch::Message::RequestRange {
+        range: (point_of(n), point_of(n)),
+    };
+    let (under, over) = (wire(&request(30_000)), wire(&request(34_000)));
+    assert!(under.0.len() < limit && over.0.len() > limit);
+
+    for (msg, disable, expect) in cases(under, over, Expect::Accepted) {
+        let (peer, server, _link) = loopback(PROTOCOL_N2N_BLOCK_FETCH).await;
+        let mut server = blockfetch::Server::new(server);
+        if disable {
+            server.disable_size_limits();
+        }
+
+        send_from_peer(peer, msg);
+        check(server.recv_while_idle().await, expect, limit);
+    }
+}
+
+type TxMessage = txsubmission::Message<EraTxId, EraTxBody>;
+
+#[tokio::test]
+async fn txsubmission_server_bounds_the_init_message() {
+    let limit = txsubmission::INIT_SIZE_LIMIT;
+    let under = wire(&TxMessage::Init);
+    let over = wire(&TxMessage::ReplyTxs(vec![EraTxBody(6, vec![0; limit])]));
+
+    for (msg, disable, expect) in cases(under, over, Expect::NotRefused) {
+        let (peer, server, _link) = loopback(PROTOCOL_N2N_TX_SUBMISSION).await;
+        let mut server = txsubmission::Server::new(server);
+        if disable {
+            server.disable_size_limits();
+        }
+
+        send_from_peer(peer, msg);
+        check(server.wait_for_init().await, expect, limit);
+    }
+}
+
+/// Wait for a transaction-submission server to receive `Init`, sent by
+/// `peer`, and return the peer's channel.
+async fn init_txsubmission(
+    server: &mut txsubmission::Server,
+    mut peer: AgentChannel,
+) -> AgentChannel {
+    peer.enqueue_chunk(wire(&TxMessage::Init).0).await.unwrap();
+    server.wait_for_init().await.unwrap();
+    peer
+}
+
+#[tokio::test]
+async fn txsubmission_server_bounds_the_tx_ids_reply() {
+    let limit = txsubmission::TX_IDS_SIZE_LIMIT;
+    // Under this limit but over the idle one, so the state's own limit applies.
+    let reply = |n: usize| TxMessage::ReplyTxIds(vec![TxIdAndSize(tx_id(n), 1)]);
+    let (under, over) = (wire(&reply(100_000)), wire(&reply(limit)));
+
+    for (msg, disable, expect) in cases(under, over, Expect::Accepted) {
+        let (peer, server, _link) = loopback(PROTOCOL_N2N_TX_SUBMISSION).await;
+        let mut server = txsubmission::Server::new(server);
+        if disable {
+            server.disable_size_limits();
+        }
+        let peer = init_txsubmission(&mut server, peer).await;
+        server
+            .acknowledge_and_request_tx_ids(true, 0, 1)
+            .await
+            .unwrap();
+
+        send_from_peer(peer, msg);
+        check(server.receive_next_reply().await, expect, limit);
+    }
+}
+
+#[tokio::test]
+async fn txsubmission_server_bounds_the_txs_reply() {
+    let limit = txsubmission::TXS_SIZE_LIMIT;
+    // Under this limit but over the idle one, so the state's own limit applies.
+    let reply = |n: usize| TxMessage::ReplyTxs(vec![EraTxBody(6, vec![0; n])]);
+    let (under, over) = (wire(&reply(100_000)), wire(&reply(limit)));
+
+    for (msg, disable, expect) in cases(under, over, Expect::Accepted) {
+        let (peer, server, _link) = loopback(PROTOCOL_N2N_TX_SUBMISSION).await;
+        let mut server = txsubmission::Server::new(server);
+        if disable {
+            server.disable_size_limits();
+        }
+        let peer = init_txsubmission(&mut server, peer).await;
+        server.request_txs(vec![tx_id(32)]).await.unwrap();
+
+        send_from_peer(peer, msg);
+        check(server.receive_next_reply().await, expect, limit);
+    }
+}
+
+#[tokio::test]
+async fn txsubmission_client_bounds_the_request() {
+    let limit = txsubmission::IDLE_SIZE_LIMIT;
+    let request = |n: usize| TxMessage::RequestTxs(vec![tx_id(n)]);
+    let (under, over) = (wire(&request(limit - 1_000)), wire(&request(limit + 1_000)));
+
+    for (msg, disable, expect) in cases(under, over, Expect::Accepted) {
+        let (client, peer, _link) = loopback(PROTOCOL_N2N_TX_SUBMISSION).await;
+        let mut client = txsubmission::Client::new(client);
+        if disable {
+            client.disable_size_limits();
+        }
+        client.send_init().await.unwrap();
+
+        send_from_peer(peer, msg);
+        check(client.next_request().await, expect, limit);
+    }
+}
+
+#[tokio::test]
+async fn keepalive_client_bounds_the_response() {
+    let limit = keepalive::MESSAGE_SIZE_LIMIT;
+    let under = wire(&keepalive::Message::ResponseKeepAlive(7));
+    let over = oversized(1, limit);
+
+    for (msg, disable, expect) in cases(under, over, Expect::NotRefused) {
+        let (client, peer, _link) = loopback(PROTOCOL_N2N_KEEP_ALIVE).await;
+        let mut client = keepalive::Client::new(client);
+        if disable {
+            client.disable_size_limits();
+        }
+        client.send_keepalive_request().await.unwrap();
+
+        send_from_peer(peer, msg);
+        check(client.recv_message().await, expect, limit);
+    }
+}
+
+#[tokio::test]
+async fn keepalive_server_bounds_the_request() {
+    let limit = keepalive::MESSAGE_SIZE_LIMIT;
+    let under = wire(&keepalive::Message::KeepAlive(7));
+    let over = oversized(0, limit);
+
+    for (msg, disable, expect) in cases(under, over, Expect::NotRefused) {
+        let (peer, server, _link) = loopback(PROTOCOL_N2N_KEEP_ALIVE).await;
+        let mut server = keepalive::Server::new(server);
+        if disable {
+            server.disable_size_limits();
+        }
+
+        send_from_peer(peer, msg);
+        check(server.recv_message().await, expect, limit);
+    }
+}
+
+fn share_peers(n: u8) -> peersharing::Message {
+    peersharing::Message::SharePeers(
+        (0..n)
+            .map(|i| PeerAddress::V6(std::net::Ipv6Addr::from_bits(u128::MAX - i as u128), 3001))
+            .collect(),
+    )
+}
+
+#[tokio::test]
+async fn peersharing_client_bounds_the_reply() {
+    let limit = peersharing::MESSAGE_SIZE_LIMIT;
+    let (under, over) = (wire(&share_peers(200)), wire(&share_peers(255)));
+    assert!(under.0.len() < limit && over.0.len() > limit);
+
+    for (msg, disable, expect) in cases(under, over, Expect::Accepted) {
+        let (client, peer, _link) = loopback(PROTOCOL_N2N_PEER_SHARING).await;
+        let mut client = peersharing::Client::new(client);
+        if disable {
+            client.disable_size_limits();
+        }
+        client.send_share_request(255).await.unwrap();
+
+        send_from_peer(peer, msg);
+        check(client.recv_peer_addresses().await, expect, limit);
+    }
+}
+
+#[tokio::test]
+async fn peersharing_server_bounds_the_request() {
+    let limit = peersharing::MESSAGE_SIZE_LIMIT;
+    let under = wire(&peersharing::Message::ShareRequest(10));
+    let over = wire(&share_peers(255));
+
+    for (msg, disable, expect) in cases(under, over, Expect::NotRefused) {
+        let (peer, server, _link) = loopback(PROTOCOL_N2N_PEER_SHARING).await;
+        let mut server = peersharing::Server::new(server);
+        if disable {
+            server.disable_size_limits();
+        }
+
+        send_from_peer(peer, msg);
+        check(server.recv_share_request().await, expect, limit);
+    }
+}
+
+#[tokio::test]
+async fn node_to_client_chainsync_is_unbounded() {
+    let big = 4 * chainsync::MESSAGE_SIZE_LIMIT;
+
+    // The client receives a block larger than the node-to-node limit.
+    let (client, peer, _link) = loopback(PROTOCOL_N2C_CHAIN_SYNC).await;
+    let mut client = chainsync::N2CClient::new(client);
+    client.send_request_next().await.unwrap();
+    send_from_peer(
+        peer,
+        wire(&chainsync::Message::RollForward(
+            BlockContent(vec![0; big]),
+            Tip(point_of(32), 1),
+        )),
+    );
+    check(client.recv_message().await, Expect::Accepted, big);
+
+    // The server receives an intersection request larger than that limit.
+    let (peer, server, _link) = loopback(PROTOCOL_N2C_CHAIN_SYNC).await;
+    let mut server = chainsync::N2CServer::new(server);
+    send_from_peer(
+        peer,
+        wire(&chainsync::Message::<BlockContent>::FindIntersect(vec![
+            point_of(big),
+        ])),
+    );
+    check(server.recv_while_idle().await, Expect::Accepted, big);
 }

@@ -65,20 +65,22 @@ impl Scanner {
             let info = initial & 0x1f;
 
             if info == 31 {
-                self.pos += 1;
-
                 match major {
                     2..=5 => self.push(INDEFINITE)?,
                     7 => {
-                        if self.open.pop() != Some(INDEFINITE) {
+                        if self.open.last() != Some(&INDEFINITE) {
                             return Err(ScanError::Malformed);
                         }
 
-                        if self.item_done() {
-                            return Ok(Some(self.pos));
-                        }
+                        self.open.pop();
                     }
                     _ => return Err(ScanError::Malformed),
+                }
+
+                self.pos += 1;
+
+                if major == 7 && self.item_done() {
+                    return Ok(Some(self.pos));
                 }
 
                 continue;
@@ -130,6 +132,18 @@ impl Scanner {
                 return Ok(Some(self.pos));
             }
         }
+    }
+
+    /// Bytes consumed so far. After an error, the offset of the byte that
+    /// could not be scanned.
+    pub(crate) fn position(&self) -> usize {
+        self.pos
+    }
+
+    /// True when every byte of `buf` is consumed and none is owed to a
+    /// pending string payload, so `buf` ends between two items.
+    pub(crate) fn at_boundary(&self, buf: &[u8]) -> bool {
+        self.skip == 0 && self.pos == buf.len()
     }
 
     fn push(&mut self, items: u64) -> Result<(), ScanError> {
@@ -377,6 +391,34 @@ mod tests {
         ] {
             assert_eq!(ends(bytes), Err(ScanError::Malformed), "{bytes:02x?}");
         }
+    }
+
+    #[test]
+    fn errors_leave_the_position_at_the_offending_byte() {
+        for (bytes, at) in [
+            (&[0x82, 0x00, 0xff][..], 2),
+            (&[0x81, 0x1c][..], 1),
+            (&[0x9f, 0x3f][..], 1),
+        ] {
+            let mut scanner = Scanner::default();
+            assert_eq!(scanner.scan(bytes), Err(ScanError::Malformed));
+            assert_eq!(scanner.position(), at, "{bytes:02x?}");
+        }
+    }
+
+    #[test]
+    fn boundary_excludes_split_heads_and_pending_strings() {
+        let mut scanner = Scanner::default();
+        let bytes = [0x83, 0x01, 0x19, 0x00];
+        assert_eq!(scanner.scan(&bytes[..2]), Ok(None));
+        assert!(scanner.at_boundary(&bytes[..2]));
+        assert_eq!(scanner.scan(&bytes), Ok(None));
+        assert!(!scanner.at_boundary(&bytes), "split head");
+
+        let mut scanner = Scanner::default();
+        let bytes = [0x82, 0x01, 0x43, 0x00];
+        assert_eq!(scanner.scan(&bytes), Ok(None));
+        assert!(!scanner.at_boundary(&bytes), "pending string");
     }
 
     #[test]
