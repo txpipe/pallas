@@ -50,7 +50,10 @@ are what the ledger read from these bytes.
 | file | from | items | frame | kind |
 | --- | --- | --- | --- | --- |
 | body-certificates-ending-in-null.hex | body, cddl-plain | 95 `{4} tag258 [0]`, 21 `{4} [2]`, 11 `{4} [1]`, 16 `{4} [1]` | `a400d90102800180020004d9010284{}{}{}{}` | transaction body |
+| body-governance-ending-in-null.hex | body, cddl-plain | 12 `{19}`, 71 `{20} tag258 [2]`, 22 `{20} tag258 [4]`, 22 `{20} tag258 [0]`, 25 `{20} tag258 [0]` | `a500d90102800180020013{}14d9010284{}{}{}{}` | transaction body |
 
 Each item ends in an absent value that the CDDL types as `T / nil`: a pool
-registration without metadata, a committee resignation, and a DRep
-registration and a DRep update without an anchor.
+registration without metadata, a committee resignation, a DRep registration
+and a DRep update without an anchor, a vote without an anchor, a constitution
+without a guardrail script, and a parameter change, a treasury withdrawal and
+a no confidence action without a previous action or policy.
