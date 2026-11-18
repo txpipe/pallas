@@ -327,11 +327,17 @@ impl PeerServer {
 
         let mut client = Self::new(bearer);
 
-        let accepted_version = client
+        let accepted_version = match client
             .handshake()
             .handshake_negotiated(n2n::VersionTable::v7_and_above(magic))
             .await
-            .map_err(Error::HandshakeProtocol)?;
+        {
+            Ok(version) => version,
+            Err(err) => {
+                client.plexer.abort_and_join().await;
+                return Err(Error::HandshakeProtocol(err));
+            }
+        };
 
         if let Some((version, data)) = accepted_version {
             client.accepted_address = Some(address);
@@ -600,11 +606,17 @@ impl NodeServer {
 
         let mut client = Self::new(bearer).await;
 
-        let accepted_version = client
+        let accepted_version = match client
             .handshake()
             .handshake_negotiated(n2c::VersionTable::v10_and_above(magic))
             .await
-            .map_err(Error::HandshakeProtocol)?;
+        {
+            Ok(version) => version,
+            Err(err) => {
+                client.plexer.abort_and_join().await;
+                return Err(Error::HandshakeProtocol(err));
+            }
+        };
 
         if let Some(version) = accepted_version {
             client.accepted_address = Some(address);
@@ -845,11 +857,17 @@ impl DmqServer {
 
         let mut client = Self::new(bearer).await;
 
-        let accepted_version = client
+        let accepted_version = match client
             .handshake()
             .handshake_negotiated(n2c::VersionTable::dmq(magic))
             .await
-            .map_err(Error::HandshakeProtocol)?;
+        {
+            Ok(version) => version,
+            Err(err) => {
+                client.plexer.abort_and_join().await;
+                return Err(Error::HandshakeProtocol(err));
+            }
+        };
 
         if let Some(version) = accepted_version {
             client.accepted_address = Some(address);

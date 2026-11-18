@@ -505,6 +505,16 @@ impl RunningPlexer {
         self.demuxer.abort();
         self.muxer.abort();
     }
+
+    /// Abort the muxer and demuxer tasks and wait until both are gone, so the
+    /// bearer is closed on return. Anything still queued is discarded.
+    pub(crate) async fn abort_and_join(self) {
+        self.demuxer.abort();
+        self.muxer.abort();
+
+        let _ = self.demuxer.await;
+        let _ = self.muxer.await;
+    }
 }
 
 /// Pairs a [`Demuxer`] and a [`Muxer`] sharing a single bearer.
