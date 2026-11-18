@@ -359,7 +359,11 @@ impl PeerServer {
             .handshake_negotiated(n2n::VersionTable::v7_and_above(magic));
 
         let accepted_version = match tokio::time::timeout(deadline, handshake).await {
-            Ok(result) => result.map_err(Error::HandshakeProtocol)?,
+            Ok(Ok(version)) => version,
+            Ok(Err(err)) => {
+                client.plexer.abort_and_join().await;
+                return Err(Error::HandshakeProtocol(err));
+            }
             Err(_) => {
                 client.plexer.abort_and_join().await;
                 return Err(handshake_timed_out());
@@ -371,7 +375,7 @@ impl PeerServer {
             client.accepted_version = Some((version, data));
             Ok(client)
         } else {
-            client.abort().await;
+            client.plexer.close().await;
             Err(Error::IncompatibleVersion)
         }
     }
@@ -653,7 +657,11 @@ impl NodeServer {
             .handshake_negotiated(n2c::VersionTable::v10_and_above(magic));
 
         let accepted_version = match tokio::time::timeout(deadline, handshake).await {
-            Ok(result) => result.map_err(Error::HandshakeProtocol)?,
+            Ok(Ok(version)) => version,
+            Ok(Err(err)) => {
+                client.plexer.abort_and_join().await;
+                return Err(Error::HandshakeProtocol(err));
+            }
             Err(_) => {
                 client.plexer.abort_and_join().await;
                 return Err(handshake_timed_out());
@@ -665,7 +673,7 @@ impl NodeServer {
             client.accpeted_version = Some(version);
             Ok(client)
         } else {
-            client.abort().await;
+            client.plexer.close().await;
             Err(Error::IncompatibleVersion)
         }
     }
@@ -919,7 +927,11 @@ impl DmqServer {
             .handshake_negotiated(n2c::VersionTable::dmq(magic));
 
         let accepted_version = match tokio::time::timeout(deadline, handshake).await {
-            Ok(result) => result.map_err(Error::HandshakeProtocol)?,
+            Ok(Ok(version)) => version,
+            Ok(Err(err)) => {
+                client.plexer.abort_and_join().await;
+                return Err(Error::HandshakeProtocol(err));
+            }
             Err(_) => {
                 client.plexer.abort_and_join().await;
                 return Err(handshake_timed_out());
@@ -931,7 +943,7 @@ impl DmqServer {
             client.accpeted_version = Some(version);
             Ok(client)
         } else {
-            client.abort().await;
+            client.plexer.close().await;
             Err(Error::IncompatibleVersion)
         }
     }
