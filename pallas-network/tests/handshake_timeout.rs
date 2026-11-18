@@ -215,6 +215,17 @@ mod unix {
         let _ = std::fs::remove_file(&path);
     }
 
+    #[tokio::test(start_paused = true)]
+    #[allow(deprecated)]
+    async fn dmq_server_accept_has_no_handshake_deadline() {
+        let (listener, path) = listener("hs-no-deadline-dmq");
+        let _silent = UnixStream::connect(&path).await.unwrap();
+
+        assert_still_waiting(DmqServer::accept(&listener, MAINNET_MAGIC)).await;
+
+        let _ = std::fs::remove_file(&path);
+    }
+
     #[tokio::test]
     async fn node_server_deadline_starts_once_the_peer_connects() {
         let (listener, path) = listener("hs-late-node");
