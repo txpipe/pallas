@@ -70,3 +70,19 @@ registration without metadata, a committee resignation, a DRep registration
 and a DRep update without an anchor, a vote without an anchor, a constitution
 without a guardrail script, and a parameter change, a treasury withdrawal and
 a no confidence action without a previous action or policy.
+
+## Header version info
+
+A whole generated value names its kind, its source and its index. Every file
+below is a value the ledger's decoder for its kind accepted. The expected
+values in `pallas-primitives/src/dijkstra/tests.rs` are what the ledger read
+from these bytes.
+
+| file | from | item | frame | kind |
+| --- | --- | --- | --- | --- |
+| block-header-version-info.hex | block, cddl-plain, 95 | whole | none | block |
+
+The ledger read its header version info as highest supported major version
+1004951745 and software tag 3942894501. It reads the same values when the
+version info is written as an indefinite array, and refuses the block when
+either field is 2^32.

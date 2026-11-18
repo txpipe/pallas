@@ -1,6 +1,6 @@
 //! Ledger primitives and cbor codec for the Dijkstra era
 //!
-//! Handcrafted, idiomatic rust artifacts based on the [Dijkstra CDDL](https://github.com/IntersectMBO/cardano-ledger/blob/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/dijkstra/impl/cddl/data/dijkstra.cddl) file in the IntersectMBO repo, vendored beside this one as `defs.cddl`.
+//! Handcrafted, idiomatic rust artifacts based on the [Dijkstra CDDL](https://github.com/IntersectMBO/cardano-ledger/blob/9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c/eras/dijkstra/impl/cddl/data/dijkstra.cddl) file in the IntersectMBO repo, vendored beside this one as `defs.cddl`.
 
 use serde::{Deserialize, Serialize};
 
@@ -196,7 +196,17 @@ tag_preserving_set!(NonEmptySet, "a nonempty set", 1);
 
 pub use crate::babbage::OperationalCert;
 
-/// `header_body` (`defs.cddl`) appends `block_body_contains_leios_cert` and `eb_announcement` to Conway's ten fields.
+/// `header_version_info = [highest_supported_major_version : uint .size 4, self_reported_software_tag : uint .size 4]` (`defs.cddl`).
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct HeaderVersionInfo {
+    #[n(0)]
+    pub highest_supported_major_version: u32,
+
+    #[n(1)]
+    pub self_reported_software_tag: u32,
+}
+
+/// `header_body` (`defs.cddl`) has `header_version_info` where Conway's has `protocol_version`, and appends `block_body_contains_leios_cert` and `eb_references_announcement`.
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct HeaderBody {
     #[n(0)]
@@ -227,7 +237,7 @@ pub struct HeaderBody {
     pub operational_cert: OperationalCert,
 
     #[n(9)]
-    pub protocol_version: ProtocolVersion,
+    pub header_version_info: HeaderVersionInfo,
 
     // -- NEW IN DIJKSTRA
     #[n(10)]
@@ -303,7 +313,7 @@ pub use crate::conway::DatumOption;
 
 pub use crate::conway::LegacyTransactionOutput;
 
-/// `eb_announcement = [eb_hash : hash32, eb_size : uint .size 4]` (`defs.cddl`).
+/// `eb_references_announcement = [eb_hash : hash32, eb_size : uint .size 4]` (`defs.cddl`).
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct EbAnnouncement {
     #[n(0)]
@@ -720,7 +730,18 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
     }
 }
 
-/// `protocol_param_update` (`defs.cddl`) gains keys 34 through 48. A derived
+/// Decodes a map value written `x/ nil`, reading a nil as `Some(Nullable::Null)`.
+fn decode_nullable_value<'b, Ctx, T>(
+    d: &mut minicbor::Decoder<'b>,
+    ctx: &mut Ctx,
+) -> Result<Option<Nullable<T>>, minicbor::decode::Error>
+where
+    T: Decode<'b, Ctx> + Clone,
+{
+    Nullable::decode(d, ctx).map(Some)
+}
+
+/// `protocol_param_update` (`defs.cddl`) gains keys 34 through 56. A derived
 /// map decoder drops a key it has no field for, so the tail is modelled.
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
@@ -799,7 +820,7 @@ pub struct ProtocolParamUpdate {
     pub ref_script_cost_multiplier: Option<PositiveInterval>,
 
     /// `max_pledge_leverage = nonnegative_interval/ nil` (`defs.cddl`), so an explicit nil differs from an absent key.
-    #[n(38)]
+    #[cbor(n(38), decode_with = "decode_nullable_value")]
     pub max_pledge_leverage: Option<Nullable<RationalNumber>>,
     #[n(39)]
     pub min_pool_margin: Option<UnitInterval>,
@@ -821,6 +842,24 @@ pub struct ProtocolParamUpdate {
     pub max_endorser_block_execution_units: Option<ExUnits>,
     #[n(48)]
     pub max_ref_script_size_per_endorser_block: Option<u64>,
+    #[n(49)]
+    pub peras_min_candidate_block_age: Option<u64>,
+    #[n(50)]
+    pub peras_healing_factor: Option<PositiveInterval>,
+    #[n(51)]
+    pub peras_cert_boost: Option<u64>,
+    #[n(52)]
+    pub peras_target_committee_size: Option<u64>,
+
+    /// `? 53 : nil/ uint .size 4` (`defs.cddl`), so an explicit nil differs from an absent key.
+    #[cbor(n(53), decode_with = "decode_nullable_value")]
+    pub peras_bootstrap_round: Option<Nullable<u64>>,
+    #[n(54)]
+    pub peras_quorum_threshold_safety_margin: Option<UnitInterval>,
+    #[n(55)]
+    pub ref_inputs_cost_per_multi_asset_policy: Option<Coin>,
+    #[n(56)]
+    pub ref_inputs_cost_per_datum_byte: Option<Coin>,
 }
 
 /// No CDDL rule answers to this type. It mirrors [`crate::conway::Update`] over this era's `protocol_param_update`.
@@ -953,6 +992,36 @@ impl<C> minicbor::Encode<C> for Guards {
         };
 
         Ok(())
+    }
+}
+
+/// Decoders for a body's optional [`Guards`] field, where an empty set is no guards.
+pub(crate) mod guards_field {
+    use super::Guards;
+    use pallas_codec::minicbor::{self, data::Type, decode::Error};
+
+    /// Decodes a body's guards, reading null or an empty set as `None`.
+    pub fn decode_option<Ctx>(
+        d: &mut minicbor::Decoder<'_>,
+        ctx: &mut Ctx,
+    ) -> Result<Option<Guards>, Error> {
+        let mut probe = minicbor::Decoder::new(&d.input()[d.position()..]);
+        if probe.datatype()? == Type::Null {
+            d.skip()?;
+            return Ok(None);
+        }
+        if probe.datatype()? == Type::Tag {
+            probe.tag()?;
+        }
+        let empty = match probe.array()? {
+            Some(len) => len == 0,
+            None => probe.datatype()? == Type::Break,
+        };
+        if empty {
+            d.skip()?;
+            return Ok(None);
+        }
+        d.decode_with(ctx).map(Some)
     }
 }
 
@@ -1095,6 +1164,7 @@ pub struct SubTransactionBody<'a> {
     pub script_data_hash: Option<Hash<32>>,
 
     #[n(14)]
+    #[cbor(decode_with = "guards_field::decode_option")]
     pub guards: Option<Guards>,
 
     #[n(15)]
@@ -1179,6 +1249,7 @@ pub struct TransactionBody<'a> {
     pub collateral: Option<NonEmptySet<TransactionInput>>,
 
     #[n(14)]
+    #[cbor(decode_with = "guards_field::decode_option")]
     pub guards: Option<Guards>,
 
     #[n(15)]
@@ -1427,6 +1498,14 @@ crate::flat_enum::decode_flat_enum!(ScriptRef<'b>,
     2 => PlutusV2Script(script),
     3 => PlutusV3Script(script),
     4 => PlutusV4Script(script),
+);
+
+crate::babbage::decode_joined_script_ref!(
+    ScriptRef,
+    PlutusV1Script,
+    PlutusV2Script,
+    PlutusV3Script,
+    PlutusV4Script
 );
 
 /// `block_body` (`defs.cddl`). Dijkstra replaces Conway's segregated witness

@@ -737,6 +737,14 @@ crate::flat_enum::decode_flat_enum!(ScriptRef<'b>,
     3 => PlutusV3Script(script),
 );
 
+#[cfg(feature = "unstable")]
+crate::babbage::decode_joined_script_ref!(
+    ScriptRef,
+    PlutusV1Script,
+    PlutusV2Script,
+    PlutusV3Script
+);
+
 // TODO: Remove in favour of multierascriptref
 impl<'b> From<babbage::ScriptRef<'b>> for ScriptRef<'b> {
     fn from(value: babbage::ScriptRef<'b>) -> Self {

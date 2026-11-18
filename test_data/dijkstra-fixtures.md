@@ -60,6 +60,8 @@ models is exercised by no fixture and is modelled from the CDDL alone.
 | dijkstra13.block | 0, 1, 2, 4 | 0 | array | 7, 9 | tagged | 0 | nil | nil |
 | dijkstra14.block | 0, 1, 2, 3, 4 | 0 | map | 3 | bare | 0 | nil | nil |
 | dijkstra15.block | none | none | none | none | none | 0 | present | present |
+| dijkstra-rc-2026w42-7.block | 0, 1, 2 | 0 | map, array | none | tagged | 1 | nil | nil |
+| dijkstra-rc-2026w42-11.block | none | none | none | none | none | 0 | present | nil |
 
 ## Endorser block bodies
 
@@ -158,3 +160,25 @@ the builder cannot drift apart.
 The two proposal files are read by `pallas-primitives` and by
 `pallas-traverse`, and the two transaction files by `pallas-utxorpc`, so one
 set of bytes serves every crate that needs the shape.
+
+## rc-2026w42 blocks
+
+Two blocks from a private devnet, as lowercase hex of the block exactly as the
+node's volatile database stored it, wrapper and all, no trailing newline.
+
+| | |
+| --- | --- |
+| node release | ouroboros-leios `rc-2026w42`, cardano-node 11.2.0.164 rev `2d6a2a66` |
+| config | `demo/proto-devnet` of that tag (commit `49f7c4a2`), network magic 164, every hard fork at epoch 0 |
+| ledger commit | `9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c`, the ledger that node pins |
+
+| file | slot | block | hash | bytes | tag | txs | why |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| dijkstra-rc-2026w42-7.block | 245 | 7 | `0d88c2182f7b6f1c2796677109d918c430538bf6b4df11c1ebf29a94243a3cd6` | 5706 | 8 | 1 | a transaction paying 126 outputs in both forms |
+| dijkstra-rc-2026w42-11.block | 413 | 11 | `f2fccd6e970425d1403101bc6553a4fb6a548a27d465fd29ae4c2ab11992b204` | 911 | 8 | 0 | a Leios certificate without an announcement |
+
+The Haskell ledger at that commit decoded each block with its Dijkstra block
+decoder and read the hash above, the header version info as highest supported
+major version 12 and software tag 0, block 7's one input as
+`9786e790..f24f#0` and its first output as 100000000 lovelace to
+`601597b3..85c5`, and block 11's certificate signers as `e0`.
