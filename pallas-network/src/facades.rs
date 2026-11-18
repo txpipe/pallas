@@ -54,8 +54,8 @@ pub enum Error {
 /// Default interval between keep-alive pings.
 pub const DEFAULT_KEEP_ALIVE_INTERVAL_SEC: u64 = 20;
 
-/// Default time a server facade's `accept` gives a connected peer to complete
-/// the handshake, matching the handshake time limit of the Ouroboros network.
+/// Handshake deadline to pass to a server facade's `accept_with_timeout`,
+/// matching the handshake time limit of the Ouroboros network.
 pub const DEFAULT_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// The error a server facade returns when the peer misses the handshake deadline.
@@ -64,6 +64,16 @@ fn handshake_timed_out() -> Error {
         tokio::io::ErrorKind::TimedOut,
         "handshake not completed before the deadline",
     ))
+}
+
+/// Await `fut`, giving up once `deadline` passes, in which case it returns
+/// `None`. Without a deadline no timer is involved, so the caller does not need
+/// a Tokio runtime with timers enabled.
+async fn within<F: std::future::Future>(deadline: Option<Duration>, fut: F) -> Option<F::Output> {
+    match deadline {
+        Some(deadline) => tokio::time::timeout(deadline, fut).await.ok(),
+        None => Some(fut.await),
+    }
 }
 
 /// Handle to a spawned keep-alive loop.
@@ -333,20 +343,35 @@ impl PeerServer {
 
     /// Accept the next connection from `listener` and complete the N2N handshake.
     ///
-    /// The peer has [`DEFAULT_HANDSHAKE_TIMEOUT`] to complete the handshake, as
-    /// with [`PeerServer::accept_with_timeout`].
+    /// The handshake has no deadline: a peer that connects and never completes
+    /// it keeps this call waiting.
+    #[deprecated(
+        since = "1.5.0",
+        note = "the handshake has no deadline; use `accept_with_timeout(.., DEFAULT_HANDSHAKE_TIMEOUT)`"
+    )]
     pub async fn accept(listener: &TcpListener, magic: u64) -> Result<Self, Error> {
-        Self::accept_with_timeout(listener, magic, DEFAULT_HANDSHAKE_TIMEOUT).await
+        Self::accept_within(listener, magic, None).await
     }
 
-    /// Like [`PeerServer::accept`], with `deadline` as the time the peer has to
-    /// complete the handshake once connected; waiting for the connection itself
-    /// is not bounded. A peer that misses it is disconnected, and the call
-    /// returns [`Error::ConnectFailure`] with [`std::io::ErrorKind::TimedOut`].
+    /// Accept the next connection from `listener` and complete the N2N handshake.
+    ///
+    /// Once connected, the peer has `deadline` to complete the handshake;
+    /// waiting for the connection itself is not bounded. A peer that misses it
+    /// is disconnected, and the call returns [`Error::ConnectFailure`] with
+    /// [`std::io::ErrorKind::TimedOut`]. Needs a Tokio runtime with timers
+    /// enabled.
     pub async fn accept_with_timeout(
         listener: &TcpListener,
         magic: u64,
         deadline: Duration,
+    ) -> Result<Self, Error> {
+        Self::accept_within(listener, magic, Some(deadline)).await
+    }
+
+    async fn accept_within(
+        listener: &TcpListener,
+        magic: u64,
+        deadline: Option<Duration>,
     ) -> Result<Self, Error> {
         let (bearer, address) = Bearer::accept_tcp(listener)
             .await
@@ -358,13 +383,13 @@ impl PeerServer {
             .handshake()
             .handshake_negotiated(n2n::VersionTable::v7_and_above(magic));
 
-        let accepted_version = match tokio::time::timeout(deadline, handshake).await {
-            Ok(Ok(version)) => version,
-            Ok(Err(err)) => {
+        let accepted_version = match within(deadline, handshake).await {
+            Some(Ok(version)) => version,
+            Some(Err(err)) => {
                 client.plexer.abort_and_join().await;
                 return Err(Error::HandshakeProtocol(err));
             }
-            Err(_) => {
+            None => {
                 client.plexer.abort_and_join().await;
                 return Err(handshake_timed_out());
             }
@@ -631,20 +656,35 @@ impl NodeServer {
 
     /// Accept the next Unix-domain connection from `listener` and complete the N2C handshake.
     ///
-    /// The peer has [`DEFAULT_HANDSHAKE_TIMEOUT`] to complete the handshake, as
-    /// with [`NodeServer::accept_with_timeout`].
+    /// The handshake has no deadline: a peer that connects and never completes
+    /// it keeps this call waiting.
+    #[deprecated(
+        since = "1.5.0",
+        note = "the handshake has no deadline; use `accept_with_timeout(.., DEFAULT_HANDSHAKE_TIMEOUT)`"
+    )]
     pub async fn accept(listener: &UnixListener, magic: u64) -> Result<Self, Error> {
-        Self::accept_with_timeout(listener, magic, DEFAULT_HANDSHAKE_TIMEOUT).await
+        Self::accept_within(listener, magic, None).await
     }
 
-    /// Like [`NodeServer::accept`], with `deadline` as the time the peer has to
-    /// complete the handshake once connected; waiting for the connection itself
-    /// is not bounded. A peer that misses it is disconnected, and the call
-    /// returns [`Error::ConnectFailure`] with [`std::io::ErrorKind::TimedOut`].
+    /// Accept the next Unix-domain connection from `listener` and complete the N2C handshake.
+    ///
+    /// Once connected, the peer has `deadline` to complete the handshake;
+    /// waiting for the connection itself is not bounded. A peer that misses it
+    /// is disconnected, and the call returns [`Error::ConnectFailure`] with
+    /// [`std::io::ErrorKind::TimedOut`]. Needs a Tokio runtime with timers
+    /// enabled.
     pub async fn accept_with_timeout(
         listener: &UnixListener,
         magic: u64,
         deadline: Duration,
+    ) -> Result<Self, Error> {
+        Self::accept_within(listener, magic, Some(deadline)).await
+    }
+
+    async fn accept_within(
+        listener: &UnixListener,
+        magic: u64,
+        deadline: Option<Duration>,
     ) -> Result<Self, Error> {
         let (bearer, address) = Bearer::accept_unix(listener)
             .await
@@ -656,13 +696,13 @@ impl NodeServer {
             .handshake()
             .handshake_negotiated(n2c::VersionTable::v10_and_above(magic));
 
-        let accepted_version = match tokio::time::timeout(deadline, handshake).await {
-            Ok(Ok(version)) => version,
-            Ok(Err(err)) => {
+        let accepted_version = match within(deadline, handshake).await {
+            Some(Ok(version)) => version,
+            Some(Err(err)) => {
                 client.plexer.abort_and_join().await;
                 return Err(Error::HandshakeProtocol(err));
             }
-            Err(_) => {
+            None => {
                 client.plexer.abort_and_join().await;
                 return Err(handshake_timed_out());
             }
@@ -901,20 +941,35 @@ impl DmqServer {
 
     /// Accept the next DMQ connection from `listener` and complete the handshake.
     ///
-    /// The peer has [`DEFAULT_HANDSHAKE_TIMEOUT`] to complete the handshake, as
-    /// with [`DmqServer::accept_with_timeout`].
+    /// The handshake has no deadline: a peer that connects and never completes
+    /// it keeps this call waiting.
+    #[deprecated(
+        since = "1.5.0",
+        note = "the handshake has no deadline; use `accept_with_timeout(.., DEFAULT_HANDSHAKE_TIMEOUT)`"
+    )]
     pub async fn accept(listener: &UnixListener, magic: u64) -> Result<Self, Error> {
-        Self::accept_with_timeout(listener, magic, DEFAULT_HANDSHAKE_TIMEOUT).await
+        Self::accept_within(listener, magic, None).await
     }
 
-    /// Like [`DmqServer::accept`], with `deadline` as the time the peer has to
-    /// complete the handshake once connected; waiting for the connection itself
-    /// is not bounded. A peer that misses it is disconnected, and the call
-    /// returns [`Error::ConnectFailure`] with [`std::io::ErrorKind::TimedOut`].
+    /// Accept the next DMQ connection from `listener` and complete the handshake.
+    ///
+    /// Once connected, the peer has `deadline` to complete the handshake;
+    /// waiting for the connection itself is not bounded. A peer that misses it
+    /// is disconnected, and the call returns [`Error::ConnectFailure`] with
+    /// [`std::io::ErrorKind::TimedOut`]. Needs a Tokio runtime with timers
+    /// enabled.
     pub async fn accept_with_timeout(
         listener: &UnixListener,
         magic: u64,
         deadline: Duration,
+    ) -> Result<Self, Error> {
+        Self::accept_within(listener, magic, Some(deadline)).await
+    }
+
+    async fn accept_within(
+        listener: &UnixListener,
+        magic: u64,
+        deadline: Option<Duration>,
     ) -> Result<Self, Error> {
         let (bearer, address) = Bearer::accept_unix(listener)
             .await
@@ -926,13 +981,13 @@ impl DmqServer {
             .handshake()
             .handshake_negotiated(n2c::VersionTable::dmq(magic));
 
-        let accepted_version = match tokio::time::timeout(deadline, handshake).await {
-            Ok(Ok(version)) => version,
-            Ok(Err(err)) => {
+        let accepted_version = match within(deadline, handshake).await {
+            Some(Ok(version)) => version,
+            Some(Err(err)) => {
                 client.plexer.abort_and_join().await;
                 return Err(Error::HandshakeProtocol(err));
             }
-            Err(_) => {
+            None => {
                 client.plexer.abort_and_join().await;
                 return Err(handshake_timed_out());
             }

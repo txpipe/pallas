@@ -11,7 +11,7 @@ use pallas_network::miniprotocols::localstate::queries_v16::{
 };
 use pallas_network::miniprotocols::localtxsubmission::SMaybe;
 use pallas_network::{
-    facades::{DmqClient, NodeClient, PeerClient, PeerServer},
+    facades::{DEFAULT_HANDSHAKE_TIMEOUT, DmqClient, NodeClient, PeerClient, PeerServer},
     miniprotocols::{
         MAINNET_MAGIC, Point, blockfetch,
         blockfetch::BlockRequest,
@@ -204,7 +204,10 @@ pub async fn blockfetch_server_and_client_happy_path() {
         async move {
             // server setup
 
-            let mut peer_server = PeerServer::accept(&listener, 0).await.unwrap();
+            let mut peer_server =
+                PeerServer::accept_with_timeout(&listener, 0, DEFAULT_HANDSHAKE_TIMEOUT)
+                    .await
+                    .unwrap();
 
             let server_bf = peer_server.blockfetch();
 
@@ -488,9 +491,13 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             let listener = UnixListener::bind(socket_path).unwrap();
 
-            let mut server = pallas_network::facades::NodeServer::accept(&listener, 0)
-                .await
-                .unwrap();
+            let mut server = pallas_network::facades::NodeServer::accept_with_timeout(
+                &listener,
+                0,
+                DEFAULT_HANDSHAKE_TIMEOUT,
+            )
+            .await
+            .unwrap();
 
             // wait for acquire request from client
 
@@ -1338,9 +1345,13 @@ pub async fn local_state_query_server_and_client_happy_path2() {
 
             let listener = UnixListener::bind(socket_path).unwrap();
 
-            let mut server = pallas_network::facades::NodeServer::accept(&listener, 0)
-                .await
-                .unwrap();
+            let mut server = pallas_network::facades::NodeServer::accept_with_timeout(
+                &listener,
+                0,
+                DEFAULT_HANDSHAKE_TIMEOUT,
+            )
+            .await
+            .unwrap();
 
             // wait for acquire request from client
 
@@ -1512,7 +1523,10 @@ pub async fn txsubmission_server_and_client_happy_path_n2n() {
     let server = tokio::spawn({
         let test_txs = test_txs.clone();
         async move {
-            let mut peer_server = PeerServer::accept(&server_listener, 0).await.unwrap();
+            let mut peer_server =
+                PeerServer::accept_with_timeout(&server_listener, 0, DEFAULT_HANDSHAKE_TIMEOUT)
+                    .await
+                    .unwrap();
 
             let server_txsub = peer_server.txsubmission();
 
@@ -1789,7 +1803,10 @@ pub async fn peer_sharing_server_and_client_happy_path() {
         async move {
             // server setup
 
-            let mut peer_server = PeerServer::accept(&listener, 0).await.unwrap();
+            let mut peer_server =
+                PeerServer::accept_with_timeout(&listener, 0, DEFAULT_HANDSHAKE_TIMEOUT)
+                    .await
+                    .unwrap();
 
             let server_ps = peer_server.peersharing();
 
@@ -1895,9 +1912,13 @@ pub async fn local_message_notification_server_and_client_happy_path() {
                 fs::remove_file(socket_path).unwrap();
             }
             let listener = UnixListener::bind(socket_path).unwrap();
-            let mut server = pallas_network::facades::DmqServer::accept(&listener, 0)
-                .await
-                .unwrap();
+            let mut server = pallas_network::facades::DmqServer::accept_with_timeout(
+                &listener,
+                0,
+                DEFAULT_HANDSHAKE_TIMEOUT,
+            )
+            .await
+            .unwrap();
 
             // init local msg notification server
             let server_msg = server.msg_notification();
@@ -2017,9 +2038,13 @@ pub async fn local_message_submission_server_and_client_happy_path() {
                 fs::remove_file(socket_path).unwrap();
             }
             let listener = UnixListener::bind(socket_path).unwrap();
-            let mut server = pallas_network::facades::DmqServer::accept(&listener, 0)
-                .await
-                .unwrap();
+            let mut server = pallas_network::facades::DmqServer::accept_with_timeout(
+                &listener,
+                0,
+                DEFAULT_HANDSHAKE_TIMEOUT,
+            )
+            .await
+            .unwrap();
 
             // init local msg submission server
             let server_msg = server.msg_submission();
@@ -2125,7 +2150,9 @@ async fn propose_to_peer_server(
     Result<PeerServer, pallas_network::facades::Error>,
 ) {
     let (listener, addr) = local_listener().await;
-    let server = tokio::spawn(async move { PeerServer::accept(&listener, MAINNET_MAGIC).await });
+    let server = tokio::spawn(async move {
+        PeerServer::accept_with_timeout(&listener, MAINNET_MAGIC, DEFAULT_HANDSHAKE_TIMEOUT).await
+    });
 
     let bearer = Bearer::connect_tcp(addr).await.unwrap();
     let mut plexer = Plexer::new(bearer);
@@ -2579,7 +2606,11 @@ async fn refusal_from_peer_server(
     refusal_from_facade(
         connect,
         versions,
-        promptly(PeerServer::accept(&listener, MAINNET_MAGIC)),
+        promptly(PeerServer::accept_with_timeout(
+            &listener,
+            MAINNET_MAGIC,
+            DEFAULT_HANDSHAKE_TIMEOUT,
+        )),
     )
     .await
 }
@@ -2682,7 +2713,12 @@ pub async fn node_server_delivers_refusal_of_another_network() {
     };
 
     let reply = refusal_from_unix_facade("node-refusal", other_network, |listener| async move {
-        pallas_network::facades::NodeServer::accept(&listener, MAINNET_MAGIC).await
+        pallas_network::facades::NodeServer::accept_with_timeout(
+            &listener,
+            MAINNET_MAGIC,
+            DEFAULT_HANDSHAKE_TIMEOUT,
+        )
+        .await
     })
     .await;
 
@@ -2705,7 +2741,12 @@ pub async fn node_server_delivers_version_mismatch() {
     };
 
     let reply = refusal_from_unix_facade("node-mismatch", only_v1, |listener| async move {
-        pallas_network::facades::NodeServer::accept(&listener, MAINNET_MAGIC).await
+        pallas_network::facades::NodeServer::accept_with_timeout(
+            &listener,
+            MAINNET_MAGIC,
+            DEFAULT_HANDSHAKE_TIMEOUT,
+        )
+        .await
     })
     .await;
 
@@ -2725,7 +2766,12 @@ pub async fn dmq_server_delivers_refusal_of_another_network() {
     let version = *other_network.values.keys().next().unwrap();
 
     let reply = refusal_from_unix_facade("dmq-refusal", other_network, |listener| async move {
-        pallas_network::facades::DmqServer::accept(&listener, MAINNET_MAGIC).await
+        pallas_network::facades::DmqServer::accept_with_timeout(
+            &listener,
+            MAINNET_MAGIC,
+            DEFAULT_HANDSHAKE_TIMEOUT,
+        )
+        .await
     })
     .await;
 
@@ -2734,6 +2780,7 @@ pub async fn dmq_server_delivers_refusal_of_another_network() {
 
 /// `PeerServer` delivers its refusal on a runtime without the time driver.
 #[test]
+#[allow(deprecated)]
 pub fn peer_server_delivers_refusal_without_timers() {
     let (done_tx, done_rx) = std::sync::mpsc::channel();
 
