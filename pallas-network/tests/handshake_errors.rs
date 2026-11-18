@@ -5,7 +5,7 @@ use std::future::Future;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
 
-use pallas_network::facades::{Error, PeerServer};
+use pallas_network::facades::{DEFAULT_HANDSHAKE_TIMEOUT, Error, PeerServer};
 use pallas_network::miniprotocols::MAINNET_MAGIC;
 use pallas_network::multiplexer::Header;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -98,7 +98,7 @@ async fn peer_server_handshake_error(initiator: Initiator) {
 
     assert_handshake_error_closes(
         async { TcpStream::connect(addr).await.unwrap() },
-        PeerServer::accept(&listener, MAINNET_MAGIC),
+        PeerServer::accept_with_timeout(&listener, MAINNET_MAGIC, DEFAULT_HANDSHAKE_TIMEOUT),
         initiator,
     )
     .await;
@@ -135,7 +135,7 @@ mod unix {
 
         assert_handshake_error_closes(
             async { UnixStream::connect(&path).await.unwrap() },
-            NodeServer::accept(&listener, MAINNET_MAGIC),
+            NodeServer::accept_with_timeout(&listener, MAINNET_MAGIC, DEFAULT_HANDSHAKE_TIMEOUT),
             initiator,
         )
         .await;
@@ -148,7 +148,7 @@ mod unix {
 
         assert_handshake_error_closes(
             async { UnixStream::connect(&path).await.unwrap() },
-            DmqServer::accept(&listener, MAINNET_MAGIC),
+            DmqServer::accept_with_timeout(&listener, MAINNET_MAGIC, DEFAULT_HANDSHAKE_TIMEOUT),
             initiator,
         )
         .await;
