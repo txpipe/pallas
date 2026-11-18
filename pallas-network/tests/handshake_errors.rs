@@ -17,7 +17,7 @@ const MALFORMED_PROPOSAL: [u8; 3] = [0x82, 0x07, 0x00];
 /// How long the initiator waits to see the server close the connection.
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// How long `accept` gets to fail and stop the connection's tasks.
+/// How long connecting, the initiator and `accept` get to finish together.
 const ACCEPT_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// What the initiator does once connected.
@@ -60,7 +60,7 @@ async fn assert_handshake_error_closes<S, T>(
     let tasks = tokio::runtime::Handle::current().metrics();
     let before = tasks.num_alive_tasks();
 
-    // A teardown that never finishes fails the test instead of hanging it.
+    // A stalled teardown fails the test instead of hanging it.
     let (accepted, stream) = tokio::time::timeout(ACCEPT_TIMEOUT, async {
         tokio::join!(accept, async { initiate(connect.await, initiator).await })
     })
