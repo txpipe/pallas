@@ -54,6 +54,18 @@ pub enum Error {
 /// Default interval between keep-alive pings.
 pub const DEFAULT_KEEP_ALIVE_INTERVAL_SEC: u64 = 20;
 
+/// Default time a server facade's `accept` gives a connected peer to complete
+/// the handshake, matching the handshake time limit of the Ouroboros network.
+pub const DEFAULT_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// The error a server facade returns when the peer misses the handshake deadline.
+fn handshake_timed_out() -> Error {
+    Error::ConnectFailure(tokio::io::Error::new(
+        tokio::io::ErrorKind::TimedOut,
+        "handshake not completed before the deadline",
+    ))
+}
+
 /// Handle to a spawned keep-alive loop.
 pub type KeepAliveHandle = tokio::task::JoinHandle<Result<(), Error>>;
 
@@ -320,18 +332,39 @@ impl PeerServer {
     }
 
     /// Accept the next connection from `listener` and complete the N2N handshake.
+    ///
+    /// The peer has [`DEFAULT_HANDSHAKE_TIMEOUT`] to complete the handshake, as
+    /// with [`PeerServer::accept_with_timeout`].
     pub async fn accept(listener: &TcpListener, magic: u64) -> Result<Self, Error> {
+        Self::accept_with_timeout(listener, magic, DEFAULT_HANDSHAKE_TIMEOUT).await
+    }
+
+    /// Like [`PeerServer::accept`], with `deadline` as the time the peer has to
+    /// complete the handshake once connected; waiting for the connection itself
+    /// is not bounded. A peer that misses it is disconnected, and the call
+    /// returns [`Error::ConnectFailure`] with [`std::io::ErrorKind::TimedOut`].
+    pub async fn accept_with_timeout(
+        listener: &TcpListener,
+        magic: u64,
+        deadline: Duration,
+    ) -> Result<Self, Error> {
         let (bearer, address) = Bearer::accept_tcp(listener)
             .await
             .map_err(Error::ConnectFailure)?;
 
         let mut client = Self::new(bearer);
 
-        let accepted_version = client
+        let handshake = client
             .handshake()
-            .handshake_negotiated(n2n::VersionTable::v7_and_above(magic))
-            .await
-            .map_err(Error::HandshakeProtocol)?;
+            .handshake_negotiated(n2n::VersionTable::v7_and_above(magic));
+
+        let accepted_version = match tokio::time::timeout(deadline, handshake).await {
+            Ok(result) => result.map_err(Error::HandshakeProtocol)?,
+            Err(_) => {
+                client.plexer.abort_and_join().await;
+                return Err(handshake_timed_out());
+            }
+        };
 
         if let Some((version, data)) = accepted_version {
             client.accepted_address = Some(address);
@@ -593,18 +626,39 @@ impl NodeServer {
     }
 
     /// Accept the next Unix-domain connection from `listener` and complete the N2C handshake.
+    ///
+    /// The peer has [`DEFAULT_HANDSHAKE_TIMEOUT`] to complete the handshake, as
+    /// with [`NodeServer::accept_with_timeout`].
     pub async fn accept(listener: &UnixListener, magic: u64) -> Result<Self, Error> {
+        Self::accept_with_timeout(listener, magic, DEFAULT_HANDSHAKE_TIMEOUT).await
+    }
+
+    /// Like [`NodeServer::accept`], with `deadline` as the time the peer has to
+    /// complete the handshake once connected; waiting for the connection itself
+    /// is not bounded. A peer that misses it is disconnected, and the call
+    /// returns [`Error::ConnectFailure`] with [`std::io::ErrorKind::TimedOut`].
+    pub async fn accept_with_timeout(
+        listener: &UnixListener,
+        magic: u64,
+        deadline: Duration,
+    ) -> Result<Self, Error> {
         let (bearer, address) = Bearer::accept_unix(listener)
             .await
             .map_err(Error::ConnectFailure)?;
 
         let mut client = Self::new(bearer).await;
 
-        let accepted_version = client
+        let handshake = client
             .handshake()
-            .handshake_negotiated(n2c::VersionTable::v10_and_above(magic))
-            .await
-            .map_err(Error::HandshakeProtocol)?;
+            .handshake_negotiated(n2c::VersionTable::v10_and_above(magic));
+
+        let accepted_version = match tokio::time::timeout(deadline, handshake).await {
+            Ok(result) => result.map_err(Error::HandshakeProtocol)?,
+            Err(_) => {
+                client.plexer.abort_and_join().await;
+                return Err(handshake_timed_out());
+            }
+        };
 
         if let Some(version) = accepted_version {
             client.accepted_address = Some(address);
@@ -838,18 +892,39 @@ impl DmqServer {
     }
 
     /// Accept the next DMQ connection from `listener` and complete the handshake.
+    ///
+    /// The peer has [`DEFAULT_HANDSHAKE_TIMEOUT`] to complete the handshake, as
+    /// with [`DmqServer::accept_with_timeout`].
     pub async fn accept(listener: &UnixListener, magic: u64) -> Result<Self, Error> {
+        Self::accept_with_timeout(listener, magic, DEFAULT_HANDSHAKE_TIMEOUT).await
+    }
+
+    /// Like [`DmqServer::accept`], with `deadline` as the time the peer has to
+    /// complete the handshake once connected; waiting for the connection itself
+    /// is not bounded. A peer that misses it is disconnected, and the call
+    /// returns [`Error::ConnectFailure`] with [`std::io::ErrorKind::TimedOut`].
+    pub async fn accept_with_timeout(
+        listener: &UnixListener,
+        magic: u64,
+        deadline: Duration,
+    ) -> Result<Self, Error> {
         let (bearer, address) = Bearer::accept_unix(listener)
             .await
             .map_err(Error::ConnectFailure)?;
 
         let mut client = Self::new(bearer).await;
 
-        let accepted_version = client
+        let handshake = client
             .handshake()
-            .handshake_negotiated(n2c::VersionTable::dmq(magic))
-            .await
-            .map_err(Error::HandshakeProtocol)?;
+            .handshake_negotiated(n2c::VersionTable::dmq(magic));
+
+        let accepted_version = match tokio::time::timeout(deadline, handshake).await {
+            Ok(result) => result.map_err(Error::HandshakeProtocol)?,
+            Err(_) => {
+                client.plexer.abort_and_join().await;
+                return Err(handshake_timed_out());
+            }
+        };
 
         if let Some(version) = accepted_version {
             client.accepted_address = Some(address);
