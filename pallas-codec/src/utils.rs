@@ -1447,6 +1447,11 @@ pub fn decode_text_def_or_indef<'b, C>(
     }
 }
 
+/// Returns false for any `Option`, so a derived array encoder writes a `None` field as a null even when it is the last field.
+pub fn never_nil<T>(_: &Option<T>) -> bool {
+    false
+}
+
 #[derive(Serialize, Deserialize, Clone, Encode, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cbor(transparent)]
 #[serde(into = "String")]
@@ -1704,6 +1709,32 @@ mod tests {
                 "the {name} array was refused for some other reason: {err}"
             );
         }
+    }
+
+    /// A required field followed by a `T / nil` field.
+    #[derive(Encode, Decode, Debug, PartialEq)]
+    struct Voted {
+        #[n(0)]
+        vote: u8,
+        #[n(1)]
+        #[cbor(encode_with = "minicbor::Encode::encode", is_nil = "never_nil")]
+        anchor: Option<u8>,
+    }
+
+    #[test]
+    fn a_never_nil_field_is_written_whether_or_not_it_holds_a_value() {
+        for (anchor, hex) in [(None, "8202f6"), (Some(7), "820207")] {
+            let value = Voted { vote: 2, anchor };
+            assert_eq!(hex::encode(minicbor::to_vec(&value).unwrap()), hex);
+            let bytes = hex::decode(hex).unwrap();
+            assert_eq!(minicbor::decode::<Voted>(&bytes).unwrap(), value);
+        }
+    }
+
+    #[test]
+    fn a_never_nil_field_reads_as_none_when_the_array_ends_before_it() {
+        let value: Voted = minicbor::decode(&[0x81, 0x02]).unwrap();
+        assert_eq!(value.anchor, None);
     }
 
     /// Decodes `bytes` as an array of one element read by a given decoder, here an optional `u8`.

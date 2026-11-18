@@ -434,6 +434,10 @@ pub struct VotingProcedure {
     #[n(0)]
     pub vote: Vote,
     #[n(1)]
+    #[cbor(
+        encode_with = "minicbor::Encode::encode",
+        is_nil = "pallas_codec::utils::never_nil"
+    )]
     pub anchor: Option<Anchor>,
 }
 
@@ -495,6 +499,10 @@ pub struct Constitution {
     #[n(0)]
     pub anchor: Anchor,
     #[n(1)]
+    #[cbor(
+        encode_with = "minicbor::Encode::encode",
+        is_nil = "pallas_codec::utils::never_nil"
+    )]
     pub guardrail_script: Option<ScriptHash>,
 }
 
@@ -794,8 +802,9 @@ pub type MintedTx<'b> = Tx<'b>;
 #[cfg(test)]
 mod tests {
     use super::{
-        Anchor, Block, Certificate, DRep, DatumOption, GovAction, NativeScript, RationalNumber,
-        Relay, ScriptRef, StakeCredential, TransactionBody, TransactionOutput, Voter,
+        Anchor, Block, Certificate, Constitution, DRep, DatumOption, GovAction, NativeScript,
+        RationalNumber, Relay, ScriptRef, StakeCredential, TransactionBody, TransactionOutput,
+        Vote, Voter,
     };
     use crate::flat_enum::{assert_reads_either_length_form, decode_all};
     use pallas_codec::minicbor;
@@ -1140,6 +1149,53 @@ mod tests {
             certificates[3],
             Certificate::UpdateDRepCert(_, None)
         ));
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&body).unwrap()),
+            hex::encode(&bytes)
+        );
+    }
+
+    #[test]
+    fn governance_ending_in_an_absent_value_reencodes_as_the_ledger_wrote_it() {
+        let bytes = hex::decode(include_str!(
+            "../../../test_data/dijkstra-generated/body-governance-ending-in-null.hex"
+        ))
+        .unwrap();
+        let body: TransactionBody = minicbor::decode(&bytes).unwrap();
+
+        let votes = body.voting_procedures.as_ref().unwrap();
+        let (_, procedures) = votes.iter().next().unwrap();
+        let (id, procedure) = procedures.iter().next().unwrap();
+        assert_eq!(id.action_index, 41156);
+        assert_eq!(procedure.vote, Vote::Abstain);
+        assert_eq!(procedure.anchor, None);
+
+        let actions: Vec<_> = body
+            .proposal_procedures
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|proposal| &proposal.gov_action)
+            .collect();
+        assert!(matches!(
+            actions[0],
+            GovAction::NewConstitution(
+                Some(_),
+                Constitution {
+                    guardrail_script: None,
+                    ..
+                }
+            )
+        ));
+        assert!(matches!(
+            actions[1],
+            GovAction::ParameterChange(None, _, None)
+        ));
+        assert!(matches!(
+            actions[2],
+            GovAction::TreasuryWithdrawals(_, None)
+        ));
+        assert!(matches!(actions[3], GovAction::NoConfidence(None)));
         assert_eq!(
             hex::encode(minicbor::to_vec(&body).unwrap()),
             hex::encode(&bytes)

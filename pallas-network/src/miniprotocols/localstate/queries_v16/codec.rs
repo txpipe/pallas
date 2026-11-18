@@ -993,6 +993,23 @@ pub mod tests {
         assert_eq!(hex::encode(bytes), "821827d9010280");
     }
 
+    #[test]
+    fn a_constitution_without_a_guardrail_script_reencodes_as_the_ledger_wrote_it() {
+        use crate::miniprotocols::localstate::queries_v16::Constitution;
+
+        let bytes = hex::decode(
+            "828268e38580e1b6abc79958205d191d7d5a59ad3eb43689c127a6989f7dbc5eb3fefd420f26d26d7ba86c7698f6",
+        )
+        .unwrap();
+        let constitution: Constitution = minicbor::decode(&bytes).unwrap();
+
+        assert_eq!(constitution.script, None);
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&constitution).unwrap()),
+            hex::encode(&bytes)
+        );
+    }
+
     // TODO: DRY with other decode/encode roundtripss
     // Decode a value of type T, transform it to U and encode that again to form a roundtrip.
     #[cfg(feature = "blueprint")]
