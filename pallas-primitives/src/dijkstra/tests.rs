@@ -1,11 +1,14 @@
 use super::{
     AccountBalanceInterval, AccountBalanceIntervals, AuxiliaryData, Block, BlockTransaction,
-    Certificate, CostModels, DRep, EndorserBlock, GovAction, Guards, Header, MempoolTransaction,
-    NativeScript, NonEmptySet, ProposalProcedure, Set, SetArm, StakeCredential, TransactionBody,
-    TransactionOutput, Value, WitnessSet,
+    Certificate, CostModels, DRep, DatumOption, EndorserBlock, GovAction, Guards, Header,
+    MempoolTransaction, NativeScript, NonEmptySet, PlutusData, ProposalProcedure,
+    ProtocolParamUpdate, RationalNumber, Relay, ScriptRef, Set, SetArm, StakeCredential,
+    TransactionBody, TransactionOutput, Value, Voter, WitnessSet,
 };
+use crate::flat_enum::{assert_reads_either_length_form, decode_all};
 use pallas_codec::minicbor;
-use pallas_codec::utils::{KeepRaw, Nullable};
+use pallas_codec::utils::{CborWrap, KeepRaw, Nullable};
+use pallas_crypto::hash::Hasher;
 
 type BlockWrapper<'b> = (u16, Block<'b>);
 
@@ -1775,6 +1778,20 @@ fn the_legal_account_balance_interval_forms_still_read() {
 }
 
 #[test]
+fn values_ending_in_an_absent_value_reencode_as_the_ledger_wrote_them() {
+    use super::TransactionBody;
+
+    for hex in [
+        include_str!("../../../test_data/dijkstra-generated/body-certificates-ending-in-null.hex"),
+        include_str!("../../../test_data/dijkstra-generated/body-governance-ending-in-null.hex"),
+    ] {
+        let bytes = hex::decode(hex).unwrap();
+        let body: TransactionBody = minicbor::decode(&bytes).unwrap();
+        assert_eq!(hex::encode(minicbor::to_vec(&body).unwrap()), hex);
+    }
+}
+
+#[test]
 fn an_account_balance_interval_is_two_elements_or_none() {
     let cases: &[(&str, &[u8])] = &[
         ("three element", &[0x83, 0x01, 0x02, 0x03]),
@@ -1791,4 +1808,406 @@ fn an_account_balance_interval_is_two_elements_or_none() {
             "the {name} array was refused for some other reason: {err}"
         );
     }
+}
+
+/// The bytes of one vector from `test_data/dijkstra-generated`.
+fn generated(hex: &str) -> &'static [u8] {
+    Box::leak(hex::decode(hex).unwrap().into_boxed_slice())
+}
+
+/// Whether a rational number is the fraction of a numerator over a denominator.
+fn same_ratio(found: &RationalNumber, numerator: u64, denominator: u64) -> bool {
+    found.numerator as u128 * denominator as u128 == found.denominator as u128 * numerator as u128
+}
+
+#[test]
+fn a_generated_parameter_update_keeps_the_keys_after_an_indefinite_rational() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/ppu-rational-indefinite.hex"
+    ));
+    let update: ProtocolParamUpdate = decode_all(bytes);
+
+    assert_eq!(update.minfee_a, Some(0x30417a8beab11095));
+    assert_eq!(update.minfee_b, Some(0x93d15ea0c1acc926));
+    assert_eq!(update.max_block_body_size, Some(0x327f8f25));
+    assert_eq!(update.max_transaction_size, Some(0x7f16cbc8));
+    assert_eq!(update.max_block_header_size, Some(0x4a9f));
+    assert_eq!(update.key_deposit, Some(0xd78ece0e55ae6876));
+    assert_eq!(update.pool_deposit, Some(0xf20ce478efceddf0));
+    assert_eq!(update.maximum_epoch, Some(0x13adde3c));
+    assert_eq!(update.desired_number_of_stake_pools, Some(0x890a));
+    assert!(same_ratio(
+        update.pool_pledge_influence.as_ref().unwrap(),
+        0x6e24f5aeed36f7f5,
+        0xd81f3b4fc11e15ae
+    ));
+    assert!(same_ratio(
+        update.expansion_rate.as_ref().unwrap(),
+        251,
+        832
+    ));
+    assert!(same_ratio(
+        update.treasury_growth_rate.as_ref().unwrap(),
+        0x555555555555540a,
+        0x555555555555543d
+    ));
+    assert_eq!(update.ada_per_utxo_byte, Some(0xe242b5b210626137));
+}
+
+#[test]
+fn a_generated_relay_in_an_indefinite_array_reads_to_its_break() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/relay-indefinite.hex"
+    ));
+    let relay: Relay = decode_all(bytes);
+
+    assert_eq!(
+        relay,
+        Relay::MultiHostName("\u{241a}\u{3bdc1}\u{d0}".to_string())
+    );
+}
+
+#[test]
+fn a_generated_certificate_in_an_indefinite_array_reads_to_its_break() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-certificate-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    let certificates: Vec<_> = body.certificates.unwrap().to_vec();
+    assert_eq!(
+        certificates,
+        vec![Certificate::UpdateDRepCert(
+            StakeCredential::ScriptHash(
+                "931c0e475a84cfe718b21f9ae8224c5077671633d9f8cacff61e009b"
+                    .parse()
+                    .unwrap()
+            ),
+            None
+        )]
+    );
+}
+
+#[test]
+fn a_generated_value_in_an_indefinite_array_reads_to_its_break() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-value-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    let [TransactionOutput::Legacy(output)] = &body.outputs[..] else {
+        panic!("the body holds one array form output");
+    };
+    let crate::alonzo::Value::Multiasset(coin, assets) = &output.amount else {
+        panic!("the output value is a coin and assets");
+    };
+    assert_eq!(*coin, 18052182784416840275);
+    let policy: crate::PolicyId = "a05a12f1f644247a57a10eec17c3f9752b30f44fbe49736dbc92c083"
+        .parse()
+        .unwrap();
+    let names: Vec<_> = assets[&policy].iter().collect();
+    assert_eq!(names.len(), 1);
+    assert!(names[0].0.is_empty());
+    assert_eq!(*names[0].1, 5424943601111550909);
+}
+
+#[test]
+fn a_generated_transaction_in_an_indefinite_array_reads_to_its_break() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/tx-indefinite.hex"
+    ));
+    let tx: MempoolTransaction = decode_all(bytes);
+
+    assert!(tx.is_valid_supplied);
+    assert_eq!(tx.transaction_body.fee, 10309690930332875869);
+    let [TransactionOutput::Legacy(output)] = &tx.transaction_body.outputs[..] else {
+        panic!("the body holds one array form output");
+    };
+    let coin = match &output.amount {
+        crate::alonzo::Value::Coin(coin) | crate::alonzo::Value::Multiasset(coin, _) => *coin,
+    };
+    assert_eq!(coin, 13818883891935063992);
+    assert_eq!(
+        tx.transaction_witness_set
+            .vkeywitness
+            .as_ref()
+            .map(|w| w.len()),
+        Some(2)
+    );
+    assert_eq!(
+        tx.transaction_witness_set
+            .plutus_v1_script
+            .as_ref()
+            .map(|s| s.len()),
+        Some(1)
+    );
+    assert!(matches!(tx.auxiliary_data, crate::Nullable::Null));
+}
+
+#[test]
+fn a_generated_constructor_102_in_an_indefinite_array_hashes_as_the_ledger_does() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/wits-constr-102-indefinite.hex"
+    ));
+    let witnesses: WitnessSet = decode_all(bytes);
+
+    let datums = witnesses.plutus_data.unwrap();
+    let hashes: Vec<String> = datums
+        .iter()
+        .map(|datum| Hasher::<256>::hash(datum.raw_cbor()).to_string())
+        .collect();
+    assert_eq!(
+        hashes,
+        [
+            "f929da3fb67b303d9fd90a2fce58316023844d6b1f5d49fb399480f0f8e2f73e",
+            "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25",
+        ]
+    );
+    let PlutusData::Constr(constr) = &*datums[0] else {
+        panic!("the first datum is a constructor");
+    };
+    assert_eq!(constr.constr_index(), 1000);
+    assert!(constr.fields.is_empty());
+}
+
+#[test]
+fn a_generated_hard_fork_version_in_an_indefinite_array_decodes() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/proposal-hard-fork-indefinite-version.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    let proposals: Vec<_> = body.proposal_procedures.unwrap().to_vec();
+    assert_eq!(proposals.len(), 1);
+    assert_eq!(proposals[0].deposit, 15225768051747963167);
+    assert_eq!(
+        proposals[0].gov_action,
+        GovAction::HardForkInitiation(None, (3, 2317795968))
+    );
+}
+
+const HASH: &str = "581c11111111111111111111111111111111111111111111111111111111";
+const HASH32: &str = "58201111111111111111111111111111111111111111111111111111111111111111";
+const REWARD: &str = "581de111111111111111111111111111111111111111111111111111111111";
+
+#[test]
+fn a_gov_action_reads_either_length_form() {
+    let id = format!("82{HASH32}00");
+    let credential = format!("8200{HASH}");
+    assert_reads_either_length_form::<GovAction>(&[
+        format!("8400{id}a10001{HASH}"),
+        format!("8301{id}820a00"),
+        format!("8302a1{REWARD}01{HASH}"),
+        format!("8203{id}"),
+        format!("8504{id}81{credential}a1{credential}01d81e820102"),
+        format!("8305{id}828260{HASH32}{HASH}"),
+        "8106".to_string(),
+    ]);
+}
+
+#[test]
+fn a_script_reference_reads_either_length_form() {
+    assert_reads_either_length_form::<ScriptRef>(&[
+        format!("82008200{HASH}"),
+        "82014100".to_string(),
+        "82024100".to_string(),
+        "82034100".to_string(),
+        "82044100".to_string(),
+    ]);
+}
+
+#[test]
+fn a_native_script_reads_either_length_form() {
+    let script = format!("8200{HASH}");
+    assert_reads_either_length_form::<NativeScript>(&[
+        script.clone(),
+        format!("820181{script}"),
+        "820280".to_string(),
+        "83030180".to_string(),
+        "820401".to_string(),
+        "820501".to_string(),
+        format!("82068201{HASH}"),
+    ]);
+}
+
+#[test]
+fn a_generated_credential_in_an_indefinite_array_decodes() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-credential-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    assert_eq!(
+        body.certificates.unwrap().to_vec(),
+        vec![Certificate::StakeDelegation(
+            StakeCredential::ScriptHash(
+                "17ab434af5e4d2fcc4815897879f52d2068af2dc2630974ac0333a2b"
+                    .parse()
+                    .unwrap()
+            ),
+            "bc7069ba4ab9909c4b1517f3bd9ccbb45b075569c163820971dbe63e"
+                .parse()
+                .unwrap(),
+        )]
+    );
+}
+
+#[test]
+fn generated_dreps_in_indefinite_arrays_decode() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-drep-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    assert_eq!(
+        body.certificates.unwrap().to_vec(),
+        vec![
+            Certificate::VoteRegDeleg(
+                StakeCredential::AddrKeyhash(
+                    "098118293e4e9f9862dd7a9e876d00ca97e3b98ead92b6a2e7c30dc9"
+                        .parse()
+                        .unwrap()
+                ),
+                DRep::NoConfidence,
+                0x97a8a827c45150b1
+            ),
+            Certificate::VoteRegDeleg(
+                StakeCredential::AddrKeyhash(
+                    "b8f80a08bf5b6bad733522cd91768136b5aad289bff7a51d7d620508"
+                        .parse()
+                        .unwrap()
+                ),
+                DRep::Abstain,
+                0x41a4ecaab467a454
+            ),
+        ]
+    );
+}
+
+#[test]
+fn generated_datum_options_in_indefinite_arrays_decode() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-datum-option-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    let [
+        TransactionOutput::PostAlonzo(hashed),
+        TransactionOutput::PostAlonzo(inline),
+    ] = &body.outputs[..]
+    else {
+        panic!("the body holds two map form outputs");
+    };
+    assert!(matches!(
+        hashed.datum_option.as_deref(),
+        Some(DatumOption::Hash(hash))
+            if hash.to_string() == "f76479ff10b1f158e4b6c98049836b3bd0abe3fcceab1a5d646fdaa8f0d312fb"
+    ));
+    assert!(matches!(
+        inline.datum_option.as_deref(),
+        Some(DatumOption::Data(CborWrap(data))) if data.raw_cbor() == [0x80]
+    ));
+}
+
+#[test]
+fn a_generated_gov_action_in_an_indefinite_array_decodes() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-gov-action-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    let proposals: Vec<_> = body.proposal_procedures.unwrap().to_vec();
+    assert_eq!(proposals.len(), 1);
+    assert_eq!(proposals[0].deposit, 0x3092f0c34ad35adb);
+    let account =
+        hex::decode("f100020200000101010201000101010000010100000001010201000101").unwrap();
+    assert_eq!(
+        proposals[0].gov_action,
+        GovAction::TreasuryWithdrawals([(account.into(), 0xa1d446b07e0bbe31)].into(), None)
+    );
+}
+
+#[test]
+fn a_generated_voter_in_an_indefinite_array_decodes() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-voter-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    let voters: Vec<_> = body.voting_procedures.unwrap().into_keys().collect();
+    assert_eq!(
+        voters,
+        vec![Voter::ConstitutionalCommitteeKey(
+            "7ff244d677b8920e733c5117a58478eb164d06298ca4bde583ac1e76"
+                .parse()
+                .unwrap()
+        )]
+    );
+}
+
+#[test]
+fn a_generated_guard_credential_in_an_indefinite_array_decodes() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-guard-credential-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    let Some(Guards::Credentials(credentials)) = body.guards else {
+        panic!("the body holds credential guards");
+    };
+    assert_eq!(
+        credentials.to_vec(),
+        vec![StakeCredential::AddrKeyhash(
+            "b7fa435c83b33b9504b0aa55247460636800452cd4ed29cedd431dfe"
+                .parse()
+                .unwrap()
+        )]
+    );
+}
+
+#[test]
+fn a_generated_script_reference_in_an_indefinite_array_decodes() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-script-ref-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    let [TransactionOutput::PostAlonzo(output)] = &body.outputs[..] else {
+        panic!("the body holds one map form output");
+    };
+    let Some(CborWrap(ScriptRef::NativeScript(script))) = &output.script_ref else {
+        panic!("the output holds a native script reference");
+    };
+    assert_eq!(**script, NativeScript::InvalidHereafter(0x73e96a1328c7873b));
+}
+
+#[test]
+fn generated_native_scripts_in_indefinite_arrays_decode() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/wits-native-scripts-indefinite.hex"
+    ));
+    let witnesses: WitnessSet = decode_all(bytes);
+
+    let scripts: Vec<NativeScript> = witnesses
+        .native_script
+        .unwrap()
+        .to_vec()
+        .into_iter()
+        .map(KeepRaw::unwrap)
+        .collect();
+    assert_eq!(
+        scripts,
+        vec![
+            NativeScript::InvalidHereafter(0x73e96a1328c7873b),
+            NativeScript::ScriptAny(vec![
+                NativeScript::InvalidHereafter(0x7b16eeee03a344c6),
+                NativeScript::InvalidBefore(0xdc760102a6a9e550),
+            ]),
+            NativeScript::ScriptRequireGuard(StakeCredential::ScriptHash(
+                "35315820fb38df0f2034fa91fed7a4199d1d4b2d1b0d2a165345e349"
+                    .parse()
+                    .unwrap()
+            )),
+        ]
+    );
 }

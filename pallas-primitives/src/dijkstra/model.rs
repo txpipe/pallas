@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 use pallas_codec::minicbor::{self, Decode, Encode};
+use pallas_codec::utils::decode_array;
 
 pub use pallas_codec::codec_by_datatype;
 
@@ -380,103 +381,101 @@ pub enum Certificate {
 
 impl<'b, C> minicbor::Decode<'b, C> for Certificate {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-        let variant = d.u16()?;
+        decode_array(d, |a| {
+            let variant: u16 = a.decode_with(ctx)?;
 
-        match variant {
-            2 => Ok(Certificate::StakeDelegation(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            3 => {
-                let operator = d.decode_with(ctx)?;
-                let vrf_keyhash = d.decode_with(ctx)?;
+            match variant {
+                2 => Ok(Certificate::StakeDelegation(
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                )),
+                3 => {
+                    let operator = a.decode_with(ctx)?;
+                    let vrf_keyhash = a.decode_with(ctx)?;
 
-                // `pledge` is a coin, so a uint in this slot means the optional
-                // `bls_key` was omitted, and an array or a null means it was supplied.
-                let bls_key = match d.datatype()? {
-                    minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
-                        Some(Nullable::Some(d.decode_with(ctx)?))
-                    }
-                    minicbor::data::Type::Null => {
-                        d.null()?;
-                        Some(Nullable::Null)
-                    }
-                    _ => None,
-                };
+                    // `pledge` is a coin, so a uint in this slot means the optional
+                    // `bls_key` was omitted, and an array or a null means it was supplied.
+                    let bls_key = match a.datatype()? {
+                        minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
+                            Some(Nullable::Some(a.decode_with(ctx)?))
+                        }
+                        minicbor::data::Type::Null => Some(a.decode_with(ctx)?),
+                        _ => None,
+                    };
 
-                Ok(Certificate::PoolRegistration {
-                    operator,
-                    vrf_keyhash,
-                    bls_key,
-                    pledge: d.decode_with(ctx)?,
-                    cost: d.decode_with(ctx)?,
-                    margin: d.decode_with(ctx)?,
-                    reward_account: d.decode_with(ctx)?,
-                    pool_owners: d.decode_with(ctx)?,
-                    relays: d.decode_with(ctx)?,
-                    pool_metadata: d.decode_with(ctx)?,
-                })
+                    Ok(Certificate::PoolRegistration {
+                        operator,
+                        vrf_keyhash,
+                        bls_key,
+                        pledge: a.decode_with(ctx)?,
+                        cost: a.decode_with(ctx)?,
+                        margin: a.decode_with(ctx)?,
+                        reward_account: a.decode_with(ctx)?,
+                        pool_owners: a.decode_with(ctx)?,
+                        relays: a.decode_with(ctx)?,
+                        pool_metadata: a.decode_with(ctx)?,
+                    })
+                }
+                4 => Ok(Certificate::PoolRetirement(
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                )),
+                7 => Ok(Certificate::Reg(a.decode_with(ctx)?, a.decode_with(ctx)?)),
+                8 => Ok(Certificate::UnReg(a.decode_with(ctx)?, a.decode_with(ctx)?)),
+                9 => Ok(Certificate::VoteDeleg(
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                )),
+                10 => Ok(Certificate::StakeVoteDeleg(
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                )),
+                11 => Ok(Certificate::StakeRegDeleg(
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                )),
+                12 => Ok(Certificate::VoteRegDeleg(
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                )),
+                13 => Ok(Certificate::StakeVoteRegDeleg(
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                )),
+                14 => Ok(Certificate::AuthCommitteeHot(
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                )),
+                15 => Ok(Certificate::ResignCommitteeCold(
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                )),
+                16 => Ok(Certificate::RegDRepCert(
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                )),
+                17 => Ok(Certificate::UnRegDRepCert(
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                )),
+                18 => Ok(Certificate::UpdateDRepCert(
+                    a.decode_with(ctx)?,
+                    a.decode_with(ctx)?,
+                )),
+                0 | 1 => Err(minicbor::decode::Error::message(format!(
+                    "certificate variant {variant} was removed in Dijkstra"
+                ))),
+                _ => Err(minicbor::decode::Error::message(format!(
+                    "unknown certificate variant {variant}"
+                ))),
             }
-            4 => Ok(Certificate::PoolRetirement(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            7 => Ok(Certificate::Reg(d.decode_with(ctx)?, d.decode_with(ctx)?)),
-            8 => Ok(Certificate::UnReg(d.decode_with(ctx)?, d.decode_with(ctx)?)),
-            9 => Ok(Certificate::VoteDeleg(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            10 => Ok(Certificate::StakeVoteDeleg(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            11 => Ok(Certificate::StakeRegDeleg(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            12 => Ok(Certificate::VoteRegDeleg(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            13 => Ok(Certificate::StakeVoteRegDeleg(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            14 => Ok(Certificate::AuthCommitteeHot(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            15 => Ok(Certificate::ResignCommitteeCold(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            16 => Ok(Certificate::RegDRepCert(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            17 => Ok(Certificate::UnRegDRepCert(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            18 => Ok(Certificate::UpdateDRepCert(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            0 | 1 => Err(minicbor::decode::Error::message(format!(
-                "certificate variant {variant} was removed in Dijkstra"
-            ))),
-            _ => Err(minicbor::decode::Error::message(format!(
-                "unknown certificate variant {variant}"
-            ))),
-        }
+        })
     }
 }
 
@@ -851,7 +850,7 @@ pub struct ProposalProcedure {
 }
 
 /// `gov_action` (`defs.cddl`). Its `parameter_change_action` arm reaches this era's `protocol_param_update`.
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Eq, Clone)]
 #[cbor(flat)]
 pub enum GovAction {
     #[n(0)]
@@ -887,6 +886,16 @@ pub enum GovAction {
     #[n(6)]
     Information,
 }
+
+crate::flat_enum::decode_flat_enum!(GovAction,
+    0 => ParameterChange(previous, update, policy),
+    1 => HardForkInitiation(previous, version: crate::protocol_version::decode),
+    2 => TreasuryWithdrawals(withdrawals, policy),
+    3 => NoConfidence(previous),
+    4 => UpdateCommittee(previous, removed, added, threshold),
+    5 => NewConstitution(previous, constitution),
+    6 => Information,
+);
 
 /// `guards = nonempty_set<addr_keyhash>/ nonempty_oset<credential>`
 /// (`defs.cddl`), Conway's `required_signers` widened. The arms are told
@@ -1395,7 +1404,7 @@ codec_by_datatype! {
 
 /// `script` gains `// 4, plutus_v4_script` (`defs.cddl`), reached through
 /// `script_ref = #6.24(bytes .cbor script)`.
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 #[cbor(flat)]
 pub enum ScriptRef<'b> {
     #[n(0)]
@@ -1411,6 +1420,14 @@ pub enum ScriptRef<'b> {
     #[n(4)]
     PlutusV4Script(#[n(0)] PlutusScript<4>),
 }
+
+crate::flat_enum::decode_flat_enum!(ScriptRef<'b>,
+    0 => NativeScript(script),
+    1 => PlutusV1Script(script),
+    2 => PlutusV2Script(script),
+    3 => PlutusV3Script(script),
+    4 => PlutusV4Script(script),
+);
 
 /// `block_body` (`defs.cddl`). Dijkstra replaces Conway's segregated witness
 /// layout with complete inline transactions, and drops `invalid_transactions`
@@ -1492,39 +1509,37 @@ impl<'b> From<MempoolTransaction<'b>> for BlockTransaction<'b> {
 
 impl<'b, C> minicbor::Decode<'b, C> for MempoolTransaction<'b> {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let len = d.array()?;
+        decode_array(d, |a| {
+            let transaction_body = a.decode_with(ctx)?;
+            let transaction_witness_set = a.decode_with(ctx)?;
 
-        let transaction_body = d.decode_with(ctx)?;
-        let transaction_witness_set = d.decode_with(ctx)?;
-
-        let is_valid_supplied = match d.datatype()? {
-            minicbor::data::Type::Bool => {
-                if d.bool()? {
-                    true
-                } else {
-                    return Err(minicbor::decode::Error::message(
-                        "value `false` not allowed for `is_valid`",
-                    ));
+            let is_valid_supplied = match a.datatype()? {
+                minicbor::data::Type::Bool => {
+                    if a.decode_with(ctx)? {
+                        true
+                    } else {
+                        return Err(minicbor::decode::Error::message(
+                            "value `false` not allowed for `is_valid`",
+                        ));
+                    }
                 }
+                _ => false,
+            };
+            let auxiliary_data = a.decode_with(ctx)?;
+
+            if a.datatype()? != minicbor::data::Type::Break {
+                let expected = if is_valid_supplied { 4 } else { 3 };
+                return Err(minicbor::decode::Error::message(format!(
+                    "expected a {expected} element transaction, found more"
+                )));
             }
-            _ => false,
-        };
 
-        let expected = if is_valid_supplied { 4 } else { 3 };
-
-        if let Some(len) = len
-            && len != expected
-        {
-            return Err(minicbor::decode::Error::message(format!(
-                "expected a {expected} element transaction, found {len}"
-            )));
-        }
-
-        Ok(MempoolTransaction {
-            transaction_body,
-            transaction_witness_set,
-            is_valid_supplied,
-            auxiliary_data: d.decode_with(ctx)?,
+            Ok(MempoolTransaction {
+                transaction_body,
+                transaction_witness_set,
+                is_valid_supplied,
+                auxiliary_data,
+            })
         })
     }
 }
