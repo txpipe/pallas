@@ -226,6 +226,31 @@ macro_rules! impl_cardano_mapper_before_v1 {
                 assert_eq!(map(-(1 << 63) - 1), Int(i64::MAX));
             }
 
+            #[test]
+            #[cfg(feature = "unstable")]
+            fn withdrawals_map_in_the_byte_order_of_their_reward_accounts() {
+                use crate::testing::{
+                    conway_tx_with_key_and_script_withdrawals, KEY_REWARD_ACCOUNT,
+                    SCRIPT_REWARD_ACCOUNT,
+                };
+
+                let mapped =
+                    Mapper::new(NoLedger).map_tx(&conway_tx_with_key_and_script_withdrawals());
+                let withdrawals: Vec<_> = mapped
+                    .withdrawals
+                    .iter()
+                    .map(|x| (x.reward_account.to_vec(), x.redeemer.is_some()))
+                    .collect();
+
+                assert_eq!(
+                    withdrawals,
+                    vec![
+                        (KEY_REWARD_ACCOUNT.to_vec(), true),
+                        (SCRIPT_REWARD_ACCOUNT.to_vec(), false),
+                    ]
+                );
+            }
+
             #[cfg(feature = "unstable")]
             fn native(x: u5c::NativeScript) -> u5c::Script {
                 u5c::Script {

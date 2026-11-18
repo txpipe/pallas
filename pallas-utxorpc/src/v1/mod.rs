@@ -94,6 +94,13 @@ fn witnessed_datum_cbor(raw: &[u8]) -> Option<Vec<u8>> {
     Some(raw.to_vec())
 }
 
+/// The withdrawals of a transaction in the order the ledger indexes their redeemers.
+fn withdrawals_in_ledger_order<'a>(tx: &'a trv::MultiEraTx) -> Vec<(&'a [u8], u64)> {
+    let mut withdrawals = tx.withdrawals_sorted_set();
+    withdrawals.sort_by(|(a, _), (b, _)| trv::withdrawals::cmp_reward_accounts(a, b));
+    withdrawals
+}
+
 /// The u5c purpose of a guarding redeemer.
 fn guarding_purpose() -> u5c::RedeemerPurpose {
     u5c::RedeemerPurpose::Guarding
@@ -406,8 +413,7 @@ impl<C: LedgerContext> Mapper<C> {
                 .map(|x| self.map_gov_proposal(x))
                 .collect(),
             votes: self.map_votes(tx),
-            withdrawals: tx
-                .withdrawals_sorted_set()
+            withdrawals: withdrawals_in_ledger_order(tx)
                 .iter()
                 .enumerate()
                 .map(|(order, x)| self.map_withdrawals(x, tx, order as u32))
@@ -1390,6 +1396,27 @@ mod tests {
         assert!(
             common(&mapped).guards.is_empty(),
             "a Conway body without key 14 maps to no guards"
+        );
+    }
+
+    #[test]
+    fn a_reward_redeemer_maps_to_the_withdrawal_the_ledger_indexes() {
+        let mapped = Mapper::new(NoLedger).map_tx(&conway_tx_with_key_and_script_withdrawals());
+        let redeemed = |account: [u8; 29]| {
+            common(&mapped)
+                .withdrawals
+                .iter()
+                .find(|x| x.reward_account.as_ref() == account)
+                .map(|x| x.redeemer.is_some())
+        };
+
+        assert_eq!(
+            (
+                redeemed(SCRIPT_REWARD_ACCOUNT),
+                redeemed(KEY_REWARD_ACCOUNT)
+            ),
+            (Some(true), Some(false)),
+            "Reward index 0 is the script account, which the ledger orders before a key account of its network"
         );
     }
 

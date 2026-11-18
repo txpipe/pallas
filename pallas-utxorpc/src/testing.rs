@@ -54,6 +54,9 @@ pub fn conway_output(coin: u64) -> crate::EraCbor {
 /// The Conway redeemer tag of a certificate's redeemer.
 const CERTIFICATE_REDEEMER_TAG: u8 = 2;
 
+/// The Conway redeemer tag of a withdrawal's redeemer.
+const REWARD_REDEEMER_TAG: u8 = 3;
+
 /// Decodes a hex encoded Conway transaction.
 pub fn conway_tx(tx_str: &str) -> trv::MultiEraTx<'_> {
     let cbor: &'static [u8] = Box::leak(hex::decode(tx_str).unwrap().into_boxed_slice());
@@ -106,6 +109,59 @@ pub fn conway_tx_with_certificate_redeemers() -> trv::MultiEraTx<'static> {
         e.u64(memory).unwrap();
         e.u64(steps).unwrap();
     }
+
+    e.bool(true).unwrap();
+    e.null().unwrap();
+
+    let cbor: &'static [u8] = Box::leak(e.into_writer().into_boxed_slice());
+    trv::MultiEraTx::decode_for_era(trv::Era::Conway, cbor).unwrap()
+}
+
+/// The testnet reward account of a key credential that `conway_tx_with_key_and_script_withdrawals` withdraws from.
+pub const KEY_REWARD_ACCOUNT: [u8; 29] = reward_account(0x01);
+
+/// The testnet reward account of a script credential that `conway_tx_with_key_and_script_withdrawals` withdraws from.
+pub const SCRIPT_REWARD_ACCOUNT: [u8; 29] = {
+    let mut account = reward_account(0x02);
+    account[0] = 0xf0;
+    account
+};
+
+/// A Conway transaction that withdraws from a key and a script reward account and carries one Reward redeemer at index 0.
+pub fn conway_tx_with_key_and_script_withdrawals() -> trv::MultiEraTx<'static> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(4).unwrap();
+
+    e.map(4).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x11; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(2).unwrap();
+    e.u32(1_000).unwrap();
+    e.u8(5).unwrap();
+    e.map(2).unwrap();
+    for account in [KEY_REWARD_ACCOUNT, SCRIPT_REWARD_ACCOUNT] {
+        e.bytes(&account).unwrap();
+        e.u32(10).unwrap();
+    }
+
+    e.map(1).unwrap();
+    e.u8(5).unwrap();
+    e.map(1).unwrap();
+    e.array(2).unwrap();
+    e.u8(REWARD_REDEEMER_TAG).unwrap();
+    e.u32(0).unwrap();
+    e.array(2).unwrap();
+    e.tag(Tag::new(121)).unwrap();
+    e.array(0).unwrap();
+    e.array(2).unwrap();
+    e.u64(1_000).unwrap();
+    e.u64(2_000).unwrap();
 
     e.bool(true).unwrap();
     e.null().unwrap();

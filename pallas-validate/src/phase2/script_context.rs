@@ -1,6 +1,6 @@
 use super::{error::Error, to_plutus_data::MintValue};
 use itertools::Itertools;
-use pallas_addresses::{Address, Network, StakePayload};
+use pallas_addresses::{Address, StakePayload};
 use pallas_codec::utils::{Bytes, KeyValuePairs, NonEmptySet, PositiveCoin};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::conway::RedeemersValue;
@@ -14,7 +14,7 @@ use pallas_primitives::{
         TransactionOutput, Tx, Value, Voter, VotingProcedure, WitnessSet,
     },
 };
-use pallas_traverse::{ComputeHash, MultiEraTx, OriginalHash};
+use pallas_traverse::{ComputeHash, MultiEraTx, OriginalHash, withdrawals::cmp_reward_accounts};
 use std::collections::BTreeMap;
 use std::{cmp::Ordering, collections::HashMap, ops::Deref};
 
@@ -600,7 +600,7 @@ pub fn get_withdrawals_info(
         .as_ref()
         .map(|w| {
             w.iter()
-                .sorted_by(|(accnt_a, _), (accnt_b, _)| sort_reward_accounts(accnt_a, accnt_b))
+                .sorted_by(|(accnt_a, _), (accnt_b, _)| cmp_reward_accounts(accnt_a, accnt_b))
                 .map(|(reward_account, coin)| (Address::from_bytes(reward_account).unwrap(), *coin))
                 .collect()
         })
@@ -1080,32 +1080,12 @@ fn sort_gov_action_id(a: &GovActionId, b: &GovActionId) -> Ordering {
     }
 }
 
+#[deprecated(
+    since = "1.5.0",
+    note = "use pallas_traverse::withdrawals::cmp_reward_accounts"
+)]
 pub fn sort_reward_accounts(a: &Bytes, b: &Bytes) -> Ordering {
-    let addr_a = Address::from_bytes(a).expect("invalid reward address in withdrawals.");
-    let addr_b = Address::from_bytes(b).expect("invalid reward address in withdrawals.");
-
-    fn network_tag(network: Network) -> u8 {
-        match network {
-            Network::Testnet => 0,
-            Network::Mainnet => 1,
-            Network::Other(tag) => tag,
-        }
-    }
-
-    if let (Address::Stake(accnt_a), Address::Stake(accnt_b)) = (addr_a, addr_b) {
-        if accnt_a.network() != accnt_b.network() {
-            return network_tag(accnt_a.network()).cmp(&network_tag(accnt_b.network()));
-        }
-
-        match (accnt_a.payload(), accnt_b.payload()) {
-            (StakePayload::Script(..), StakePayload::Stake(..)) => Ordering::Less,
-            (StakePayload::Stake(..), StakePayload::Script(..)) => Ordering::Greater,
-            (StakePayload::Script(hash_a), StakePayload::Script(hash_b)) => hash_a.cmp(hash_b),
-            (StakePayload::Stake(hash_a), StakePayload::Stake(hash_b)) => hash_a.cmp(hash_b),
-        }
-    } else {
-        unreachable!("invalid reward address in withdrawals.");
-    }
+    cmp_reward_accounts(a, b)
 }
 
 #[cfg(test)]
