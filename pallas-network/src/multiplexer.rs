@@ -22,8 +22,11 @@
 //! agents receive without limits.
 //!
 //! Both receives refuse CBOR whose containers nest deeper than four times
-//! [`pallas_codec::MAX_DECODE_DEPTH`], and a message whose decoding stops
-//! inside the CBOR item it starts.
+//! [`pallas_codec::MAX_DECODE_DEPTH`]. A message whose decoding stops inside
+//! the CBOR item it starts takes the rest of that item. For encoders that
+//! declare more items than they write, a buffer whose item has not ended is
+//! also decoded at the end of a short segment, rationed so that the decoding
+//! done for a message stays within twice the bytes received.
 
 mod scanner;
 
@@ -671,8 +674,13 @@ pub struct ChannelBuffer {
     limits_enabled: bool,
     /// Whether the last segment received was shorter than a full one.
     last_segment_short: bool,
-    /// Buffer length at the last early decode of the current message.
-    early_decode_len: usize,
+    /// End of the first top-level item of the current message, once scanned.
+    first_end: Option<usize>,
+    /// Buffer length at the last decode of the current message that needed
+    /// more bytes.
+    decoded_len: usize,
+    /// Bytes decoded by those attempts, which caps further attempts.
+    decode_work: usize,
 }
 
 impl ChannelBuffer {
@@ -684,7 +692,9 @@ impl ChannelBuffer {
             scanner: scanner::Scanner::default(),
             limits_enabled: true,
             last_segment_short: false,
-            early_decode_len: 0,
+            first_end: None,
+            decoded_len: 0,
+            decode_work: 0,
         }
     }
 
@@ -785,14 +795,19 @@ impl ChannelBuffer {
                         return Err(size_limit_error(limit, end));
                     }
 
-                    // A message type made of several top-level items needs the next.
-                    if let Some(msg) = self.take_decoded(limit)? {
+                    // The first item is always decoded; a message type made of
+                    // several top-level items needs a later one.
+                    let first = self.first_end.is_none();
+                    self.first_end.get_or_insert(end);
+
+                    if (first || self.retry_due())
+                        && let Some(msg) = self.take_decoded(limit, false)?
+                    {
                         return Ok(Some(msg));
                     }
                 }
-                Ok(None) if self.early_decode_due() => {
-                    self.early_decode_len = self.temp.len();
-                    return self.take_decoded(limit);
+                Ok(None) if self.retry_due() && self.scanner.at_boundary(&self.temp) => {
+                    return self.take_decoded(limit, true);
                 }
                 Ok(None) => return Ok(None),
                 Err(scanner::ScanError::TooDeep) => {
@@ -803,7 +818,7 @@ impl ChannelBuffer {
                 }
                 // The decoder reports the error, or reads the bytes another way.
                 Err(scanner::ScanError::Malformed) => {
-                    return match self.take_decoded(limit)? {
+                    return match self.take_decoded(limit, false)? {
                         Some(msg) => Ok(Some(msg)),
                         None => Err(Error::Decoding("malformed CBOR".into())),
                     };
@@ -812,21 +827,30 @@ impl ChannelBuffer {
         }
     }
 
-    /// Whether to try decoding a message the scanner has not seen end. Some
-    /// encoders declare more items than they write, so the scanner waits for
-    /// items that never come. This decodes at the end of a short segment, at
-    /// most once per doubling of the buffer, which keeps the cost linear.
-    fn early_decode_due(&self) -> bool {
+    /// Whether to decode again a message that has needed more bytes, or that
+    /// the scanner has not seen end (some encoders declare more items than
+    /// they write). Only after new bytes ending a short segment, and only
+    /// while the failed attempts have decoded no more than the buffer holds,
+    /// so the decoding done for a message stays within twice its bytes.
+    fn retry_due(&self) -> bool {
         self.last_segment_short
-            && !self.temp.is_empty()
-            && self.scanner.at_boundary(&self.temp)
-            && self.temp.len() >= 2 * self.early_decode_len
+            && self.temp.len() > self.decoded_len
+            && self.decode_work <= self.temp.len()
+    }
+
+    /// Note a decode that needs more bytes, against the message's budget.
+    fn needs_more<M>(&mut self) -> Result<Option<M>, Error> {
+        self.decoded_len = self.temp.len();
+        self.decode_work += self.temp.len();
+        Ok(None)
     }
 
     /// Decode a message from the start of the buffer and take its bytes.
-    /// Returns `None` when the decoder needs more bytes. The message must
-    /// reach the scanner's position, so no byte is ever scanned twice.
-    fn take_decoded<M>(&mut self, limit: Option<usize>) -> Result<Option<M>, Error>
+    /// Returns `None` when the decoder needs more bytes, or, with `early`,
+    /// when it stops inside an item the scanner has not seen end. A message
+    /// that stops inside its first item takes the rest of that item, so no
+    /// byte is ever scanned twice.
+    fn take_decoded<M>(&mut self, limit: Option<usize>, early: bool) -> Result<Option<M>, Error>
     where
         M: Fragment,
     {
@@ -834,7 +858,7 @@ impl ChannelBuffer {
 
         let msg = match decoder.decode() {
             Ok(msg) => msg,
-            Err(err) if err.is_end_of_input() => return Ok(None),
+            Err(err) if err.is_end_of_input() => return self.needs_more(),
             Err(err) => {
                 error!(?err);
                 trace!("{}", hex::encode(&self.temp));
@@ -850,16 +874,23 @@ impl ChannelBuffer {
             return Err(size_limit_error(limit, pos));
         }
 
-        if pos < self.scanner.position() {
-            return Err(Error::Decoding(format!(
-                "message of {pos} bytes ends inside a CBOR item of at least {} bytes",
-                self.scanner.position()
-            )));
-        }
+        let take = match self.first_end {
+            _ if pos >= self.scanner.position() => pos,
+            Some(first) if pos <= first => first,
+            None if early => return self.needs_more(),
+            _ => {
+                return Err(Error::Decoding(format!(
+                    "message of {pos} bytes ends inside a CBOR item of at least {} bytes",
+                    self.scanner.position()
+                )));
+            }
+        };
 
-        self.temp.drain(..pos);
+        self.temp.drain(..take);
         self.scanner = scanner::Scanner::default();
-        self.early_decode_len = 0;
+        self.first_end = None;
+        self.decoded_len = 0;
+        self.decode_work = 0;
 
         Ok(Some(msg))
     }
@@ -1014,25 +1045,58 @@ mod tests {
         assert!(seen > LIMIT && seen <= LIMIT + SEGMENT, "seen {seen}");
     }
 
+    /// Feed each of `segments` as one segment, from a task.
+    fn feed_segments(into: tokio::sync::mpsc::Sender<Payload>, segments: Vec<Vec<u8>>) {
+        tokio::spawn(async move {
+            for segment in segments {
+                if into.send(segment).await.is_err() {
+                    break;
+                }
+            }
+        });
+    }
+
     #[tokio::test]
-    async fn message_ending_inside_its_item_is_refused() {
+    async fn message_stopping_inside_its_item_takes_the_rest_of_it() {
         use crate::miniprotocols::keepalive::Message;
 
         // Keep-alive messages nested as the unread third item of the one
-        // before, so each decodes but stops inside the enclosing item.
-        const LEVELS: usize = 100;
-        let mut input = [0x83, 0x00, 0x19, 0x00, 0x01].repeat(LEVELS);
-        input.extend([0x82, 0x00, 0x00]);
+        // before, then a plain one, filling exactly one full segment.
+        const LEVELS: usize = 13_106;
+        let mut input = [0x83, 0x00, 0x19, 0x00, 0x01].repeat(LEVELS - 1);
+        input.extend([0x82, 0x00, 0x19, 0x00, 0x01]);
+        input.extend([0x82, 0x00, 0x19, 0x00, 0x07]);
+        assert_eq!(input.len(), MAX_SEGMENT_PAYLOAD_LENGTH);
 
         for limit in [None, Some(65_535)] {
             let (mut buf, into) = fed_buffer();
-            feed(into, input.clone(), MAX_SEGMENT_PAYLOAD_LENGTH);
+            feed_segments(into, vec![input.clone()]);
 
-            let err = buf.recv_msg::<Message>(limit).await.unwrap_err();
-            assert!(
-                format!("{err:?}").contains("ends inside a CBOR item"),
-                "unexpected error: {err:?}"
-            );
+            let first = within_a_second(buf.recv_msg::<Message>(limit)).await;
+            assert!(matches!(first, Message::KeepAlive(1)), "{first:?}");
+            let next = within_a_second(buf.recv_msg::<Message>(limit)).await;
+            assert!(matches!(next, Message::KeepAlive(7)), "{next:?}");
+        }
+    }
+
+    #[tokio::test]
+    async fn message_stopping_inside_an_unfinished_item_waits_for_it() {
+        use crate::miniprotocols::handshake::{Message, n2n::VersionData};
+
+        // A proposal whose last version data has a field the decoder does not
+        // read, split before that field, then a second proposal.
+        let entry = [0x11, 0x85, 0x1a, 0x2d, 0x96, 0x4a, 0x09, 0xf4, 0x01, 0xf4];
+        let mut head = vec![0x82, 0x00, 0xa1];
+        head.extend(entry);
+        let mut second = head.clone();
+        second.push(0xf4);
+
+        let (mut buf, into) = fed_buffer();
+        feed_segments(into, vec![head, vec![0xf4], second]);
+
+        for _ in 0..2 {
+            let msg = within_a_second(buf.recv_full_msg::<Message<VersionData>>()).await;
+            assert!(matches!(msg, Message::Propose(table) if table.values.contains_key(&17)));
         }
     }
 
@@ -1089,6 +1153,107 @@ mod tests {
 
         let msg = within_a_second(buf.recv_full_msg::<CountShort>()).await;
         assert_eq!(msg.0, body);
+    }
+
+    /// `[2, n]` followed by `n` top-level `u8` items that belong to it.
+    struct SeveralItems(Vec<u8>);
+
+    impl<'b> minicbor::Decode<'b, ()> for SeveralItems {
+        fn decode(
+            d: &mut minicbor::Decoder<'b>,
+            _ctx: &mut (),
+        ) -> Result<Self, minicbor::decode::Error> {
+            d.array()?;
+            d.u16()?;
+            let n = d.u32()?;
+            (0..n).map(|_| d.u8()).collect::<Result<_, _>>().map(Self)
+        }
+    }
+
+    impl minicbor::Encode<()> for SeveralItems {
+        fn encode<W: minicbor::encode::Write>(
+            &self,
+            e: &mut minicbor::Encoder<W>,
+            _ctx: &mut (),
+        ) -> Result<(), minicbor::encode::Error<W::Error>> {
+            e.array(2)?.u16(2)?.u32(self.0.len() as u32)?;
+            for item in &self.0 {
+                e.u8(*item)?;
+            }
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn message_of_several_items_over_full_segments_decodes() {
+        const LEN: usize = 400_000;
+        let mut input = vec![0x82, 0x02, 0x1a];
+        input.extend(((LEN - 7) as u32).to_be_bytes());
+        input.resize(LEN, 0);
+
+        let (mut buf, into) = fed_buffer();
+        feed(into, input, MAX_SEGMENT_PAYLOAD_LENGTH);
+
+        let msg = within_a_second(buf.recv_full_msg::<SeveralItems>()).await;
+        assert_eq!(msg.0.len(), LEN - 7);
+    }
+
+    #[tokio::test]
+    async fn consecutive_count_short_messages_each_decode() {
+        use crate::miniprotocols::localmsgnotification::Message;
+
+        let (mut buf, into) = fed_buffer();
+        feed_segments(into, vec![vec![0x83, 0x02, 0x9f, 0xff]; 2]);
+
+        for _ in 0..2 {
+            let msg = within_a_second(buf.recv_full_msg::<Message>()).await;
+            assert!(matches!(msg, Message::ReplyMessagesBlocking(msgs) if msgs.is_empty()));
+        }
+    }
+
+    /// `[2, [* u8]]` under an array head that declares three items.
+    struct CountShortList(Vec<u8>);
+
+    impl<'b> minicbor::Decode<'b, ()> for CountShortList {
+        fn decode(
+            d: &mut minicbor::Decoder<'b>,
+            _ctx: &mut (),
+        ) -> Result<Self, minicbor::decode::Error> {
+            d.array()?;
+            d.u16()?;
+            Ok(CountShortList(d.decode()?))
+        }
+    }
+
+    impl minicbor::Encode<()> for CountShortList {
+        fn encode<W: minicbor::encode::Write>(
+            &self,
+            e: &mut minicbor::Encoder<W>,
+            _ctx: &mut (),
+        ) -> Result<(), minicbor::encode::Error<W::Error>> {
+            e.array(3)?.u16(2)?.encode(&self.0)?;
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn count_short_message_after_one_decoded_early_still_decodes() {
+        // Each first message needs one early decode before its last segment;
+        // the message after it is shorter than that decode.
+        for first in [
+            vec![vec![0x83, 0x02, 0x9f], vec![0xff]],
+            vec![vec![0x83, 0x02, 0x9f, 0x01, 0x02], vec![0xff]],
+        ] {
+            let mut segments = first;
+            segments.push(vec![0x83, 0x02, 0x80]);
+
+            let (mut buf, into) = fed_buffer();
+            feed_segments(into, segments);
+
+            within_a_second(buf.recv_full_msg::<CountShortList>()).await;
+            let next = within_a_second(buf.recv_full_msg::<CountShortList>()).await;
+            assert!(next.0.is_empty());
+        }
     }
 
     #[tokio::test]

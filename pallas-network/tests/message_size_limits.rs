@@ -856,3 +856,105 @@ async fn node_to_client_chainsync_is_unbounded() {
     );
     check(server.recv_while_idle().await, Expect::Accepted, big);
 }
+
+#[tokio::test]
+async fn limited_receive_is_linear_when_a_message_spans_several_items() {
+    // A tx-ids reply whose decoder reads past its own CBOR item into many
+    // one-byte items after it, with its last byte never sent.
+    const IDS: u32 = 400_000;
+    const SEGMENT: usize = 16;
+    let mut bytes = vec![0x82, 0x01, 0x9a];
+    bytes.extend(IDS.to_be_bytes());
+    bytes.extend([0x80, 0x80, 0x00, 0x40, 0x00].repeat(IDS as usize));
+    bytes.pop();
+    assert!(bytes.len() < txsubmission::TX_IDS_SIZE_LIMIT);
+
+    let (mut client, server, _link) = loopback(PROTOCOL_N2N_TX_SUBMISSION).await;
+
+    // The receive never returns for this input, but must keep up with it.
+    tokio::spawn(async move {
+        let mut buffer = ChannelBuffer::new(server);
+        let _ = buffer
+            .recv_full_msg_with_limit::<txsubmission::Message<EraTxId, EraTxBody>>(
+                txsubmission::TX_IDS_SIZE_LIMIT,
+            )
+            .await;
+    });
+
+    let start = Instant::now();
+    let send = async {
+        for chunk in bytes.chunks(SEGMENT) {
+            client.enqueue_chunk(chunk.to_vec()).await.unwrap();
+        }
+    };
+
+    // Backpressure makes this track the receiver's work, which a decode of
+    // the whole buffer per item would take far longer than this to finish.
+    let bound = Duration::from_secs(20);
+    assert!(
+        tokio::time::timeout(bound, send).await.is_ok(),
+        "absorbing {} bytes took over {bound:?}",
+        bytes.len(),
+    );
+    eprintln!("absorbed {} bytes in {:?}", bytes.len(), start.elapsed());
+}
+
+/// A version table of NodeToNodeV_14 to V_17 on mainnet, with the extra
+/// trailing field that V_17's version data carries.
+fn version_table_with_extra_field() -> Vec<u8> {
+    let magic = [0x1a, 0x2d, 0x96, 0x4a, 0x09];
+    let mut table = vec![0xa4];
+    for version in [0x0e, 0x0f, 0x10] {
+        table.extend([version, 0x84]);
+        table.extend(magic);
+        table.extend([0xf4, 0x01, 0xf4]);
+    }
+    table.extend([0x11, 0x85]);
+    table.extend(magic);
+    table.extend([0xf4, 0x01, 0xf4, 0xf4]);
+    table
+}
+
+#[tokio::test]
+async fn handshake_accepts_version_data_with_extra_fields() {
+    for opted_out in [false, true] {
+        // The server receives a proposal carrying the extra field.
+        {
+            let (client, server, _link) = loopback(PROTOCOL_N2N_HANDSHAKE).await;
+            let mut server = handshake::N2NServer::new(server);
+            if opted_out {
+                server.disable_size_limits();
+            }
+
+            let mut propose = vec![0x82, 0x00];
+            propose.extend(version_table_with_extra_field());
+            send_from_peer(client, Wire(propose));
+
+            let table = server.receive_proposed_versions().await.unwrap();
+            assert_eq!(table.values.len(), 4);
+            assert!(table.values.contains_key(&17));
+        }
+
+        // The client receives a query reply carrying it.
+        {
+            let (client, server, _link) = loopback(PROTOCOL_N2N_HANDSHAKE).await;
+            let mut client = handshake::N2NClient::new(client);
+            if opted_out {
+                client.disable_size_limits();
+            }
+
+            let mut reply = vec![0x82, 0x03];
+            reply.extend(version_table_with_extra_field());
+            send_from_peer(server, Wire(reply));
+
+            let versions = n2n::VersionTable::v7_and_above(MAINNET_MAGIC);
+            match client.handshake(versions).await.unwrap() {
+                handshake::Confirmation::QueryReply(table) => {
+                    assert_eq!(table.values.len(), 4);
+                    assert!(table.values.contains_key(&17));
+                }
+                other => panic!("unexpected confirmation: {other:?}"),
+            }
+        }
+    }
+}
