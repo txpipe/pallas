@@ -76,8 +76,8 @@ impl<T> Fragment for T where T: for<'b> minicbor::Decode<'b, ()> + minicbor::Enc
 ///
 /// Useful for sum types whose variants carry distinct CBOR shapes (e.g. one
 /// variant is an array, another is a map). The macro maps each CBOR datatype
-/// to a single-payload variant, and an `Array` fallback handles a many-field
-/// variant.
+/// to a single-payload variant, and an array of either length form handles a
+/// many-field variant.
 ///
 /// [`Decode`]: minicbor::Decode
 /// [`Encode`]: minicbor::Encode
@@ -91,10 +91,13 @@ macro_rules! codec_by_datatype {
         impl<$( $lifetime, )? '__b $(:$lifetime)?,  C> minicbor::decode::Decode<'__b, C> for $enum_name $(<$lifetime>)? {
             fn decode(d: &mut minicbor::Decoder<'__b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
                 match d.datatype()? {
-                    $( minicbor::data::Type::Array => {
-                        d.array()?;
+                    $( minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
+                        let len = d.array()?;
+                        let mut read = 0;
                         // Using the identifiers trivially to ensure repetition.
-                        Ok($enum_name::$many_f($({ let $vars = d.decode_with(ctx)?; $vars }, )+ ))
+                        let value = $enum_name::$many_f($({ let $vars = d.decode_with(ctx)?; read += 1; $vars }, )+ );
+                        $crate::utils::skip_array_rest(d, len, read)?;
+                        Ok(value)
                     }, )?
                     $( $( minicbor::data::Type::$cbortype )|* => Ok($enum_name::$one_f(d.decode_with(ctx)?)), )*
                     _ => Err(minicbor::decode::Error::message(
@@ -132,7 +135,7 @@ macro_rules! codec_by_datatype {
 mod tests {
     use super::minicbor::{self, Decode, Encode, decode, encode};
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, PartialEq)]
     enum Thing {
         Coin(u32),
         Change(bool),
@@ -164,5 +167,46 @@ mod tests {
         roundtrip_codec(Thing::Coin(0xfafa));
         roundtrip_codec(Thing::Change(false));
         roundtrip_codec(Thing::Multiasset(true, 10, -20));
+    }
+
+    /// Decodes `bytes` as one `Thing` and the position the decoder stopped at.
+    fn decode_thing(bytes: &[u8]) -> Result<(Thing, usize), decode::Error> {
+        let mut d = minicbor::Decoder::new(bytes);
+        let thing = d.decode()?;
+        Ok((thing, d.position()))
+    }
+
+    #[test]
+    fn a_many_field_variant_reads_any_array_of_its_fields_to_the_end() {
+        let cases: [(&str, &[u8]); 3] = [
+            ("definite", &[0x83, 0xf5, 0x0a, 0x33]),
+            ("indefinite", &[0x9f, 0xf5, 0x0a, 0x33, 0xff]),
+            (
+                "definite with an extra element",
+                &[0x84, 0xf5, 0x0a, 0x33, 0x00],
+            ),
+        ];
+        for (name, bytes) in cases {
+            let (thing, position) =
+                decode_thing(bytes).unwrap_or_else(|e| panic!("the {name} array: {e}"));
+            assert_eq!(thing, Thing::Multiasset(true, 10, -20), "the {name} array");
+            assert_eq!(
+                position,
+                bytes.len(),
+                "the {name} array ends at its last byte"
+            );
+        }
+    }
+
+    #[test]
+    fn a_many_field_variant_reads_its_fields_past_the_end_of_a_short_definite_array() {
+        let (thing, position) = decode_thing(&[0x82, 0xf5, 0x0a, 0x00]).unwrap();
+        assert_eq!(thing, Thing::Multiasset(true, 10, 0));
+        assert_eq!(position, 4);
+    }
+
+    #[test]
+    fn a_many_field_variant_refuses_an_indefinite_array_short_of_its_fields() {
+        assert!(decode_thing(&[0x9f, 0xf5, 0x0a, 0xff]).is_err());
     }
 }
