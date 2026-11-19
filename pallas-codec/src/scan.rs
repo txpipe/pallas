@@ -172,6 +172,12 @@ impl Scanner {
         self.open.shrink_to_fit();
     }
 
+    /// Open containers the scanner can track before it allocates again.
+    /// [`Self::shrink_to_fit`] lowers it to the containers still open.
+    pub fn capacity(&self) -> usize {
+        self.open.capacity()
+    }
+
     fn push(&mut self, items: u64) -> Result<(), ScanError> {
         if self.open.len() >= MAX_NESTING {
             return Err(ScanError::TooDeep);
@@ -477,18 +483,22 @@ mod tests {
 
     #[test]
     fn shrinking_releases_closed_containers_and_keeps_open_ones() {
-        // A deep item that ends, then the start of a shallow one.
+        // A deep item that ends, then the start of a shallow one that still
+        // expects two items.
         let mut bytes = vec![0x81; 10_000];
-        bytes.extend([0x00, 0x82, 0x01]);
+        bytes.extend([0x00, 0x83, 0x01]);
         let mut scanner = Scanner::default();
         assert_eq!(scanner.scan(&bytes), Ok(Some(10_001)));
         assert_eq!(scanner.scan(&bytes), Ok(None));
-        assert!(scanner.open.capacity() >= 10_000);
+        assert!(scanner.capacity() >= 10_000);
 
         scanner.shrink_to_fit();
-        assert!(scanner.open.capacity() < 10);
+        assert!(scanner.capacity() < 10);
 
         bytes.push(0x02);
+        assert_eq!(scanner.scan(&bytes), Ok(None));
+
+        bytes.push(0x03);
         assert_eq!(scanner.scan(&bytes), Ok(Some(bytes.len())));
     }
 }

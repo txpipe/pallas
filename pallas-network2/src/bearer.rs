@@ -257,10 +257,13 @@ impl BearerReadHalf {
     /// Each message is expected to be one CBOR item. Every inbound byte is
     /// scanned once to find where its message ends, and the message is decoded
     /// once, when that item is whole. Bytes of the item that the decoder leaves
-    /// unread are discarded with it.
+    /// unread are discarded with it. A decoder that consumes an item without
+    /// returning a message skips it; the whole items after it in the segment
+    /// are then decoded from one payload until the decoder has consumed it.
     ///
     /// Fails with [`std::io::ErrorKind::InvalidData`], leaving nothing buffered
-    /// for the channel, when a whole item does not decode as a message, when
+    /// for the channel, when a whole item, or the payload after a skipped item,
+    /// does not decode as a message, when
     /// bytes that are not well-formed CBOR do not decode as one either, or,
     /// while `buffers` has its size limits on, when a message is larger than
     /// the `MESSAGE_SIZE_LIMIT` of its protocol module. Channels without one
@@ -450,22 +453,24 @@ impl ChannelBuffers {
         }
 
         // A decoder that consumes an item without a message skips it, as for
-        // a channel it does not handle. The whole items after it are offered
-        // in one payload, as `read_full_msgs` does.
+        // a channel it does not handle. The whole items after it go to the
+        // decoder in one payload, which it is called on until it is used up.
         if let Some(from) = skipped_from
             && from < start
         {
             let mut rest = partial.bytes[from..start].to_vec();
 
-            while let Some(msg) = M::from_payload(channel, &mut rest) {
-                msgs.push(msg);
-            }
+            while !rest.is_empty() {
+                let before = rest.len();
+                let msg = M::from_payload(channel, &mut rest);
 
-            if !rest.is_empty() {
-                tracing::debug!(
-                    len = rest.len(),
-                    "discarding bytes left after a skipped item"
-                );
+                if rest.len() >= before {
+                    return Err(invalid_data(format!(
+                        "{before} bytes after a skipped CBOR item are not a valid message"
+                    )));
+                }
+
+                msgs.extend(msg);
             }
         }
 
@@ -1142,6 +1147,7 @@ mod tests {
         let partial = &buffers.channels[&1_000];
         assert_eq!(partial.bytes, [0x82]);
         assert!(partial.bytes.capacity() < 64);
+        assert!(partial.scanner.capacity() < 64);
         assert_eq!(buffers.shared, 1);
     }
 
@@ -1189,6 +1195,7 @@ mod tests {
         assert!(buffers.absorb::<Skipper>(999, segment).unwrap().is_empty());
         assert_eq!(calls(), 2);
         assert_eq!(buffers.channels[&999].bytes, [0x82, 0x00]);
+        assert_eq!(buffers.shared, 2);
 
         assert!(
             buffers
@@ -1198,6 +1205,89 @@ mod tests {
         );
         assert_eq!(calls(), 1);
         assert!(buffers.channels.is_empty());
+        assert_eq!(buffers.shared, 0);
+    }
+
+    /// A decoder of one-byte items: it skips 0, decodes 1 to 8 and refuses
+    /// anything else without consuming it.
+    #[derive(Debug, Clone, PartialEq)]
+    struct Picky(u8);
+
+    impl Message for Picky {
+        fn channel(&self) -> Channel {
+            999
+        }
+
+        fn payload(&self) -> Payload {
+            vec![self.0]
+        }
+
+        fn from_payload(_: Channel, payload: &mut Payload) -> Option<Self> {
+            match payload.first().copied()? {
+                0 => {
+                    payload.remove(0);
+                    None
+                }
+                n @ 1..=8 => {
+                    payload.remove(0);
+                    Some(Picky(n))
+                }
+                _ => None,
+            }
+        }
+
+        fn into_payload(self) -> (Channel, Payload) {
+            (999, vec![self.0])
+        }
+    }
+
+    #[test]
+    fn messages_after_a_skipped_item_are_all_decoded() {
+        let feed_picky = |bytes: &[u8], split: usize| {
+            let mut buffers = ChannelBuffers::new();
+            let mut out = vec![];
+            for chunk in [&bytes[..split], &bytes[split..]] {
+                match buffers.absorb::<Picky>(999, chunk.to_vec()) {
+                    Ok(msgs) => out.extend(msgs),
+                    Err(err) => {
+                        assert!(buffers.channels.is_empty());
+                        return Err(err);
+                    }
+                }
+            }
+            assert!(buffers.channels.is_empty());
+            Ok(out)
+        };
+
+        let cases: [(&[u8], &[u8]); 4] = [
+            (&[0, 1, 0, 2], &[1, 2]),
+            (&[0, 0, 1], &[1]),
+            (&[0, 0, 0, 3, 0, 4, 5], &[3, 4, 5]),
+            (&[1, 0, 2], &[1, 2]),
+        ];
+
+        for (bytes, expected) in cases {
+            let expected: Vec<_> = expected.iter().map(|&n| Picky(n)).collect();
+            for split in 0..=bytes.len() {
+                assert_eq!(
+                    feed_picky(bytes, split).unwrap(),
+                    expected,
+                    "{bytes:?} split {split}"
+                );
+            }
+        }
+
+        // An item the decoder refuses fails after a skipped item as it does alone.
+        for bytes in [&[9, 3][..], &[0, 9, 3], &[0, 1, 9]] {
+            for split in 0..=bytes.len() {
+                let err = feed_picky(bytes, split).unwrap_err();
+                assert_eq!(
+                    err.kind(),
+                    tokio::io::ErrorKind::InvalidData,
+                    "{bytes:?} split {split}"
+                );
+            }
+        }
     }
 
     #[test]
@@ -1218,19 +1308,27 @@ mod tests {
             bytes.push(0xff);
             bytes
         };
+        let mut back_to_back = old(&[&old_v6, &old_v6]);
+        back_to_back.extend(old(&[&old_v6]));
+
         let cases = [
-            (old(&[&old_v6]), vec![v6.clone()]),
+            (old(&[&old_v6]), vec![vec![v6.clone()]]),
             (
                 old(&[&v4_bytes, &old_v6, &v4_bytes]),
-                vec![v4.clone(), v6.clone(), v4.clone()],
+                vec![vec![v4.clone(), v6.clone(), v4.clone()]],
             ),
-            (old(&[&old_v6, &old_v6]), vec![v6.clone(), v6]),
+            (old(&[&old_v6, &old_v6]), vec![vec![v6.clone(), v6.clone()]]),
+            (
+                back_to_back,
+                vec![vec![v6.clone(), v6.clone()], vec![v6.clone()]],
+            ),
         ];
 
         let done = AnyMessage::PeerSharing(peersharing::Message::Done).payload();
 
-        for (bytes, peers) in cases {
-            let expected = [share(peers).payload(), done.clone()];
+        for (bytes, lists) in cases {
+            let mut expected: Vec<_> = lists.into_iter().map(|p| share(p).payload()).collect();
+            expected.push(done.clone());
             let mut both = bytes.clone();
             both.extend(&done);
 
