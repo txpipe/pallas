@@ -6,6 +6,11 @@ use crate::protocol::Error;
 /// Protocol channel number for node-to-node Peer-sharing
 pub const CHANNEL_ID: u16 = 10;
 
+/// Largest inbound message accepted on this channel, in bytes: the Ouroboros
+/// network specification's limit for every state. A larger message drops the
+/// connection; see [`crate::bearer::BearerReadHalf::read_messages`].
+pub const MESSAGE_SIZE_LIMIT: usize = 5_760;
+
 /// A TCP port number.
 pub type Port = u16;
 
@@ -89,7 +94,7 @@ impl Encode<()> for PeerAddress {
                 e.encode(port)?;
             }
             PeerAddress::V6(address, port) => {
-                e.array(8)?.u16(1)?;
+                e.array(6)?.u16(1)?;
 
                 let bits: u128 = address.to_bits();
                 let word1: u32 = (bits >> 96) as u32;
