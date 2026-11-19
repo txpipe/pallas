@@ -31,8 +31,8 @@ unstable = [
   "hardano",
   "pallas-traverse/unstable",
   "pallas-primitives/unstable",
-  "pallas-utxorpc/unstable",
   "pallas-validate/unstable",
+  "pallas-utxorpc/unstable",
 ]
 
 # pallas-validate feature flags

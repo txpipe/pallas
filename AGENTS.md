@@ -77,8 +77,9 @@ Feature runs:
 
 ```sh
 cargo test -p pallas-network -p pallas-network2 --features blueprint
-cargo test -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate --features unstable
+cargo test -p pallas-primitives -p pallas-traverse -p pallas-utxorpc --features unstable
 cargo test -p pallas-primitives --features unstable,blueprint
+cargo test -p pallas-validate --features unstable
 cargo check --workspace --all-targets --no-default-features
 cargo check --workspace --all-targets --all-features
 ```
@@ -178,9 +179,9 @@ Where to start for common jobs:
 - `pallas-primitives/unstable` adds the `dijkstra` module.
 - `pallas-traverse/unstable` adds Dijkstra to the `MultiEra*` types and makes `MultiEraHeader`
   non-exhaustive, so a match over it needs a wildcard arm.
-- `pallas-utxorpc/unstable` maps Dijkstra through the accessors that can hold its types, and adds
-  the `v1` module, which maps onto the v1 schema.
 - `pallas-validate/unstable` adds the Dijkstra protocol parameters to `MultiEraProtocolParameters`.
-- `pallas/unstable` turns on all four, and also the umbrella's `hardano` feature.
+- `pallas-utxorpc/unstable` adds the `v1` module, which maps onto the v1 schema.
+- `pallas-utxorpc/unstable` maps Dijkstra through the accessors that can hold its types.
+- `pallas/unstable` turns on each feature above, and also the umbrella's `hardano` feature.
 
 [`llms.txt`](llms.txt) is an index of the crate docs and examples.
