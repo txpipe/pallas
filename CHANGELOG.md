@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2026-11-19
+
+### 🚀 Features
+
+- *(network)* Add accept_with_timeout to bound the server handshake (#871)
+- *(network)* Reassemble messages in linear time and bound their size (#872)
+- *(network2)* Reassemble messages in linear time and bound their size (#877)
+
+### 🐛 Bug Fixes
+
+- *(network)* Deliver handshake refusals from the server facades (#859)
+- *(network)* Stop the plexer when a server handshake fails (#870)
+
 ## [1.5.0-rc.2] - 2026-11-11
 
 ### ⚠️ Upgrade notes
