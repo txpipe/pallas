@@ -729,25 +729,38 @@ impl ChannelBuffer {
     /// # Message shapes
     ///
     /// A message is expected to be exactly one CBOR item, as every
-    /// mini-protocol message is. Such a message is decoded once its last byte
-    /// arrives, however it is split into segments; if its decoder stops inside
-    /// the item, the rest of the item is taken with the message.
+    /// mini-protocol message is. When its decoder reads the whole item and
+    /// treats a truncated item as incomplete, such a message is decoded once
+    /// its last byte arrives, however it is split into segments. A decoder
+    /// that can succeed on fewer bytes than the item holds (one that stops
+    /// inside the item, or reads a truncated item as complete) gets the rest
+    /// of the item with the message, except when the bytes received end
+    /// exactly where it can stop after a segment shorter than
+    /// [`MAX_SEGMENT_PAYLOAD_LENGTH`], possibly an empty one: the message may
+    /// then be returned early, leaving the rest of the item for the next
+    /// receive.
     ///
     /// Other shapes, a message spanning several top-level items or one whose
     /// arrays declare more items than they hold, are received on a best-effort
     /// basis that depends on how the message is split into segments. Decoding
     /// such a message before it ends is rationed, to keep the work linear in
-    /// the bytes received. It decodes when it arrives:
+    /// the bytes received. When its decoder reads every item it holds, treats a
+    /// truncated message as incomplete, and no other message follows it in the
+    /// same segment, it decodes if it arrives:
     ///
     /// - in one segment (shorter than [`MAX_SEGMENT_PAYLOAD_LENGTH`] for arrays
     ///   that declare more items than they hold), or
     /// - as full segments followed by one shorter segment, which is how
-    ///   [`Self::send_msg_chunks`] splits a message.
+    ///   [`Self::send_msg_chunks`] splits a message whose length is not a
+    ///   multiple of [`MAX_SEGMENT_PAYLOAD_LENGTH`].
     ///
     /// It may wait for bytes that never come when its last segment is a full
-    /// one, or when it arrives in several shorter segments. If its decoder
-    /// stops inside a later top-level item, the receive fails with
-    /// [`Error::Decoding`].
+    /// one, or when it arrives in several shorter segments. A message that
+    /// follows it, in the same segment or a later one, may be taken as part of
+    /// it, make it wait, or make the receive fail. A decode that stops inside
+    /// a later top-level item may fail with [`Error::Decoding`], or, depending
+    /// on where the segments end, return the message and leave the rest of
+    /// that item for the next receive.
     pub async fn recv_full_msg<M>(&mut self) -> Result<M, Error>
     where
         M: Fragment,
