@@ -1040,6 +1040,31 @@ mod tests {
         assert_eq!(action, GovAction::HardForkInitiation(None, (3, 2317795968)));
     }
 
+    #[test]
+    fn a_hard_fork_version_of_two_numbers_decodes_in_either_length_form() {
+        for version in ["82031a8a26c280", "9f031a8a26c280ff"] {
+            let raw = hex::decode(format!("8301f6{version}")).unwrap();
+            let action: GovAction = minicbor::decode(&raw).unwrap();
+            assert_eq!(
+                action,
+                GovAction::HardForkInitiation(None, (3, 2317795968)),
+                "{version}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_hard_fork_version_of_three_numbers_is_refused_in_either_length_form() {
+        for version in ["83031a8a26c28000", "9f031a8a26c28000ff"] {
+            let raw = hex::decode(format!("8301f6{version}")).unwrap();
+            let error = minicbor::decode::<GovAction>(&raw).unwrap_err();
+            assert!(
+                error.to_string().contains("invalid 2-tuple length"),
+                "{version}: {error}"
+            );
+        }
+    }
+
     #[cfg(test)]
     mod tests_voter {
         use super::super::Voter;

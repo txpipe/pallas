@@ -292,7 +292,13 @@ pub(crate) mod protocol_version {
         d: &mut minicbor::Decoder<'_>,
         ctx: &mut Ctx,
     ) -> Result<ProtocolVersion, Error> {
-        decode_array(d, |a| Ok((a.decode_with(ctx)?, a.decode_with(ctx)?)))
+        decode_array(d, |a| {
+            let version = (a.decode_with(ctx)?, a.decode_with(ctx)?);
+            if a.datatype()? != Type::Break {
+                return Err(Error::message("invalid 2-tuple length"));
+            }
+            Ok(version)
+        })
     }
 
     /// Decodes an optional [`ProtocolVersion`], reading a null as `None`.
