@@ -175,12 +175,11 @@ Where to start for common jobs:
 
 `unstable` gates the Dijkstra era, whose APIs may change between minor releases:
 
+- `pallas/unstable` turns on `pallas-network2/unstable` only with the `network2` feature.
 - `pallas-primitives/unstable` adds the `dijkstra` module.
 - `pallas-traverse/unstable` adds Dijkstra to the `MultiEra*` types and makes `MultiEraHeader`
   non-exhaustive, so a match over it needs a wildcard arm.
 - `pallas-utxorpc/unstable` maps Dijkstra through the accessors that can hold its types.
-- `pallas-network2/unstable` reports why an initiator peer disconnected.
-- `pallas/unstable` turns on all four, the last only with the `network2` feature, and also the
-  umbrella's `hardano` feature.
+- `pallas/unstable` turns on each feature above, and also the umbrella's `hardano` feature.
 
 [`llms.txt`](llms.txt) is an index of the crate docs and examples.
