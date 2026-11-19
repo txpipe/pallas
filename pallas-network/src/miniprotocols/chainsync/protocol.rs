@@ -2,6 +2,17 @@ use std::{fmt::Debug, ops::Deref};
 
 use crate::miniprotocols::Point;
 
+/// Largest inbound node-to-node chain-sync message the agents accept, in
+/// bytes, in every state, as in the Ouroboros network specification.
+/// Node-to-client chain-sync has no limit.
+pub const MESSAGE_SIZE_LIMIT: usize = 65_535;
+
+/// Whether `O` is the node-to-node content, the only one with size limits.
+pub(crate) fn is_node_to_node<O>() -> bool {
+    // `TypeId` would need `O: 'static`, a bound the agents' impls lack.
+    std::any::type_name::<O>() == std::any::type_name::<HeaderContent>()
+}
+
 /// The tip of a chain, characterized by a point and its block height.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tip(pub Point, pub u64);

@@ -33,6 +33,10 @@ pub enum ServerError {
 pub struct BlockRequest(pub Range);
 
 /// Represents the server for the BlockFetch mini-protocol.
+///
+/// Inbound messages larger than [`IDLE_SIZE_LIMIT`](super::IDLE_SIZE_LIMIT) fail with
+/// [`multiplexer::Error::Decoding`], unless [`Self::disable_size_limits`] is
+/// called.
 pub struct Server(State, multiplexer::ChannelBuffer);
 
 impl Server {
@@ -44,6 +48,18 @@ impl Server {
     ///   the server.
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
         Self(State::Idle, multiplexer::ChannelBuffer::new(channel))
+    }
+
+    /// Receive inbound messages of any size, as releases before 1.5 did.
+    ///
+    /// By default a message larger than the size limit of its protocol state
+    /// fails with [`multiplexer::Error::Decoding`].
+    pub fn disable_size_limits(&mut self) {
+        self.1.set_size_limits(false);
+    }
+
+    fn size_limit(&self) -> usize {
+        self.0.size_limit()
     }
 
     /// Get the current state of the server.
@@ -118,7 +134,11 @@ impl Server {
     /// Low-level receive.
     pub async fn recv_message(&mut self) -> Result<Message, ServerError> {
         self.assert_agency_is_theirs()?;
-        let msg = self.1.recv_full_msg().await.map_err(ServerError::Plexer)?;
+        let msg = self
+            .1
+            .recv_msg(Some(self.size_limit()))
+            .await
+            .map_err(ServerError::Plexer)?;
         self.assert_inbound_state(&msg)?;
 
         Ok(msg)

@@ -7,6 +7,10 @@ use crate::miniprotocols::localstate::queries_v16::primitives::Port;
 /// Number of peer addresses requested or returned.
 pub type Amount = u8;
 
+/// Largest inbound peer-sharing message the agents accept, in bytes, in every
+/// state, as in the Ouroboros network specification.
+pub const MESSAGE_SIZE_LIMIT: usize = 5_760;
+
 /// Peer-sharing state-machine state.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {

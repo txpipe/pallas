@@ -17,7 +17,7 @@ impl Encode<()> for PeerAddress {
                 e.encode(port)?;
             }
             PeerAddress::V6(address, port) => {
-                e.array(8)?.u16(1)?;
+                e.array(6)?.u16(1)?;
 
                 let bits: u128 = address.to_bits();
                 let word1: u32 = (bits >> 96) as u32;

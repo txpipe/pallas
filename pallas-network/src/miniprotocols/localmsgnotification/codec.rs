@@ -30,7 +30,7 @@ impl Encode<()> for Message {
                 Ok(())
             }
             Message::ReplyMessagesBlocking(msgs) => {
-                e.array(3)?.u16(2)?;
+                e.array(2)?.u16(2)?;
                 e.begin_array()?;
                 for msg in msgs {
                     e.encode(msg)?;

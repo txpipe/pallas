@@ -180,6 +180,10 @@ where
     }
 }
 
+/// Largest inbound handshake message the agents accept, in bytes, in every
+/// state, as in the Ouroboros network specification.
+pub const MESSAGE_SIZE_LIMIT: usize = 5_760;
+
 /// Handshake state-machine state.
 #[derive(Debug, PartialEq, Eq)]
 pub enum State {

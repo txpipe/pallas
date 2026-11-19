@@ -1,6 +1,10 @@
 /// Opaque token echoed in a keep-alive round trip to match request to response.
 pub type Cookie = u16;
 
+/// Largest inbound keep-alive message the agents accept, in bytes, in every
+/// state, as in the Ouroboros network specification.
+pub const MESSAGE_SIZE_LIMIT: usize = 65_535;
+
 /// Keep-alive state machine state.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
