@@ -265,12 +265,12 @@ impl BearerReadHalf {
     /// Fails with [`std::io::ErrorKind::InvalidData`], leaving nothing buffered
     /// for the channel, when a whole item does not decode as a message, when
     /// the call after a skipped item stops inside an item without returning a
-    /// message, when bytes that are not well-formed CBOR do not decode as one
-    /// either, or, while `buffers` has its size limits on, when a message is
-    /// larger than the `MESSAGE_SIZE_LIMIT` of its protocol module. Channels
-    /// without one share a limit of 65,535 buffered bytes. Limits are checked
-    /// after each segment, so at most one segment beyond them is buffered.
-    /// Drop the connection on any error.
+    /// message, when bytes that are not well-formed CBOR follow a skipped item
+    /// or do not decode as a message either, or, while `buffers` has its size
+    /// limits on, when a message is larger than the `MESSAGE_SIZE_LIMIT` of
+    /// its protocol module. Channels without one share a limit of 65,535
+    /// buffered bytes. Limits are checked after each segment, so at most one
+    /// segment beyond them is buffered. Drop the connection on any error.
     pub async fn read_messages<M>(&mut self, buffers: &mut ChannelBuffers) -> IOResult<Vec<M>>
     where
         M: Message,
@@ -1243,7 +1243,9 @@ mod tests {
     /// two-byte item `0x18 n`, and refuses anything else without consuming
     /// it. It waits without consuming while `0x18 n` is incomplete. It reads
     /// only the head of `0x82 n ..`, skips only the head of `0x81 ..`, and
-    /// decodes 16 without consuming it. It counts the bytes it is offered.
+    /// decodes 16 without consuming it. It skips three bytes from `0x21`, and
+    /// on `0x22` it appends ten bytes and returns no message. It counts the
+    /// bytes it is offered.
     #[derive(Debug, Clone, PartialEq)]
     struct Picky(u8);
 
@@ -1269,6 +1271,14 @@ mod tests {
                     Some(Picky(n))
                 }
                 0x10 => Some(Picky(0x10)),
+                0x21 => {
+                    payload.drain(..payload.len().min(3));
+                    None
+                }
+                0x22 => {
+                    payload.extend([0; 10]);
+                    None
+                }
                 0x18 | 0x82 => {
                     let n = *payload.get(1)?;
                     payload.drain(..2);
@@ -1330,14 +1340,19 @@ mod tests {
         }
 
         // An item the decoder refuses, or skips only in part, fails after a
-        // skipped item as it does alone.
-        let refused: [&[u8]; 6] = [
+        // skipped item as it does alone. That holds when the call after the
+        // skipped item stops inside a later item than the first, and when the
+        // decoder grows its payload instead of consuming it.
+        let refused: [&[u8]; 9] = [
             &[9, 3],
             &[0, 9, 3],
             &[0, 1, 9],
             &[0x81, 0],
             &[0, 0x81, 0],
             &[0, 1, 0x81, 0],
+            &[0, 0x21, 0, 0x81, 0],
+            &[0x22],
+            &[0, 0x22],
         ];
         for bytes in refused {
             for split in 0..=bytes.len() {
