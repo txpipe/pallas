@@ -265,12 +265,14 @@ impl BearerReadHalf {
     /// Fails with [`std::io::ErrorKind::InvalidData`], leaving nothing buffered
     /// for the channel, when a whole item does not decode as a message, when
     /// the call after a skipped item stops inside an item without returning a
-    /// message, when bytes that are not well-formed CBOR follow a skipped item
-    /// or do not decode as a message either, or, while `buffers` has its size
-    /// limits on, when a message is larger than the `MESSAGE_SIZE_LIMIT` of
-    /// its protocol module. Channels without one share a limit of 65,535
-    /// buffered bytes. Limits are checked after each segment, so at most one
-    /// segment beyond them is buffered. Drop the connection on any error.
+    /// message, when CBOR nests deeper than the scanner allows, when bytes that
+    /// are not well-formed CBOR follow an item skipped earlier in the same
+    /// segment or do not decode as a message either, or, while `buffers` has
+    /// its size limits on, when a message is larger than the
+    /// `MESSAGE_SIZE_LIMIT` of its protocol module. Channels without one share
+    /// a limit of 65,535 buffered bytes. Limits are checked after each segment,
+    /// so at most one segment beyond them is buffered. Drop the connection on
+    /// any error.
     pub async fn read_messages<M>(&mut self, buffers: &mut ChannelBuffers) -> IOResult<Vec<M>>
     where
         M: Message,
@@ -1243,7 +1245,7 @@ mod tests {
     /// two-byte item `0x18 n`, and refuses anything else without consuming
     /// it. It waits without consuming while `0x18 n` is incomplete. It reads
     /// only the head of `0x82 n ..`, skips only the head of `0x81 ..`, and
-    /// decodes 16 without consuming it. It skips three bytes from `0x21`, and
+    /// decodes 16 without consuming it. It skips up to three bytes from `0x21`, and
     /// on `0x22` it appends ten bytes and returns no message. It counts the
     /// bytes it is offered.
     #[derive(Debug, Clone, PartialEq)]
