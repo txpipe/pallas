@@ -164,14 +164,14 @@ impl OriginalHash<32> for KeepRaw<'_, dijkstra::SubTransactionBody<'_>> {
 }
 
 #[cfg(feature = "unstable")]
-impl ComputeHash<32> for dijkstra::AuxiliaryData {
+impl ComputeHash<32> for dijkstra::AuxiliaryData<'_> {
     fn compute_hash(&self) -> Hash<32> {
         Hasher::<256>::hash_cbor(self)
     }
 }
 
 #[cfg(feature = "unstable")]
-impl OriginalHash<32> for KeepRaw<'_, dijkstra::AuxiliaryData> {
+impl OriginalHash<32> for KeepRaw<'_, dijkstra::AuxiliaryData<'_>> {
     fn original_hash(&self) -> Hash<32> {
         Hasher::<256>::hash(self.raw_cbor())
     }

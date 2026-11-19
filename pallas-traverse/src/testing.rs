@@ -244,6 +244,16 @@ pub fn post_alonzo_aux_data_with_plutus(native_script: &[u8], plutus: &[(u8, &[u
     e.into_writer()
 }
 
+/// Builds auxiliary data in the Shelley MA array form, with empty metadata and one native script.
+pub fn shelley_ma_aux_data(native_script: &[u8]) -> Vec<u8> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(2).unwrap();
+    e.map(0).unwrap();
+    e.array(1).unwrap();
+    e.writer_mut().extend_from_slice(native_script);
+    e.into_writer()
+}
+
 /// Builds a post Alonzo output whose reference script is wrapped in a
 /// `#6.24` tagged byte string.
 pub fn post_alonzo_output_with_script_ref(address: &[u8], coin: u64, script: &[u8]) -> Vec<u8> {

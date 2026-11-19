@@ -1029,6 +1029,7 @@ mod tests {
 mod dijkstra_tests {
     use super::*;
     use crate::{MultiEraBlock, testing};
+    use pallas_crypto::hash::Hasher;
 
     #[test]
     fn a_dijkstra_native_script_witness_is_readable() {
@@ -1065,6 +1066,43 @@ mod dijkstra_tests {
             hex::encode(&guard),
             "the script re-encodes to the bytes it was read from"
         );
+    }
+
+    #[test]
+    fn a_dijkstra_auxiliary_data_script_hashes_the_bytes_it_arrived_in() {
+        let wire = testing::native_script_invalid_before_long_form(5);
+        let canonical = testing::native_script_invalid_before(5);
+        assert_ne!(
+            Hasher::<224>::hash_tagged(&wire, 0),
+            Hasher::<224>::hash_tagged(&canonical, 0),
+            "the two encodings of this script must hash differently, or this test proves nothing"
+        );
+
+        for aux in [
+            testing::post_alonzo_aux_data(&wire, None),
+            testing::shelley_ma_aux_data(&wire),
+        ] {
+            let cbor = testing::dijkstra_block_tx(
+                &testing::minimal_body(),
+                &testing::empty_witness_set(),
+                Some(&aux),
+                true,
+            );
+            let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).expect("must decode");
+            let scripts = tx.multi_era_aux_native_scripts();
+            assert_eq!(scripts.len(), 1, "the auxiliary data carries one script");
+
+            assert_eq!(
+                scripts[0].hash(),
+                Hasher::<224>::hash_tagged(&wire, 0),
+                "an auxiliary data script is hashed over the bytes it arrived in"
+            );
+            assert_eq!(
+                hex::encode(scripts[0].encode()),
+                hex::encode(&wire),
+                "and it re-encodes to those same bytes"
+            );
+        }
     }
 
     #[test]

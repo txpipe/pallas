@@ -812,7 +812,7 @@ impl<'b> MultiEraTx<'b> {
     }
 
     #[cfg(feature = "unstable")]
-    pub(crate) fn dijkstra_aux_data(&self) -> Option<&KeepRaw<'_, dijkstra::AuxiliaryData>> {
+    pub(crate) fn dijkstra_aux_data(&self) -> Option<&KeepRaw<'_, dijkstra::AuxiliaryData<'_>>> {
         let aux = match self {
             MultiEraTx::Dijkstra(x) => &x.auxiliary_data,
             MultiEraTx::DijkstraSub(x, _) => &x.auxiliary_data,

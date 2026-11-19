@@ -1205,7 +1205,7 @@ pub struct SubTransaction<'b> {
     pub transaction_witness_set: KeepRaw<'b, WitnessSet<'b>>,
 
     #[n(2)]
-    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
+    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData<'b>>>,
 }
 
 /// `sub_transactions = nonempty_oset<sub_transaction>` (`defs.cddl`).
@@ -1425,12 +1425,12 @@ pub struct WitnessSet<'b> {
 /// `auxiliary_data_map` gains `? 5 : [* plutus_v4_script]` (`defs.cddl`).
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone, Eq)]
 #[cbor(map, tag(259))]
-pub struct PostAlonzoAuxiliaryData {
+pub struct PostAlonzoAuxiliaryData<'b> {
     #[n(0)]
     pub metadata: Option<Metadata>,
 
-    #[n(1)]
-    pub native_scripts: Option<Vec<NativeScript>>,
+    #[b(1)]
+    pub native_scripts: Option<Vec<KeepRaw<'b, NativeScript>>>,
 
     #[n(2)]
     pub plutus_v1_scripts: Option<Vec<PlutusScript<1>>>,
@@ -1449,24 +1449,24 @@ pub struct PostAlonzoAuxiliaryData {
 /// `auxiliary_data_array` (`defs.cddl`), whose second element is
 /// `auxiliary_scripts = [* native_script]`, this era's.
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone, Eq)]
-pub struct ShelleyMaAuxiliaryData {
+pub struct ShelleyMaAuxiliaryData<'b> {
     #[n(0)]
     pub transaction_metadata: Metadata,
 
-    #[n(1)]
-    pub auxiliary_scripts: Option<Vec<NativeScript>>,
+    #[b(1)]
+    pub auxiliary_scripts: Option<Vec<KeepRaw<'b, NativeScript>>>,
 }
 
 /// `auxiliary_data` (`defs.cddl`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq)]
-pub enum AuxiliaryData {
+pub enum AuxiliaryData<'b> {
     Shelley(Metadata),
-    ShelleyMa(ShelleyMaAuxiliaryData),
-    PostAlonzo(PostAlonzoAuxiliaryData),
+    ShelleyMa(ShelleyMaAuxiliaryData<'b>),
+    PostAlonzo(PostAlonzoAuxiliaryData<'b>),
 }
 
 codec_by_datatype! {
-    AuxiliaryData,
+    AuxiliaryData<'b>,
     Map | MapIndef => Shelley,
     Array | ArrayIndef => ShelleyMa,
     Tag => PostAlonzo,
@@ -1545,7 +1545,7 @@ pub struct BlockTransaction<'b> {
     pub transaction_witness_set: KeepRaw<'b, WitnessSet<'b>>,
 
     #[n(2)]
-    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
+    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData<'b>>>,
 
     /// Set by the block producer, not by the transaction author.
     #[n(3)]
@@ -1572,7 +1572,7 @@ pub struct MempoolTransaction<'b> {
     pub transaction_body: KeepRaw<'b, TransactionBody<'b>>,
     pub transaction_witness_set: KeepRaw<'b, WitnessSet<'b>>,
     pub is_valid_supplied: bool,
-    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
+    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData<'b>>>,
 }
 
 impl<'b> From<MempoolTransaction<'b>> for BlockTransaction<'b> {
