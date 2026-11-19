@@ -180,6 +180,6 @@ Where to start for common jobs:
 - `pallas-traverse/unstable` adds Dijkstra to the `MultiEra*` types and makes `MultiEraHeader`
   non-exhaustive, so a match over it needs a wildcard arm.
 - `pallas-utxorpc/unstable` maps Dijkstra through the accessors that can hold its types.
-- `pallas/unstable` turns on each feature above, and also the umbrella's `hardano` feature.
+- `pallas/unstable` turns on every crate's `unstable` feature and the umbrella's `hardano` feature.
 
 [`llms.txt`](llms.txt) is an index of the crate docs and examples.
