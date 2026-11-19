@@ -258,18 +258,19 @@ impl BearerReadHalf {
     /// scanned once to find where its message ends, and the message is decoded
     /// once, when that item is whole. Bytes of the item that the decoder leaves
     /// unread are discarded with it. A decoder that consumes an item without
-    /// returning a message skips it; the whole items after it in the segment
-    /// are then decoded from one payload until the decoder has consumed it.
+    /// returning a message skips it. It is then offered the rest of the
+    /// segment's whole items in one call, and each item that call leaves is
+    /// decoded alone.
     ///
     /// Fails with [`std::io::ErrorKind::InvalidData`], leaving nothing buffered
-    /// for the channel, when a whole item, or the payload after a skipped item,
-    /// does not decode as a message, when
-    /// bytes that are not well-formed CBOR do not decode as one either, or,
-    /// while `buffers` has its size limits on, when a message is larger than
-    /// the `MESSAGE_SIZE_LIMIT` of its protocol module. Channels without one
-    /// share a limit of 65,535 buffered bytes. Limits are checked after each
-    /// segment, so at most one segment beyond them is buffered. Drop the
-    /// connection on any error.
+    /// for the channel, when a whole item does not decode as a message, when
+    /// the call after a skipped item stops inside an item without returning a
+    /// message, when bytes that are not well-formed CBOR do not decode as one
+    /// either, or, while `buffers` has its size limits on, when a message is
+    /// larger than the `MESSAGE_SIZE_LIMIT` of its protocol module. Channels
+    /// without one share a limit of 65,535 buffered bytes. Limits are checked
+    /// after each segment, so at most one segment beyond them is buffered.
+    /// Drop the connection on any error.
     pub async fn read_messages<M>(&mut self, buffers: &mut ChannelBuffers) -> IOResult<Vec<M>>
     where
         M: Message,
@@ -400,8 +401,10 @@ impl ChannelBuffers {
         // The first byte not yet taken, and the first byte the scanner sees.
         let mut start = 0;
         let mut origin = 0;
-        // Where the whole items after one the decoder skipped begin.
+        // Where the whole items after one the decoder skipped begin, and where
+        // each of them ends.
         let mut skipped_from = None;
+        let mut ends = Vec::new();
 
         loop {
             let end = match partial.scanner.scan(&partial.bytes[origin..]) {
@@ -430,22 +433,14 @@ impl ChannelBuffers {
 
             check(end - start)?;
 
-            if skipped_from.is_none() {
+            if skipped_from.is_some() {
+                ends.push(end);
+            } else {
                 let mut item = partial.bytes[start..end].to_vec();
 
-                match M::from_payload(channel, &mut item) {
+                match decode_item(channel, &mut item)? {
                     Some(msg) => msgs.push(msg),
-                    None if item.is_empty() => skipped_from = Some(end),
-                    None => {
-                        return Err(invalid_data(format!(
-                            "CBOR item of {} bytes is not a valid message",
-                            end - start
-                        )));
-                    }
-                }
-
-                if !item.is_empty() {
-                    tracing::debug!(len = item.len(), "discarding bytes left in a decoded item");
+                    None => skipped_from = Some(end),
                 }
             }
 
@@ -453,24 +448,35 @@ impl ChannelBuffers {
         }
 
         // A decoder that consumes an item without a message skips it, as for
-        // a channel it does not handle. The whole items after it go to the
-        // decoder in one payload, which it is called on until it is used up.
+        // a channel it does not handle. It is offered the whole items after it
+        // in one payload, which such a decoder clears in one call.
         if let Some(from) = skipped_from
             && from < start
         {
-            let mut rest = partial.bytes[from..start].to_vec();
+            let mut item = partial.bytes[from..start].to_vec();
+            let before = item.len();
+            let msg = M::from_payload(channel, &mut item);
 
-            while !rest.is_empty() {
-                let before = rest.len();
-                let msg = M::from_payload(channel, &mut rest);
+            // The rest of the item the call stopped in is discarded, as when it
+            // is decoded alone. A call that returns no message must end an item.
+            let used = start - item.len().min(before);
+            let next = ends.partition_point(|&end| end < used);
 
-                if rest.len() >= before {
-                    return Err(invalid_data(format!(
-                        "{before} bytes after a skipped CBOR item are not a valid message"
-                    )));
-                }
+            if msg.is_none() && ends[next] > used {
+                return Err(invalid_data(format!(
+                    "CBOR item of {} bytes after a skipped one is not a valid message",
+                    ends[next] - ends[..next].last().map_or(from, |&end| end)
+                )));
+            }
 
-                msgs.extend(msg);
+            msgs.extend(msg);
+
+            // Each item the call left is decoded alone, so the work stays
+            // linear whatever the decoder consumes per call.
+            for pair in ends[next..].windows(2) {
+                item.clear();
+                item.extend_from_slice(&partial.bytes[pair[0]..pair[1]]);
+                msgs.extend(decode_item(channel, &mut item)?);
             }
         }
 
@@ -486,6 +492,27 @@ impl ChannelBuffers {
         check(partial.bytes.len())?;
 
         Ok(msgs)
+    }
+}
+
+/// Decode one whole CBOR item: a message, `None` when the decoder consumes the
+/// item without one, or an error when it returns none and leaves bytes of it.
+/// Bytes of the item the decoder leaves unread are discarded.
+fn decode_item<M: Message>(channel: Channel, item: &mut Payload) -> IOResult<Option<M>> {
+    let len = item.len();
+
+    match M::from_payload(channel, item) {
+        Some(msg) => {
+            if !item.is_empty() {
+                tracing::debug!(len = item.len(), "discarding bytes left in a decoded item");
+            }
+
+            Ok(Some(msg))
+        }
+        None if item.is_empty() => Ok(None),
+        None => Err(invalid_data(format!(
+            "CBOR item of {len} bytes is not a valid message"
+        ))),
     }
 }
 
@@ -1208,9 +1235,15 @@ mod tests {
         assert_eq!(buffers.shared, 0);
     }
 
+    thread_local! {
+        static PICKY_OFFERED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    }
+
     /// A decoder of small integers: it skips 0, decodes 1 to 8 and the
     /// two-byte item `0x18 n`, and refuses anything else without consuming
-    /// it. It waits without consuming while `0x18 n` is incomplete.
+    /// it. It waits without consuming while `0x18 n` is incomplete. It reads
+    /// only the head of `0x82 n ..`, skips only the head of `0x81 ..`, and
+    /// decodes 16 without consuming it. It counts the bytes it is offered.
     #[derive(Debug, Clone, PartialEq)]
     struct Picky(u8);
 
@@ -1224,8 +1257,10 @@ mod tests {
         }
 
         fn from_payload(_: Channel, payload: &mut Payload) -> Option<Self> {
+            PICKY_OFFERED.with(|offered| offered.set(offered.get() + payload.len()));
+
             match payload.first().copied()? {
-                0 => {
+                0 | 0x81 => {
                     payload.remove(0);
                     None
                 }
@@ -1233,7 +1268,8 @@ mod tests {
                     payload.remove(0);
                     Some(Picky(n))
                 }
-                0x18 => {
+                0x10 => Some(Picky(0x10)),
+                0x18 | 0x82 => {
                     let n = *payload.get(1)?;
                     payload.drain(..2);
                     Some(Picky(n))
@@ -1265,13 +1301,21 @@ mod tests {
             Ok(out)
         };
 
-        // The last case splits inside its final item after a skipped one.
-        let cases: [(&[u8], &[u8]); 5] = [
+        // The fifth case splits inside its final item after a skipped one.
+        // After it, an item gives the same messages after a skipped one as
+        // alone: the bytes the decoder leaves unread in it are discarded.
+        let cases: [(&[u8], &[u8]); 11] = [
             (&[0, 1, 0, 2], &[1, 2]),
             (&[0, 0, 1], &[1]),
             (&[0, 0, 0, 3, 0, 4, 5], &[3, 4, 5]),
             (&[1, 0, 2], &[1, 2]),
             (&[0, 1, 0x18, 5], &[1, 5]),
+            (&[0x82, 1, 2], &[1]),
+            (&[0, 0x82, 1, 2], &[1]),
+            (&[0, 0x82, 1, 0x82, 7, 0], &[1]),
+            (&[0, 0, 0x82, 1, 2, 0x82, 3, 4, 5], &[1, 3, 5]),
+            (&[0x10, 1], &[16, 1]),
+            (&[0, 0x10, 1], &[16, 1]),
         ];
 
         for (bytes, expected) in cases {
@@ -1285,8 +1329,17 @@ mod tests {
             }
         }
 
-        // An item the decoder refuses fails after a skipped item as it does alone.
-        for bytes in [&[9, 3][..], &[0, 9, 3], &[0, 1, 9]] {
+        // An item the decoder refuses, or skips only in part, fails after a
+        // skipped item as it does alone.
+        let refused: [&[u8]; 6] = [
+            &[9, 3],
+            &[0, 9, 3],
+            &[0, 1, 9],
+            &[0x81, 0],
+            &[0, 0x81, 0],
+            &[0, 1, 0x81, 0],
+        ];
+        for bytes in refused {
             for split in 0..=bytes.len() {
                 let err = feed_picky(bytes, split).unwrap_err();
                 assert_eq!(
@@ -1296,6 +1349,27 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn items_after_a_skipped_one_are_decoded_in_linear_time() {
+        let offered = || PICKY_OFFERED.with(|offered| offered.replace(0));
+        offered();
+
+        // Each call consumes one item, so decoding the segment's items from
+        // one payload would offer about half the segment's square in bytes.
+        let len = crate::MAX_SEGMENT_PAYLOAD_LENGTH;
+        let mut buffers = ChannelBuffers::new();
+        let msgs = buffers.absorb::<Picky>(999, vec![0x00; len]).unwrap();
+        assert!(msgs.is_empty());
+        assert!(buffers.channels.is_empty());
+        assert!(offered() <= 3 * len);
+
+        let mut segment = vec![0x00; len - 1];
+        segment.push(0x01);
+        let msgs = buffers.absorb::<Picky>(999, segment).unwrap();
+        assert_eq!(msgs, [Picky(1)]);
+        assert!(offered() <= 3 * len);
     }
 
     #[test]
