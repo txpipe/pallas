@@ -44,8 +44,11 @@ impl<'b> MultiEraTx<'b> {
     }
 
     #[cfg(feature = "unstable")]
-    pub fn from_dijkstra_sub(tx: &'b dijkstra::SubTransaction<'b>, parent_success: bool) -> Self {
-        Self::DijkstraSub(Box::new(Cow::Borrowed(tx)), parent_success)
+    pub fn from_dijkstra_sub(
+        tx: &'b dijkstra::SubTransaction<'b>,
+        top: &'b dijkstra::BlockTransaction<'b>,
+    ) -> Self {
+        Self::DijkstraSub(Box::new(Cow::Borrowed(tx)), Box::new(Cow::Borrowed(top)))
     }
 
     pub fn encode(&self) -> Vec<u8> {
@@ -1026,7 +1029,7 @@ impl<'b> MultiEraTx<'b> {
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.success,
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(_, success) => *success,
+            MultiEraTx::DijkstraSub(_, top) => top.success,
         }
     }
 
@@ -1112,19 +1115,42 @@ impl<'b> MultiEraTx<'b> {
     #[cfg(feature = "unstable")]
     pub fn sub_transactions(&self) -> Vec<MultiEraTx<'b>> {
         match self {
-            MultiEraTx::Dijkstra(x) => x
-                .transaction_body
-                .sub_transactions
-                .iter()
-                .flat_map(|subs| subs.iter())
-                .map(|sub| MultiEraTx::DijkstraSub(Box::new(Cow::Owned(sub.clone())), x.success))
-                .collect(),
+            MultiEraTx::Dijkstra(x) => match x.as_ref() {
+                Cow::Borrowed(top) => top
+                    .transaction_body
+                    .sub_transactions
+                    .iter()
+                    .flat_map(|subs| subs.iter())
+                    .map(|sub| MultiEraTx::from_dijkstra_sub(sub, top))
+                    .collect(),
+                Cow::Owned(top) => top
+                    .transaction_body
+                    .sub_transactions
+                    .iter()
+                    .flat_map(|subs| subs.iter())
+                    .map(|sub| {
+                        MultiEraTx::DijkstraSub(
+                            Box::new(Cow::Owned(sub.clone())),
+                            Box::new(Cow::Owned(top.clone())),
+                        )
+                    })
+                    .collect(),
+            },
             // The rule admits no nesting, so a sub transaction carries none.
             MultiEraTx::DijkstraSub(..) => vec![],
             MultiEraTx::Byron(_)
             | MultiEraTx::AlonzoCompatible(..)
             | MultiEraTx::Babbage(_)
             | MultiEraTx::Conway(_) => vec![],
+        }
+    }
+
+    /// Returns the top level transaction whose body lists this sub transaction, or None for any other transaction.
+    #[cfg(feature = "unstable")]
+    pub fn top_level_transaction(&self) -> Option<MultiEraTx<'b>> {
+        match self {
+            MultiEraTx::DijkstraSub(_, top) => Some(MultiEraTx::Dijkstra(top.clone())),
+            _ => None,
         }
     }
 
@@ -1406,6 +1432,35 @@ mod tests {
         let hashes = |subs: &[MultiEraTx]| subs.iter().map(|x| x.hash()).collect::<Vec<_>>();
         assert_eq!(owned.len(), 1);
         assert_eq!(hashes(&owned), hashes(&borrowed));
+    }
+
+    #[test]
+    fn a_sub_transaction_reads_the_top_level_transaction_that_lists_it() {
+        let sub = testing::sub_body_with_account_fields(&[0xe2; 29], 12);
+        let cbor = testing::dijkstra_block_tx(
+            &testing::body_with_account_fields(&[0xe1; 29], 7, &[&sub]),
+            &testing::empty_witness_set(),
+            None,
+            false,
+        );
+        let block_tx: dijkstra::BlockTransaction = minicbor::decode(&cbor).unwrap();
+        let owned = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).unwrap();
+        let borrowed = MultiEraTx::from_dijkstra(&block_tx);
+
+        for top in [owned, borrowed] {
+            assert_eq!(top.top_level_transaction().map(|x| x.hash()), None);
+
+            let subs = top.sub_transactions();
+            assert_eq!(subs.len(), 1);
+            assert_eq!(
+                subs[0].top_level_transaction().map(|x| x.hash()),
+                Some(top.hash())
+            );
+            assert!(
+                !subs[0].is_valid(),
+                "a sub transaction takes the flag of its top level transaction"
+            );
+        }
     }
 
     #[test]

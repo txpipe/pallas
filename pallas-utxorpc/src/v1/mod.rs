@@ -350,14 +350,14 @@ impl<C: LedgerContext> Mapper<C> {
         let resolved = self.resolve(tx);
 
         u5c::Tx {
-            common: Some(self.map_tx_common(tx, &resolved, None)),
+            common: Some(self.map_tx_common(tx, &resolved)),
             collateral: self.map_collateral(tx, &resolved),
             fee: tx.fee().and_then(u64_to_bigint),
             successful: tx.is_valid(),
             sub_transactions: tx
                 .sub_transactions()
                 .iter()
-                .map(|x| self.map_tx_common(x, &self.resolve(x), Some(tx)))
+                .map(|x| self.map_tx_common(x, &self.resolve(x)))
                 .collect(),
             starting_account_balance_intervals: tx
                 .starting_account_balance_intervals()
@@ -376,17 +376,17 @@ impl<C: LedgerContext> Mapper<C> {
         })
     }
 
-    /// Maps the fields a transaction shares with a sub transaction, given its top level transaction when it is a sub transaction.
-    fn map_tx_common<'b>(
+    /// Maps the fields a transaction shares with a sub transaction.
+    fn map_tx_common(
         &self,
-        tx: &trv::MultiEraTx<'b>,
+        tx: &trv::MultiEraTx,
         resolved: &Option<crate::UtxoMap>,
-        top: Option<&trv::MultiEraTx<'b>>,
     ) -> u5c::TxCommon {
         let start = tx.validity_start();
         let ttl = tx.ttl();
         // The ledger accepts the datum for a sub transaction's output hash from the top level witnesses too.
-        let datums: Vec<_> = std::iter::once(tx).chain(top).collect();
+        let top = top_level_transaction(tx);
+        let datums: Vec<_> = std::iter::once(tx).chain(top.as_ref()).collect();
 
         u5c::TxCommon {
             hash: tx.hash().to_vec().into(),
@@ -1225,6 +1225,25 @@ mod tests {
             .expect("the output carries a datum");
 
         (datum.hash.to_vec(), datum.original_cbor.map(|x| x.to_vec()))
+    }
+
+    #[test]
+    fn a_sub_transaction_mapped_alone_maps_the_datum_its_top_level_transaction_holds() {
+        let cbor = include_str!("../../../test_data/dijkstra-sub-output-top-datum.tx").trim();
+        let tx = dijkstra_tx(cbor);
+        let sub = &tx.sub_transactions()[0];
+
+        let mapped = Mapper::new(NoLedger).map_tx(sub);
+        let datum = common(&mapped).outputs[0]
+            .datum
+            .clone()
+            .expect("the output carries a datum");
+
+        assert_eq!(
+            datum.original_cbor.map(|x| x.to_vec()),
+            Some(vec![0x18, 0x2b]),
+            "a sub transaction maps the same datum alone as inside its top level transaction"
+        );
     }
 
     #[test]

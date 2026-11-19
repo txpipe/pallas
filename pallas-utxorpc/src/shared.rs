@@ -23,6 +23,16 @@ macro_rules! impl_cardano_mapper_shared {
             })
         }
 
+        #[cfg(feature = "unstable")]
+        fn top_level_transaction<'b>(tx: &trv::MultiEraTx<'b>) -> Option<trv::MultiEraTx<'b>> {
+            tx.top_level_transaction()
+        }
+
+        #[cfg(not(feature = "unstable"))]
+        fn top_level_transaction<'b>(_: &trv::MultiEraTx<'b>) -> Option<trv::MultiEraTx<'b>> {
+            None
+        }
+
         fn execution_prices_to_u5c(value: pallas_primitives::ExUnitPrices) -> u5c::ExPrices {
             u5c::ExPrices {
                 steps: Some(rational_number_to_u5c(value.step_price)),

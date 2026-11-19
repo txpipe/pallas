@@ -55,27 +55,13 @@ fn witnessed_datum_cbor(_: &[u8]) -> Option<Vec<u8>> {
 
 impl<C: LedgerContext> Mapper<C> {
     pub fn map_tx(&self, tx: &trv::MultiEraTx) -> u5c::Tx {
-        self.map_tx_with_top(tx, None)
-    }
-
-    /// Maps the sub transaction `sub` of the top level transaction `top`.
-    #[cfg(feature = "unstable")]
-    pub fn map_sub_tx<'b>(&self, sub: &trv::MultiEraTx<'b>, top: &trv::MultiEraTx<'b>) -> u5c::Tx {
-        self.map_tx_with_top(sub, Some(top))
-    }
-
-    /// Maps a transaction, given its top level transaction when it is a sub transaction.
-    fn map_tx_with_top<'b>(
-        &self,
-        tx: &trv::MultiEraTx<'b>,
-        top: Option<&trv::MultiEraTx<'b>>,
-    ) -> u5c::Tx {
         let resolved = self.ledger.as_ref().and_then(|ctx| {
             let to_resolve = self.find_related_inputs(tx);
             ctx.get_utxos(to_resolve.as_slice())
         });
         // The ledger accepts the datum for a sub transaction's output hash from the top level witnesses too.
-        let datums: Vec<_> = std::iter::once(tx).chain(top).collect();
+        let top = top_level_transaction(tx);
+        let datums: Vec<_> = std::iter::once(tx).chain(top.as_ref()).collect();
 
         u5c::Tx {
             hash: tx.hash().to_vec().into(),
@@ -618,7 +604,7 @@ mod tests {
     fn sub_output_datum(cbor: &str) -> (Vec<u8>, Option<u5c::PlutusData>) {
         let tx = crate::testing::dijkstra_tx(cbor);
         let sub = &tx.sub_transactions()[0];
-        let mapped = Mapper::new(NoLedger).map_sub_tx(sub, &tx);
+        let mapped = Mapper::new(NoLedger).map_tx(sub);
         let datum = mapped.outputs[0]
             .datum
             .clone()

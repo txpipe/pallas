@@ -237,9 +237,12 @@ pub enum MultiEraTx<'b> {
     /// Dijkstra transaction, whose `success` flag is written last.
     #[cfg(feature = "unstable")]
     Dijkstra(Box<Cow<'b, dijkstra::BlockTransaction<'b>>>),
-    /// A Dijkstra sub transaction with the `success` flag of the transaction whose body lists it.
+    /// A Dijkstra sub transaction with the transaction whose body lists it.
     #[cfg(feature = "unstable")]
-    DijkstraSub(Box<Cow<'b, dijkstra::SubTransaction<'b>>>, bool),
+    DijkstraSub(
+        Box<Cow<'b, dijkstra::SubTransaction<'b>>>,
+        Box<Cow<'b, dijkstra::BlockTransaction<'b>>>,
+    ),
 }
 
 /// Ada-plus-multi-asset value normalized across eras.
