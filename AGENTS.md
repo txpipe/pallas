@@ -182,6 +182,6 @@ Where to start for common jobs:
 - `pallas-validate/unstable` adds the Dijkstra protocol parameters to `MultiEraProtocolParameters`.
 - `pallas-utxorpc/unstable` adds the `v1` module, which maps onto the v1 schema.
 - `pallas-utxorpc/unstable` maps Dijkstra through the accessors that can hold its types.
-- `pallas/unstable` turns on each feature above, and also the umbrella's `hardano` feature.
+- `pallas/unstable` turns on every crate's `unstable` feature and the umbrella's `hardano` feature.
 
 [`llms.txt`](llms.txt) is an index of the crate docs and examples.
