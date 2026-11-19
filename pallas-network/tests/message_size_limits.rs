@@ -301,6 +301,8 @@ async fn unlimited_receive_is_linear_in_message_size() {
     eprintln!("absorbed {TARGET} bytes in {:?}", start.elapsed());
 }
 
+// `accept` has no handshake deadline, so only the size limit can end this.
+#[allow(deprecated)]
 #[tokio::test]
 async fn peer_server_refuses_an_oversized_proposal() {
     let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))
@@ -897,6 +899,61 @@ async fn limited_receive_is_linear_when_a_message_spans_several_items() {
         bytes.len(),
     );
     eprintln!("absorbed {} bytes in {:?}", bytes.len(), start.elapsed());
+}
+
+#[tokio::test]
+async fn limited_receive_is_linear_when_a_message_decodes_before_its_item_ends() {
+    // A tx-ids reply under an array head declaring a third item, which opens
+    // and never closes, so each short segment allows an early decode that
+    // succeeds inside an item the scanner has not seen end.
+    const IDS: u32 = 200_000;
+    const SEGMENT: usize = 16;
+    let mut head = vec![0x83, 0x01, 0x9a];
+    head.extend(IDS.to_be_bytes());
+    head.extend([0x82, 0x82, 0x00, 0x40, 0x00].repeat(IDS as usize));
+    head.push(0x9f);
+    assert_ne!(
+        head.len() % MAX_SEGMENT_PAYLOAD_LENGTH,
+        0,
+        "ends on a short segment"
+    );
+    let tail = vec![0x00; txsubmission::TX_IDS_SIZE_LIMIT - head.len() - SEGMENT];
+
+    let (mut client, server, _link) = loopback(PROTOCOL_N2N_TX_SUBMISSION).await;
+
+    // The receive never returns for this input, but must keep up with it.
+    tokio::spawn(async move {
+        let mut buffer = ChannelBuffer::new(server);
+        let _ = buffer
+            .recv_full_msg_with_limit::<txsubmission::Message<EraTxId, EraTxBody>>(
+                txsubmission::TX_IDS_SIZE_LIMIT,
+            )
+            .await;
+    });
+
+    let start = Instant::now();
+    let send = async {
+        for chunk in head.chunks(MAX_SEGMENT_PAYLOAD_LENGTH) {
+            client.enqueue_chunk(chunk.to_vec()).await.unwrap();
+        }
+        for chunk in tail.chunks(SEGMENT) {
+            client.enqueue_chunk(chunk.to_vec()).await.unwrap();
+        }
+    };
+
+    // Backpressure makes this track the receiver's work, which a decode of
+    // the whole buffer per segment would take far longer than this to finish.
+    let bound = Duration::from_secs(20);
+    assert!(
+        tokio::time::timeout(bound, send).await.is_ok(),
+        "absorbing {} bytes took over {bound:?}",
+        head.len() + tail.len(),
+    );
+    eprintln!(
+        "absorbed {} bytes in {:?}",
+        head.len() + tail.len(),
+        start.elapsed()
+    );
 }
 
 /// A version table of NodeToNodeV_14 to V_17 on mainnet, with the extra
