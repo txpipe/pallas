@@ -8,6 +8,11 @@ use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 /// Protocol channel number for node-to-node chain-sync
 pub const CHANNEL_ID: u16 = 2;
 
+/// Largest inbound message accepted on this channel, in bytes: the Ouroboros
+/// network specification's limit for every state. A larger message drops the
+/// connection; see [`crate::bearer::BearerReadHalf::read_messages`].
+pub const MESSAGE_SIZE_LIMIT: usize = 65_535;
+
 /// The tip of a chain, characterized by a point and its block height
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tip(pub Point, pub u64);

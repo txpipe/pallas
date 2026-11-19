@@ -4,6 +4,11 @@ use pallas_codec::minicbor::{Decode, Encode, Encoder, decode, encode};
 /// Protocol channel number for node-to-node Keep-alive
 pub const CHANNEL_ID: u16 = 8;
 
+/// Largest inbound message accepted on this channel, in bytes: the Ouroboros
+/// network specification's limit for every state. A larger message drops the
+/// connection; see [`crate::bearer::BearerReadHalf::read_messages`].
+pub const MESSAGE_SIZE_LIMIT: usize = 65_535;
+
 /// An opaque cookie value echoed back in keepalive responses.
 pub type Cookie = u16;
 

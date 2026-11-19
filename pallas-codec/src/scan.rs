@@ -1,6 +1,6 @@
 //! Finds where a CBOR data item ends without decoding it.
 //!
-//! [`Scanner`] walks the bytes of a growing buffer once, tracking open
+//! [`Scanner`](crate::scan::Scanner) walks the bytes of a growing buffer once, tracking open
 //! containers and pending string payloads, so a caller can decode a message
 //! only once all of its bytes have arrived.
 

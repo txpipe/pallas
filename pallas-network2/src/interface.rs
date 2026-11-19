@@ -15,14 +15,14 @@ use tokio::{sync::Mutex, time::Instant};
 
 use crate::{
     Channel, Interface, InterfaceCommand, InterfaceError, InterfaceEvent, Message, Payload, PeerId,
-    bearer::{Bearer, BearerReadHalf, BearerWriteHalf, Timestamp},
+    bearer::{Bearer, BearerReadHalf, BearerWriteHalf, ChannelBuffers, Timestamp},
 };
 
 enum InternalEvent<M: Message> {
     Connected(PeerId, Bearer),
     Disconnected(PeerId),
     Sent(PeerId, M),
-    Recv(PeerId, Vec<M>, BearerReadHalf, ChunkBuffer),
+    Recv(PeerId, Vec<M>, BearerReadHalf, ChannelBuffers),
     Error(PeerId, tokio::io::Error),
 }
 
@@ -67,11 +67,11 @@ pub type ChunkBuffer = HashMap<Channel, Payload>;
 async fn recv<M: Message>(
     pid: PeerId,
     mut reader: BearerReadHalf,
-    mut partial_chunks: ChunkBuffer,
+    mut partial_chunks: ChannelBuffers,
 ) -> InternalEvent<M> {
     let pid = pid.clone();
 
-    let result = reader.read_full_msgs(&mut partial_chunks).await;
+    let result = reader.read_messages(&mut partial_chunks).await;
 
     match result {
         Ok(msgs) => InternalEvent::Recv(pid.clone(), msgs, reader, partial_chunks),
@@ -102,6 +102,8 @@ struct TcpConnectionPool<M: Message> {
     clock: Instant,
     /// The mode bit to set on outgoing segments (0 for initiator, PROTOCOL_SERVER for responder).
     mode: u16,
+    /// Whether inbound messages are bounded by their channel's size limit.
+    size_limits: bool,
 }
 
 impl<M: Message> TcpConnectionPool<M> {
@@ -111,7 +113,18 @@ impl<M: Message> TcpConnectionPool<M> {
             writers: HashMap::new(),
             clock: Instant::now(),
             mode,
+            size_limits: true,
         }
+    }
+
+    fn new_buffers(&self) -> ChannelBuffers {
+        let mut buffers = ChannelBuffers::new();
+
+        if !self.size_limits {
+            buffers.disable_size_limits();
+        }
+
+        buffers
     }
 
     fn push_future(&mut self, f: InterfaceFuture<M>) {
@@ -128,7 +141,7 @@ impl<M: Message> TcpConnectionPool<M> {
         self.writers
             .insert(pid.clone(), Arc::new(Mutex::new(write)));
 
-        let future = recv(pid.clone(), read, HashMap::new());
+        let future = recv(pid.clone(), read, self.new_buffers());
         self.futures.push(Box::pin(future));
 
         InterfaceEvent::Connected(pid)
@@ -148,7 +161,7 @@ impl<M: Message> TcpConnectionPool<M> {
         pid: PeerId,
         msgs: Vec<M>,
         reader: BearerReadHalf,
-        partial_chunks: ChunkBuffer,
+        partial_chunks: ChannelBuffers,
     ) -> InterfaceEvent<M> {
         let future = recv(pid.clone(), reader, partial_chunks);
         self.futures.push(Box::pin(future));
@@ -234,6 +247,14 @@ impl<M: Message> TcpInterface<M> {
             pool: TcpConnectionPool::new(crate::protocol::PROTOCOL_CLIENT),
         }
     }
+
+    /// Accept inbound messages of any size on connections made after this
+    /// call. By default a peer that sends a message larger than its channel's
+    /// size limit is reported with [`InterfaceEvent::Error`]; see
+    /// [`BearerReadHalf::read_messages`].
+    pub fn disable_size_limits(&mut self) {
+        self.pool.size_limits = false;
+    }
 }
 
 impl<M: Message> Interface<M> for TcpInterface<M> {
@@ -317,6 +338,14 @@ impl<M: Message> TcpListenerInterface<M> {
             listener,
             accept_fut,
         }
+    }
+
+    /// Accept inbound messages of any size on connections accepted after this
+    /// call. By default a peer that sends a message larger than its channel's
+    /// size limit is reported with [`InterfaceEvent::Error`]; see
+    /// [`BearerReadHalf::read_messages`].
+    pub fn disable_size_limits(&mut self) {
+        self.pool.size_limits = false;
     }
 }
 
