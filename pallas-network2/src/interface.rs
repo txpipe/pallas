@@ -7,7 +7,9 @@ use std::{
 };
 
 use futures::{
-    Stream, StreamExt,
+    FutureExt, Stream, StreamExt,
+    channel::oneshot,
+    future::{Either, Shared, select},
     stream::{FusedStream, FuturesUnordered},
 };
 
@@ -18,25 +20,83 @@ use crate::{
     bearer::{Bearer, BearerReadHalf, BearerWriteHalf, Timestamp},
 };
 
-enum InternalEvent<M: Message> {
+/// The pool opening a connection (connect, accept), failing to, or closing
+/// one. Produced by futures that belong to no connection, so never cancelled.
+enum ConnectionStateEvent {
     Connected(PeerId, Bearer),
     Disconnected(PeerId),
+    OpenFailed(PeerId, tokio::io::Error),
+}
+
+/// Messages sent or received on an open connection. Produced by futures that
+/// belong to that connection, and cancelled with it.
+enum MessagingEvent<M: Message> {
     Sent(PeerId, M),
     Recv(PeerId, Vec<M>, BearerReadHalf, ChunkBuffer),
     Error(PeerId, tokio::io::Error),
+    /// The future was cancelled with its connection. Never reported.
+    Cancelled,
 }
+
+/// What a future of the pool yields.
+enum InternalEvent<M: Message> {
+    ConnectionState(ConnectionStateEvent),
+    Messaging(MessagingEvent<M>),
+}
+
+type ConnectionStateFuture = Pin<Box<dyn Future<Output = ConnectionStateEvent> + Send>>;
 
 type InterfaceFuture<M> = Pin<Box<dyn Future<Output = InternalEvent<M>> + Send>>;
 
-async fn connect<M: Message>(pid: PeerId) -> InternalEvent<M> {
+/// Resolves when the [`Connection`] that created it is dropped.
+type CancelSignal = Shared<oneshot::Receiver<()>>;
+
+/// Runs `future` until it completes or its connection is dropped, whichever
+/// comes first. A dropped connection wins a tie, so no event of a
+/// disconnected connection is ever reported. Once cancelled, `future` is
+/// dropped with what it owns (read half, writer clone, writer lock).
+fn cancellable<M: Message>(
+    future: impl Future<Output = MessagingEvent<M>> + Send + 'static,
+    cancelled: CancelSignal,
+) -> InterfaceFuture<M> {
+    Box::pin(
+        select(cancelled, Box::pin(future)).map(|either| match either {
+            Either::Left(_) => InternalEvent::Messaging(MessagingEvent::Cancelled),
+            Either::Right((event, _)) => InternalEvent::Messaging(event),
+        }),
+    )
+}
+
+/// Everything the pool keeps about an open connection. Dropping it cancels
+/// the connection's pending futures; once they are dropped, nothing owns the
+/// socket anymore and it is closed.
+struct Connection {
+    writer: SharedWriter,
+    cancelled: CancelSignal,
+    _cancel: oneshot::Sender<()>,
+}
+
+impl Connection {
+    fn new(writer: BearerWriteHalf) -> Self {
+        let (cancel, cancelled) = oneshot::channel();
+
+        Self {
+            writer: Arc::new(Mutex::new(writer)),
+            cancelled: cancelled.shared(),
+            _cancel: cancel,
+        }
+    }
+}
+
+async fn connect(pid: PeerId) -> ConnectionStateEvent {
     let pid = pid.clone();
 
     tracing::debug!(%pid, "connecting bearer");
     let bearer = Bearer::connect_tcp((pid.host.clone(), pid.port)).await;
 
     match bearer {
-        Ok(bearer) => InternalEvent::Connected(pid.clone(), bearer),
-        Err(e) => InternalEvent::Error(pid.clone(), e),
+        Ok(bearer) => ConnectionStateEvent::Connected(pid.clone(), bearer),
+        Err(e) => ConnectionStateEvent::OpenFailed(pid.clone(), e),
     }
 }
 
@@ -46,7 +106,7 @@ async fn send<M: Message>(
     msg: M,
     ts: Timestamp,
     mode: u16,
-) -> InternalEvent<M> {
+) -> MessagingEvent<M> {
     let pid = pid.clone();
     let copy = msg.clone();
 
@@ -55,8 +115,8 @@ async fn send<M: Message>(
     let result = writer.write_message(msg, ts, mode).await;
 
     match result {
-        Ok(_) => InternalEvent::Sent(pid.clone(), copy),
-        Err(e) => InternalEvent::Error(pid.clone(), e),
+        Ok(_) => MessagingEvent::Sent(pid.clone(), copy),
+        Err(e) => MessagingEvent::Error(pid.clone(), e),
     }
 }
 
@@ -68,25 +128,15 @@ async fn recv<M: Message>(
     pid: PeerId,
     mut reader: BearerReadHalf,
     mut partial_chunks: ChunkBuffer,
-) -> InternalEvent<M> {
+) -> MessagingEvent<M> {
     let pid = pid.clone();
 
     let result = reader.read_full_msgs(&mut partial_chunks).await;
 
     match result {
-        Ok(msgs) => InternalEvent::Recv(pid.clone(), msgs, reader, partial_chunks),
-        Err(e) => InternalEvent::Error(pid.clone(), e),
+        Ok(msgs) => MessagingEvent::Recv(pid.clone(), msgs, reader, partial_chunks),
+        Err(e) => MessagingEvent::Error(pid.clone(), e),
     }
-}
-
-async fn disconnect<M: Message>(pid: PeerId, writer: SharedWriter) -> InternalEvent<M> {
-    let pid = pid.clone();
-
-    let mut writer = writer.lock().await;
-
-    writer.shutdown().await.unwrap();
-
-    InternalEvent::Disconnected(pid.clone())
 }
 
 /// A thread-safe handle to a shared [`BearerWriteHalf`].
@@ -98,7 +148,7 @@ pub type SharedWriter = Arc<Mutex<BearerWriteHalf>>;
 
 struct TcpConnectionPool<M: Message> {
     futures: FuturesUnordered<InterfaceFuture<M>>,
-    writers: HashMap<PeerId, SharedWriter>,
+    connections: HashMap<PeerId, Connection>,
     clock: Instant,
     /// The mode bit to set on outgoing segments (0 for initiator, PROTOCOL_SERVER for responder).
     mode: u16,
@@ -108,34 +158,46 @@ impl<M: Message> TcpConnectionPool<M> {
     fn new(mode: u16) -> Self {
         Self {
             futures: FuturesUnordered::new(),
-            writers: HashMap::new(),
+            connections: HashMap::new(),
             clock: Instant::now(),
             mode,
         }
     }
 
-    fn push_future(&mut self, f: InterfaceFuture<M>) {
-        self.futures.push(f);
+    fn push_future(&mut self, f: ConnectionStateFuture) {
+        self.futures
+            .push(Box::pin(f.map(InternalEvent::ConnectionState)));
+    }
+
+    /// Pushes a future that belongs to the connection with `pid`, so that it
+    /// is cancelled with it. Does nothing if there is no such connection.
+    fn push_connection_future(
+        &mut self,
+        pid: &PeerId,
+        f: impl Future<Output = MessagingEvent<M>> + Send + 'static,
+    ) {
+        if let Some(connection) = self.connections.get(pid) {
+            self.futures
+                .push(cancellable(f, connection.cancelled.clone()));
+        }
     }
 
     fn take_writer(&mut self, pid: &PeerId) -> Option<SharedWriter> {
-        self.writers.get(pid).cloned()
+        self.connections.get(pid).map(|c| c.writer.clone())
     }
 
     fn on_connected(&mut self, pid: PeerId, bearer: Bearer) -> InterfaceEvent<M> {
         let (read, write) = bearer.into_split();
 
-        self.writers
-            .insert(pid.clone(), Arc::new(Mutex::new(write)));
+        self.connections.insert(pid.clone(), Connection::new(write));
 
         let future = recv(pid.clone(), read, HashMap::new());
-        self.futures.push(Box::pin(future));
+        self.push_connection_future(&pid, future);
 
         InterfaceEvent::Connected(pid)
     }
 
     fn on_disconnected(&mut self, pid: PeerId) -> InterfaceEvent<M> {
-        self.writers.remove(&pid);
         InterfaceEvent::Disconnected(pid)
     }
 
@@ -151,7 +213,7 @@ impl<M: Message> TcpConnectionPool<M> {
         partial_chunks: ChunkBuffer,
     ) -> InterfaceEvent<M> {
         let future = recv(pid.clone(), reader, partial_chunks);
-        self.futures.push(Box::pin(future));
+        self.push_connection_future(&pid, future);
 
         InterfaceEvent::Recv(pid, msgs)
     }
@@ -161,13 +223,33 @@ impl<M: Message> TcpConnectionPool<M> {
         InterfaceEvent::Error(pid, InterfaceError::Other(error.to_string()))
     }
 
-    fn handle_internal_event(&mut self, event: InternalEvent<M>) -> InterfaceEvent<M> {
+    /// Nothing to report, but other futures may already be ready: asks to be
+    /// polled again.
+    fn on_cancelled(&mut self, cx: &mut Context<'_>) -> Poll<Option<InterfaceEvent<M>>> {
+        cx.waker().wake_by_ref();
+        Poll::Pending
+    }
+
+    fn handle_connection_state_event(&mut self, event: ConnectionStateEvent) -> InterfaceEvent<M> {
         match event {
-            InternalEvent::Connected(pid, stream) => self.on_connected(pid, stream),
-            InternalEvent::Sent(pid, msg) => self.on_sent(pid, msg),
-            InternalEvent::Recv(pid, msgs, stream, buf) => self.on_recv(pid, msgs, stream, buf),
-            InternalEvent::Disconnected(pid) => self.on_disconnected(pid),
-            InternalEvent::Error(pid, error) => self.on_error(pid, error),
+            ConnectionStateEvent::Connected(pid, stream) => self.on_connected(pid, stream),
+            ConnectionStateEvent::Disconnected(pid) => self.on_disconnected(pid),
+            ConnectionStateEvent::OpenFailed(pid, error) => self.on_error(pid, error),
+        }
+    }
+
+    fn handle_messaging_event(
+        &mut self,
+        event: MessagingEvent<M>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<InterfaceEvent<M>>> {
+        match event {
+            MessagingEvent::Sent(pid, msg) => Poll::Ready(Some(self.on_sent(pid, msg))),
+            MessagingEvent::Recv(pid, msgs, stream, buf) => {
+                Poll::Ready(Some(self.on_recv(pid, msgs, stream, buf)))
+            }
+            MessagingEvent::Error(pid, error) => Poll::Ready(Some(self.on_error(pid, error))),
+            MessagingEvent::Cancelled => self.on_cancelled(cx),
         }
     }
 
@@ -179,30 +261,34 @@ impl<M: Message> TcpConnectionPool<M> {
             return;
         };
 
-        let future = send(pid, writer, msg, ts, self.mode);
-        self.futures.push(Box::pin(future));
+        let future = send(pid.clone(), writer, msg, ts, self.mode);
+        self.push_connection_future(&pid, future);
     }
 
+    /// Closes the connection without waiting for the peer or for a pending
+    /// write: dropping the [`Connection`] cancels its futures, which drops the
+    /// read half and every writer clone, so the socket is closed.
+    ///
+    /// The cancelled futures are woken now, so `FuturesUnordered` (FIFO) polls
+    /// and drops them before the `Disconnected` pushed after them is reported.
     fn dispatch_disconnect(&mut self, pid: PeerId) {
-        let Some(stream) = self.take_writer(&pid) else {
+        if self.connections.remove(&pid).is_none() {
             tracing::warn!(%pid, "trying to disconnect a peer not connected");
-            self.futures
-                .push(Box::pin(ready(InternalEvent::Disconnected(pid.clone()))));
-            return;
-        };
+        }
 
-        let future = disconnect(pid, stream);
-        self.futures.push(Box::pin(future));
+        self.push_future(Box::pin(ready(ConnectionStateEvent::Disconnected(pid))));
     }
 
     fn poll_next_event(&mut self, cx: &mut Context<'_>) -> Poll<Option<InterfaceEvent<M>>> {
         let event = self.futures.poll_next_unpin(cx);
 
         match event {
-            Poll::Ready(Some(event)) => {
-                let event = self.handle_internal_event(event);
-                Poll::Ready(Some(event))
-            }
+            Poll::Ready(Some(event)) => match event {
+                InternalEvent::ConnectionState(event) => {
+                    Poll::Ready(Some(self.handle_connection_state_event(event)))
+                }
+                InternalEvent::Messaging(event) => self.handle_messaging_event(event, cx),
+            },
             Poll::Ready(None) => Poll::Pending,
             Poll::Pending => Poll::Pending,
         }
@@ -271,7 +357,7 @@ impl<M: Message> Stream for TcpInterface<M> {
 // TcpListenerInterface — inbound connections via a bound TCP listener
 // ---------------------------------------------------------------------------
 
-async fn accept_tcp<M: Message>(listener: Arc<tokio::net::TcpListener>) -> InternalEvent<M> {
+async fn accept_tcp(listener: Arc<tokio::net::TcpListener>) -> ConnectionStateEvent {
     match Bearer::accept_tcp(&listener).await {
         Ok((bearer, addr)) => {
             let pid = PeerId {
@@ -279,7 +365,7 @@ async fn accept_tcp<M: Message>(listener: Arc<tokio::net::TcpListener>) -> Inter
                 port: addr.port(),
             };
             tracing::info!(%pid, "accepted inbound connection");
-            InternalEvent::Connected(pid, bearer)
+            ConnectionStateEvent::Connected(pid, bearer)
         }
         Err(e) => {
             tracing::error!("accept error: {:?}", e);
@@ -288,7 +374,7 @@ async fn accept_tcp<M: Message>(listener: Arc<tokio::net::TcpListener>) -> Inter
                 host: "accept-error".to_string(),
                 port: 0,
             };
-            InternalEvent::Error(pid, e)
+            ConnectionStateEvent::OpenFailed(pid, e)
         }
     }
 }
@@ -302,7 +388,7 @@ async fn accept_tcp<M: Message>(listener: Arc<tokio::net::TcpListener>) -> Inter
 pub struct TcpListenerInterface<M: Message> {
     pool: TcpConnectionPool<M>,
     listener: Arc<tokio::net::TcpListener>,
-    accept_fut: InterfaceFuture<M>,
+    accept_fut: ConnectionStateFuture,
 }
 
 impl<M: Message> TcpListenerInterface<M> {
@@ -348,7 +434,7 @@ impl<M: Message> Stream for TcpListenerInterface<M> {
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // First, poll the accept future for new inbound connections
         if let Poll::Ready(event) = self.accept_fut.as_mut().poll(cx) {
-            let ie = self.pool.handle_internal_event(event);
+            let ie = self.pool.handle_connection_state_event(event);
 
             // Re-arm the accept future for the next connection
             self.accept_fut = Box::pin(accept_tcp(Arc::clone(&self.listener)));
