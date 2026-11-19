@@ -17,6 +17,12 @@ use super::{AnyCbor, EbId, Error};
 /// Protocol channel number for node-to-node leios-notify.
 pub const CHANNEL_ID: u16 = 18;
 
+/// Largest inbound message accepted on this channel, in bytes. A larger message
+/// drops the connection; see [`crate::bearer::BearerReadHalf::read_messages`].
+/// The specification sets no limit yet; this one holds a full bundle of votes
+/// with room to spare.
+pub const MESSAGE_SIZE_LIMIT: usize = 65_535;
+
 /// Raw CBOR of a single Leios vote (persistent or non-persistent).
 pub type VoteCbor = AnyCbor;
 

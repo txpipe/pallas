@@ -33,6 +33,9 @@
 //! - [`tree`] — stack-safe decoding and traversal of recursive types via
 //!   [`tree::TreeDecode`], [`tree::decode_tree`] and [`tree::TreeNode`];
 //!   [`tree::decode_tree_with_max_depth`] bounds the nesting depth.
+//! - [`scan`] — [`scan::Scanner`] finds where a CBOR item ends in a
+//!   growing buffer, scanning each byte once, so a message received in
+//!   pieces is decoded only once it is whole.
 //! - [`utils`] — round-trip-friendly helper types ([`utils::KeepRaw`],
 //!   [`utils::KeyValuePairs`], [`utils::MaybeIndefArray`],
 //!   [`utils::NonEmptySet`], [`utils::Nullable`], [`utils::PositiveCoin`],
@@ -56,6 +59,9 @@ pub mod flat;
 
 /// Shared re-export of `minicbor` across all Pallas crates.
 pub use minicbor;
+
+/// Find where a CBOR item ends without decoding it.
+pub mod scan;
 
 /// Stack-safe decoding of recursive CBOR structures.
 pub mod tree;

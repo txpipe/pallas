@@ -5,6 +5,12 @@ use crate::protocol::Error;
 /// Protocol channel number for node-to-node tx-submission
 pub const CHANNEL_ID: u16 = 4;
 
+/// Largest inbound message accepted on this channel, in bytes: the Ouroboros
+/// network specification's limit for the tx-ids and txs states (65,535 bytes
+/// in the others). A larger message drops the connection; see
+/// [`crate::bearer::BearerReadHalf::read_messages`].
+pub const MESSAGE_SIZE_LIMIT: usize = 2_500_000;
+
 /// Whether a tx-ids request is blocking (waits for new txs) or non-blocking.
 pub type Blocking = bool;
 

@@ -11,6 +11,11 @@ pub mod n2n;
 /// Protocol channel number for node-to-node handshakes
 pub const CHANNEL_ID: u16 = 0;
 
+/// Largest inbound message accepted on this channel, in bytes: the Ouroboros
+/// network specification's limit for the propose and confirm states. A larger message drops the
+/// connection; see [`crate::bearer::BearerReadHalf::read_messages`].
+pub const MESSAGE_SIZE_LIMIT: usize = 5_760;
+
 /// A table of protocol versions and their associated data, proposed during the
 /// handshake.
 #[derive(Debug, Clone, PartialEq, Eq)]

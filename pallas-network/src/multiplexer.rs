@@ -27,12 +27,10 @@
 //! Both receives refuse CBOR whose containers nest deeper than four times
 //! [`pallas_codec::MAX_DECODE_DEPTH`].
 
-mod scanner;
-
 use std::collections::HashMap;
 
 use byteorder::{ByteOrder, NetworkEndian};
-use pallas_codec::{Fragment, minicbor};
+use pallas_codec::{Fragment, minicbor, scan as scanner};
 use thiserror::Error;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::task::JoinHandle;
@@ -851,7 +849,7 @@ impl ChannelBuffer {
                     )));
                 }
                 // The decoder reports the error, or reads the bytes another way.
-                Err(scanner::ScanError::Malformed) => {
+                Err(_) => {
                     return match self.take_decoded(limit, false)? {
                         Some(msg) => Ok(Some(msg)),
                         None => Err(Error::Decoding("malformed CBOR".into())),

@@ -1,31 +1,38 @@
 //! Finds where a CBOR data item ends without decoding it.
 //!
-//! [`Scanner`] walks the bytes of a growing buffer once, tracking open
+//! [`Scanner`](crate::scan::Scanner) walks the bytes of a growing buffer once, tracking open
 //! containers and pending string payloads, so a caller can decode a message
 //! only once all of its bytes have arrived.
 
-use pallas_codec::MAX_DECODE_DEPTH;
+use crate::MAX_DECODE_DEPTH;
 
 /// Deepest container nesting the scanner follows. Pallas's recursive types
 /// take at most two containers per level of [`MAX_DECODE_DEPTH`], so every
 /// value they accept fits, with room left for the message around it.
-pub(crate) const MAX_NESTING: usize = 4 * MAX_DECODE_DEPTH;
+pub const MAX_NESTING: usize = 4 * MAX_DECODE_DEPTH;
 
 /// Marks an open container that ends with a break rather than a count.
 const INDEFINITE: u64 = u64::MAX;
 
 /// Why the scanner cannot find the end of an item.
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) enum ScanError {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
+pub enum ScanError {
     /// The bytes are not well-formed CBOR.
+    #[error("malformed CBOR")]
     Malformed,
     /// Containers nest deeper than [`MAX_NESTING`].
+    #[error("CBOR nesting exceeds the limit of {MAX_NESTING} levels")]
     TooDeep,
 }
 
 /// Incremental scanner over the start of a buffer that only grows at its end.
-#[derive(Debug, Default)]
-pub(crate) struct Scanner {
+///
+/// Each byte is scanned once, however the buffer grows. String payloads are
+/// skipped, not read. After an item is found, the scanner continues with the
+/// item that follows it.
+#[derive(Debug, Default, Clone)]
+pub struct Scanner {
     /// Bytes of the buffer already consumed.
     pos: usize,
     /// Payload bytes of the current string still to skip.
@@ -38,7 +45,7 @@ impl Scanner {
     /// Continue over `buf`, which starts with every byte passed before.
     /// Returns the end offset of the next complete top-level item, or `None`
     /// when `buf` ends first; call again once more bytes are appended.
-    pub(crate) fn scan(&mut self, buf: &[u8]) -> Result<Option<usize>, ScanError> {
+    pub fn scan(&mut self, buf: &[u8]) -> Result<Option<usize>, ScanError> {
         loop {
             if self.skip > 0 {
                 let available = (buf.len() - self.pos) as u64;
@@ -136,14 +143,39 @@ impl Scanner {
 
     /// Bytes consumed so far. After an error, the offset of the byte that
     /// could not be scanned.
-    pub(crate) fn position(&self) -> usize {
+    pub fn position(&self) -> usize {
         self.pos
     }
 
     /// True when every byte of `buf` is consumed and none is owed to a
     /// pending string payload, so `buf` ends between two items.
-    pub(crate) fn at_boundary(&self, buf: &[u8]) -> bool {
+    pub fn at_boundary(&self, buf: &[u8]) -> bool {
         self.skip == 0 && self.pos == buf.len()
+    }
+
+    /// Account for `n` bytes removed from the start of the buffer, so the
+    /// next [`Self::scan`] continues on the shorter buffer. `n` must not
+    /// exceed [`Self::position`].
+    ///
+    /// # Panics
+    ///
+    /// When `n` exceeds [`Self::position`].
+    pub fn remove_prefix(&mut self, n: usize) {
+        assert!(n <= self.pos, "removed bytes the scanner has not passed");
+        self.pos -= n;
+    }
+
+    /// Release the memory kept for containers that have closed. Each call
+    /// costs time in the containers still open, so call it after an item ends
+    /// rather than after every scan.
+    pub fn shrink_to_fit(&mut self) {
+        self.open.shrink_to_fit();
+    }
+
+    /// Open containers the scanner can track before it allocates again.
+    /// [`Self::shrink_to_fit`] lowers it to the containers still open.
+    pub fn capacity(&self) -> usize {
+        self.open.capacity()
     }
 
     fn push(&mut self, items: u64) -> Result<(), ScanError> {
@@ -180,7 +212,7 @@ impl Scanner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pallas_codec::minicbor;
+    use crate::minicbor;
 
     /// Scan `bytes` in one pass and return every top-level item end.
     fn ends(bytes: &[u8]) -> Result<Vec<usize>, ScanError> {
@@ -434,5 +466,39 @@ mod tests {
             assert_eq!(scanner.scan(&bytes[..len]), Ok(None));
         }
         assert!(start.elapsed() < std::time::Duration::from_secs(2));
+    }
+
+    #[test]
+    fn scanning_continues_after_a_removed_prefix() {
+        let mut bytes = vec![0x83, 0x01, 0x02, 0x03, 0x82, 0x01];
+        let mut scanner = Scanner::default();
+        assert_eq!(scanner.scan(&bytes), Ok(Some(4)));
+        assert_eq!(scanner.scan(&bytes), Ok(None));
+
+        bytes.drain(..4);
+        scanner.remove_prefix(4);
+        bytes.push(0x02);
+        assert_eq!(scanner.scan(&bytes), Ok(Some(3)));
+    }
+
+    #[test]
+    fn shrinking_releases_closed_containers_and_keeps_open_ones() {
+        // A deep item that ends, then the start of a shallow one that still
+        // expects two items.
+        let mut bytes = vec![0x81; 10_000];
+        bytes.extend([0x00, 0x83, 0x01]);
+        let mut scanner = Scanner::default();
+        assert_eq!(scanner.scan(&bytes), Ok(Some(10_001)));
+        assert_eq!(scanner.scan(&bytes), Ok(None));
+        assert!(scanner.capacity() >= 10_000);
+
+        scanner.shrink_to_fit();
+        assert!(scanner.capacity() < 10);
+
+        bytes.push(0x02);
+        assert_eq!(scanner.scan(&bytes), Ok(None));
+
+        bytes.push(0x03);
+        assert_eq!(scanner.scan(&bytes), Ok(Some(bytes.len())));
     }
 }

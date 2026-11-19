@@ -9,6 +9,12 @@ use super::Point;
 /// Protocol channel number for node-to-node block-fetch
 pub const CHANNEL_ID: u16 = 3;
 
+/// Largest inbound message accepted on this channel, in bytes: the Ouroboros
+/// network specification's limit for the streaming state (65,535 bytes in the
+/// others). A larger message drops the connection; see
+/// [`crate::bearer::BearerReadHalf::read_messages`].
+pub const MESSAGE_SIZE_LIMIT: usize = 2_500_000;
+
 /// Raw bytes of a fetched block body.
 pub type Body = Vec<u8>;
 

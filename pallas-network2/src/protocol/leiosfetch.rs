@@ -19,6 +19,13 @@ use super::{AnyCbor, EbId, Error};
 /// Protocol channel number for node-to-node leios-fetch.
 pub const CHANNEL_ID: u16 = 19;
 
+/// Largest inbound message accepted on this channel, in bytes. A larger message
+/// drops the connection; see [`crate::bearer::BearerReadHalf::read_messages`].
+/// The specification sets no limit yet; this one holds the transactions of an
+/// endorser block at the largest total size CIP-0164 analyses (12 MB), with room
+/// to spare.
+pub const MESSAGE_SIZE_LIMIT: usize = 16_777_216;
+
 /// Raw CBOR of an Endorser Block body (`{ hash32 => word32 }`).
 pub type EndorserBlockCbor = AnyCbor;
 
