@@ -1208,8 +1208,9 @@ mod tests {
         assert_eq!(buffers.shared, 0);
     }
 
-    /// A decoder of one-byte items: it skips 0, decodes 1 to 8 and refuses
-    /// anything else without consuming it.
+    /// A decoder of small integers: it skips 0, decodes 1 to 8 and the
+    /// two-byte item `0x18 n`, and refuses anything else without consuming
+    /// it. It waits without consuming while `0x18 n` is incomplete.
     #[derive(Debug, Clone, PartialEq)]
     struct Picky(u8);
 
@@ -1230,6 +1231,11 @@ mod tests {
                 }
                 n @ 1..=8 => {
                     payload.remove(0);
+                    Some(Picky(n))
+                }
+                0x18 => {
+                    let n = *payload.get(1)?;
+                    payload.drain(..2);
                     Some(Picky(n))
                 }
                 _ => None,
@@ -1259,11 +1265,13 @@ mod tests {
             Ok(out)
         };
 
-        let cases: [(&[u8], &[u8]); 4] = [
+        // The last case splits inside its final item after a skipped one.
+        let cases: [(&[u8], &[u8]); 5] = [
             (&[0, 1, 0, 2], &[1, 2]),
             (&[0, 0, 1], &[1]),
             (&[0, 0, 0, 3, 0, 4, 5], &[3, 4, 5]),
             (&[1, 0, 2], &[1, 2]),
+            (&[0, 1, 0x18, 5], &[1, 5]),
         ];
 
         for (bytes, expected) in cases {
