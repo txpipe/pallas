@@ -350,6 +350,36 @@ mod tests {
     }
 
     #[test]
+    fn an_announcement_is_held_until_drained_only_after_a_request() {
+        let header = AnyCbor::from_raw_bytes(minicbor::to_vec([1u8, 2, 3]).unwrap());
+        assert_eq!(
+            State::Busy
+                .apply(&Message::BlockAnnouncement(header.clone()))
+                .unwrap(),
+            State::Idle(Some(Notification::BlockAnnouncement(header.clone())))
+        );
+        assert!(matches!(
+            State::Idle(None).apply(&Message::BlockAnnouncement(header)),
+            Err(Error::InvalidOutbound)
+        ));
+    }
+
+    #[test]
+    fn votes_are_held_until_drained_only_after_a_request() {
+        let votes = vec![AnyCbor::from_raw_bytes(
+            minicbor::to_vec([9u8, 8, 7, 6]).unwrap(),
+        )];
+        assert_eq!(
+            State::Busy.apply(&Message::Votes(votes.clone())).unwrap(),
+            State::Idle(Some(Notification::Votes(votes.clone())))
+        );
+        assert!(matches!(
+            State::Quit.apply(&Message::Votes(votes)),
+            Err(Error::InvalidInbound)
+        ));
+    }
+
+    #[test]
     fn illegal_transitions_error() {
         // offer while idle is invalid
         assert!(matches!(

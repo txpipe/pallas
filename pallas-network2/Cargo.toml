@@ -34,10 +34,12 @@ cddl = { version = "=0.10.6", optional = true }
 emulation = ["tokio", "rand"]
 default = ["emulation"]
 blueprint = ["dep:cddl"]
+unstable = []
 
 [dev-dependencies]
 tokio = { version = "1.45.1", features = ["full", "test-util"] }
 criterion = { version = "0.8", features = ["async_tokio"] }
+pallas-crypto.workspace = true
 
 [[bench]]
 name = "protocol"

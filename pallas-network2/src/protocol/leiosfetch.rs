@@ -7,12 +7,17 @@
 //!
 //! Wire format and state machine follow the authoritative `leios-fetch` CDDL of
 //! cardano-blueprint (protocol id 19), which is the network spec of record while
-//! CIP-0164's network chapter stabilises.
+//! CIP-0164's network chapter stabilises. With the `unstable` feature an
+//! endorser block is written in tag 24 and read with or without it.
 
 use std::collections::BTreeMap;
 
+#[cfg(feature = "unstable")]
+use pallas_codec::minicbor::data::IanaTag;
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 use pallas_codec::utils::CborWrap;
+#[cfg(feature = "unstable")]
+use pallas_codec::utils::{Bytes, TagWrap};
 
 use super::{AnyCbor, EbId, Error};
 
@@ -24,6 +29,24 @@ pub type EndorserBlockCbor = AnyCbor;
 
 /// Raw CBOR of a single transaction.
 pub type TxCbor = AnyCbor;
+
+#[cfg(feature = "unstable")]
+type Wrapped = TagWrap<Bytes, 24>;
+
+#[cfg(feature = "unstable")]
+fn wrap(payload: &AnyCbor) -> Wrapped {
+    TagWrap(Bytes::from(payload.raw_bytes().to_vec()))
+}
+
+#[cfg(feature = "unstable")]
+fn unwrap(wrapped: Wrapped) -> AnyCbor {
+    AnyCbor::from_raw_bytes(wrapped.0.into())
+}
+
+#[cfg(feature = "unstable")]
+fn next_is_wrapped(d: &mut Decoder) -> bool {
+    matches!(d.probe().tag(), Ok(tag) if tag == IanaTag::Cbor.tag())
+}
 
 /// A transaction-subset selector for leios-fetch block-txs requests.
 ///
@@ -207,6 +230,9 @@ impl Encode<()> for Message {
             }
             Message::Block(block) => {
                 e.array(2)?.u16(2)?;
+                #[cfg(feature = "unstable")]
+                e.encode(wrap(block))?;
+                #[cfg(not(feature = "unstable"))]
                 e.encode(block)?;
             }
             Message::BlockTxsRequest(point, bitmaps) => {
@@ -235,16 +261,31 @@ impl<'b> Decode<'b, ()> for Message {
         match label {
             0 => Ok(Message::Done),
             1 => Ok(Message::BlockRequest(d.decode()?)),
-            2 => Ok(Message::Block(d.decode()?)),
+            2 => {
+                #[cfg(feature = "unstable")]
+                let block = if next_is_wrapped(d) {
+                    unwrap(d.decode()?)
+                } else {
+                    d.decode()?
+                };
+                #[cfg(not(feature = "unstable"))]
+                let block = d.decode()?;
+                Ok(Message::Block(block))
+            }
             3 => {
                 let point = d.decode()?;
                 let bitmaps = d.decode()?;
                 Ok(Message::BlockTxsRequest(point, bitmaps))
             }
             4 => {
-                let txs: Vec<CborWrap<TxCbor>> = d.decode()?;
-                let txs = txs.into_iter().map(CborWrap::unwrap).collect();
-                Ok(Message::BlockTxs { txs })
+                #[cfg(feature = "unstable")]
+                let txs = d.decode::<Vec<Wrapped>>()?.into_iter().map(unwrap);
+                #[cfg(not(feature = "unstable"))]
+                let txs = d
+                    .decode::<Vec<CborWrap<TxCbor>>>()?
+                    .into_iter()
+                    .map(CborWrap::unwrap);
+                Ok(Message::BlockTxs { txs: txs.collect() })
             }
             _ => Err(decode::Error::message(
                 "unknown variant for leiosfetch message",
@@ -261,6 +302,8 @@ mod tests {
     use crate::protocol::cddl;
     use crate::protocol::cddl::conforms;
     use pallas_codec::minicbor;
+    #[cfg(feature = "unstable")]
+    use pallas_crypto::hash::Hasher;
     use std::collections::BTreeMap;
 
     fn point() -> EbId {
@@ -315,18 +358,87 @@ mod tests {
         )
     }
 
+    const CAPTURED_BLOCK: &[u8] =
+        include_bytes!("../../../test_data/leios-rc-2026w42/fetch-block.cbor");
+
+    fn wrapped_block() -> Vec<u8> {
+        let body = &CAPTURED_BLOCK[2..];
+        assert_eq!(body.len(), 0x09b1, "fixture precondition");
+        [&[0x82, 0x02, 0xd8, 0x18, 0x59, 0x09, 0xb1][..], body].concat()
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_block_bare_or_cbor_in_cbor_holds_the_announced_endorser_block() {
+        let Point::Specific(_, announced) = captured_point() else {
+            panic!("fixture precondition");
+        };
+
+        for bytes in [CAPTURED_BLOCK.to_vec(), wrapped_block()] {
+            match minicbor::decode(&bytes).expect("the block decodes") {
+                Message::Block(eb) => {
+                    assert_eq!(Hasher::<256>::hash(eb.raw_bytes()).as_ref(), announced)
+                }
+                other => panic!("{other:?}"),
+            }
+        }
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_block_is_written_cbor_in_cbor() {
+        let eb = AnyCbor::from_raw_bytes(CAPTURED_BLOCK[2..].to_vec());
+        assert_eq!(reencode(&Message::Block(eb)), wrapped_block());
+    }
+
+    #[cfg(not(feature = "unstable"))]
+    #[test]
+    fn a_block_is_written_and_read_as_one_item() {
+        match decode_captured(CAPTURED_BLOCK) {
+            Message::Block(eb) => assert_eq!(eb.raw_bytes(), &CAPTURED_BLOCK[2..]),
+            other => panic!("{other:?}"),
+        }
+
+        let tagged = wrapped_block();
+        match decode_captured(&tagged) {
+            Message::Block(eb) => assert_eq!(eb.raw_bytes(), &tagged[2..]),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_block_in_another_tag_is_held_as_one_item() {
+        let block = [0x82, 0x02, 0xd9, 0x01, 0x02, 0x42, 0x01, 0x02];
+
+        match minicbor::decode(&block).expect("the block decodes") {
+            Message::Block(eb) => assert_eq!(eb.raw_bytes(), &block[2..]),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_wrapped_payload_is_held_whole() {
+        // Each tag 24 byte string holds two CBOR items, 0x01 and 0x02.
+        let block = [0x82, 0x02, 0xd8, 0x18, 0x42, 0x01, 0x02];
+        let block_txs = [0x82, 0x04, 0x81, 0xd8, 0x18, 0x42, 0x01, 0x02];
+
+        match minicbor::decode(&block).expect("the block decodes") {
+            Message::Block(eb) => assert_eq!(eb.raw_bytes(), [0x01, 0x02]),
+            other => panic!("{other:?}"),
+        }
+        match minicbor::decode(&block_txs).expect("the transactions decode") {
+            Message::BlockTxs { txs } => assert_eq!(txs[0].raw_bytes(), [0x01, 0x02]),
+            other => panic!("{other:?}"),
+        }
+    }
+
     #[test]
     fn captured_messages_decode_by_their_numbers() {
         match decode_captured(include_bytes!(
             "../../../test_data/leios-rc-2026w42/fetch-block-request.cbor"
         )) {
             Message::BlockRequest(point) => assert_eq!(point, captured_point()),
-            other => panic!("{other:?}"),
-        }
-
-        let block = include_bytes!("../../../test_data/leios-rc-2026w42/fetch-block.cbor");
-        match decode_captured(block) {
-            Message::Block(eb) => assert_eq!(eb.raw_bytes(), &block[2..]),
             other => panic!("{other:?}"),
         }
 
@@ -420,6 +532,42 @@ mod tests {
             State::AwaitingBlock(point()).apply(&Message::BlockRequest(point())),
             Err(Error::InvalidInbound)
         ));
+    }
+
+    #[test]
+    fn done_ends_the_protocol_only_from_idle() {
+        assert_eq!(
+            State::Idle(None).apply(&Message::Done).unwrap(),
+            State::Done
+        );
+        assert!(matches!(
+            State::AwaitingBlock(point()).apply(&Message::Done),
+            Err(Error::InvalidInbound)
+        ));
+    }
+
+    #[test]
+    fn block_txs_answer_only_a_block_txs_request() {
+        let txs = vec![raw([4, 5, 6])];
+        assert_eq!(
+            State::AwaitingBlockTxs(point(), bitmaps())
+                .apply(&Message::BlockTxs { txs: txs.clone() })
+                .unwrap(),
+            State::Idle(Some((point(), Response::BlockTxs { txs: txs.clone() })))
+        );
+        assert!(matches!(
+            State::AwaitingBlock(point()).apply(&Message::BlockTxs { txs }),
+            Err(Error::InvalidInbound)
+        ));
+    }
+
+    #[test]
+    fn bitmaps_from_indices_put_each_offset_in_its_64_wide_window() {
+        let b = Bitmaps::from_indices([63usize, 64, 200]);
+        assert_eq!(
+            b.0,
+            BTreeMap::from([(0u16, 1u64), (1, 1u64 << 63), (3, 1u64 << 55)])
+        );
     }
 
     #[test]
@@ -527,17 +675,34 @@ mod tests {
         format!("{body}\n{}block_transaction = any\n", cddl::BASE_PRELUDE)
     }
 
+    /// The [`self_contained`] schema with the endorser block in tag 24.
+    #[cfg(all(feature = "blueprint", feature = "unstable"))]
+    fn tagged_self_contained() -> String {
+        self_contained().replace(
+            "msgLeiosBlock                  = [2, endorser_block]",
+            "msgLeiosBlock = [2, #6.24(bytes .cbor endorser_block)]",
+        )
+    }
+
     conforms!(
         block_request_conforms,
         self_contained,
         "msgLeiosBlockRequest",
         Message::BlockRequest(point())
     );
+    #[cfg(not(feature = "unstable"))]
     conforms!(
         block_conforms,
         self_contained,
         "msgLeiosBlock",
         Message::Block(raw([1, 2, 3]))
+    );
+    #[cfg(feature = "unstable")]
+    conforms!(
+        block_conforms,
+        tagged_self_contained,
+        "msgLeiosBlock",
+        Message::Block(AnyCbor::from_raw_bytes(CAPTURED_BLOCK[2..].to_vec()))
     );
     conforms!(
         block_txs_request_conforms,
@@ -554,4 +719,10 @@ mod tests {
         }
     );
     conforms!(done_conforms, self_contained, "msgDone", Message::Done);
+
+    #[cfg(all(feature = "blueprint", feature = "unstable"))]
+    #[test]
+    fn a_bare_block_does_not_conform() {
+        cddl::assert_does_not_conform(&tagged_self_contained(), "msgLeiosBlock", CAPTURED_BLOCK);
+    }
 }

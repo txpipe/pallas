@@ -1,7 +1,7 @@
 //! A terminal dashboard for a Leios initiator node observing the chain.
 //!
 //! Connects to the Cardano **Leios** ("Musashi Dojo") testnet, negotiates the
-//! v15 (Leios) handshake, follows Praos chain-sync, and fetches Endorser Blocks
+//! v16 (Leios) handshake, follows Praos chain-sync, and fetches Endorser Blocks
 //! over leios-notify / leios-fetch — the same flow as the `leios-testnet`
 //! example, but rendered as a live TUI instead of log lines.
 //!
@@ -13,10 +13,11 @@
 //! with full figures for the selected EB in a detail strip; a log panel sits
 //! below. The EB→RB association is a slot heuristic (no on-wire link exists).
 //!
-//! Run with:
+//! v16 is only proposed with the `unstable` feature of `pallas-network2`;
+//! without it the peer negotiates at most v15 and no EB is fetched. Run with:
 //!
 //! ```sh
-//! cargo run -p leios-tui
+//! cargo run -p leios-tui --features pallas-network2/unstable
 //! ```
 //!
 //! Keys: `q` quit · `←`/`→` select EB · `f` toggle follow-tip · `c` clear log.
@@ -71,7 +72,7 @@ impl LeiosNode {
     fn new(dashboard: Dashboard) -> Self {
         let interface = TcpInterface::new();
 
-        // Propose v11..=v15 with the testnet magic so the peer can negotiate v15
+        // Propose v11..=v16 with the testnet magic so the peer can negotiate v16
         // and enable the Leios mini-protocols.
         let behavior = InitiatorBehavior {
             handshake: HandshakeBehavior::new(HandshakeConfig {
