@@ -15,7 +15,7 @@ use tokio::net::windows::named_pipe::NamedPipeClient;
 #[cfg(windows)]
 use tokio::io::{ReadHalf, WriteHalf};
 
-use pallas_codec::scan::Scanner;
+use pallas_codec::scan::{ScanError, Scanner};
 
 use crate::{Channel, Message, Payload, protocol as proto};
 
@@ -260,12 +260,13 @@ impl BearerReadHalf {
     /// unread are discarded with it.
     ///
     /// Fails with [`std::io::ErrorKind::InvalidData`], leaving nothing buffered
-    /// for the channel, when the bytes are not well-formed CBOR, when a whole
-    /// item does not decode as a message, or, while `buffers` has its size
-    /// limits on, when a message is larger than the `MESSAGE_SIZE_LIMIT` of its
-    /// protocol module (65,535 bytes on other channels). The limit is checked
-    /// after each segment, so at most one segment beyond it is buffered. Drop
-    /// the connection on any error.
+    /// for the channel, when a whole item does not decode as a message, when
+    /// bytes that are not well-formed CBOR do not decode as one either, or,
+    /// while `buffers` has its size limits on, when a message is larger than
+    /// the `MESSAGE_SIZE_LIMIT` of its protocol module. Channels without one
+    /// share a limit of 65,535 buffered bytes. Limits are checked after each
+    /// segment, so at most one segment beyond them is buffered. Drop the
+    /// connection on any error.
     pub async fn read_messages<M>(&mut self, buffers: &mut ChannelBuffers) -> IOResult<Vec<M>>
     where
         M: Message,
@@ -277,9 +278,10 @@ impl BearerReadHalf {
     }
 }
 
-/// The largest inbound message accepted on `channel`, in bytes.
-fn size_limit(channel: Channel) -> usize {
-    match channel {
+/// The largest inbound message accepted on `channel`, in bytes, or `None` for
+/// a channel with no limit of its own.
+fn size_limit(channel: Channel) -> Option<usize> {
+    let limit = match channel {
         proto::handshake::CHANNEL_ID => proto::handshake::MESSAGE_SIZE_LIMIT,
         proto::chainsync::CHANNEL_ID => proto::chainsync::MESSAGE_SIZE_LIMIT,
         proto::blockfetch::CHANNEL_ID => proto::blockfetch::MESSAGE_SIZE_LIMIT,
@@ -288,9 +290,14 @@ fn size_limit(channel: Channel) -> usize {
         proto::peersharing::CHANNEL_ID => proto::peersharing::MESSAGE_SIZE_LIMIT,
         proto::leiosnotify::CHANNEL_ID => proto::leiosnotify::MESSAGE_SIZE_LIMIT,
         proto::leiosfetch::CHANNEL_ID => proto::leiosfetch::MESSAGE_SIZE_LIMIT,
-        _ => crate::MAX_SEGMENT_PAYLOAD_LENGTH,
-    }
+        _ => return None,
+    };
+
+    Some(limit)
 }
+
+/// Bytes that the channels with no limit of their own may buffer together.
+const SHARED_SIZE_LIMIT: usize = crate::MAX_SEGMENT_PAYLOAD_LENGTH;
 
 fn invalid_data(msg: String) -> tokio::io::Error {
     tokio::io::Error::new(tokio::io::ErrorKind::InvalidData, msg)
@@ -307,9 +314,12 @@ struct PartialMessage {
 /// [`BearerReadHalf::read_messages`].
 ///
 /// Size limits are on unless turned off with [`Self::disable_size_limits`].
+/// A channel keeps buffered state only while it holds part of a message.
 #[derive(Debug)]
 pub struct ChannelBuffers {
     channels: HashMap<Channel, PartialMessage>,
+    /// Bytes buffered on the channels with no limit of their own.
+    shared: usize,
     limits_enabled: bool,
 }
 
@@ -324,6 +334,7 @@ impl ChannelBuffers {
     pub fn new() -> Self {
         Self {
             channels: HashMap::new(),
+            shared: 0,
             limits_enabled: true,
         }
     }
@@ -334,14 +345,38 @@ impl ChannelBuffers {
     }
 
     fn absorb<M: Message>(&mut self, channel: Channel, chunk: Payload) -> IOResult<Vec<M>> {
-        let limit = self.limits_enabled.then(|| size_limit(channel));
+        let own_limit = size_limit(channel);
+        let limit = self
+            .limits_enabled
+            .then(|| own_limit.unwrap_or(SHARED_SIZE_LIMIT));
+
         let partial = self.channels.entry(channel).or_default();
+        let held = partial.bytes.len();
         partial.bytes.extend(chunk);
 
         let result = Self::take_messages(partial, channel, limit);
+        let held_now = match result {
+            Ok(_) => partial.bytes.len(),
+            Err(_) => 0,
+        };
 
-        if result.is_err() {
+        if held_now == 0 {
             self.channels.remove(&channel);
+        }
+
+        if own_limit.is_none() {
+            self.shared = self.shared + held_now - held;
+
+            if self.limits_enabled && self.shared > SHARED_SIZE_LIMIT {
+                let seen = self.shared;
+                self.shared -= held_now;
+                self.channels.remove(&channel);
+
+                return Err(invalid_data(format!(
+                    "{seen} bytes buffered on channels with no size limit of their own exceed \
+                     their shared limit of {SHARED_SIZE_LIMIT} bytes"
+                )));
+            }
         }
 
         result
@@ -353,52 +388,97 @@ impl ChannelBuffers {
         channel: Channel,
         limit: Option<usize>,
     ) -> IOResult<Vec<M>> {
+        let check = |len: usize| match limit {
+            Some(limit) if len > limit => Err(size_limit_error(limit, len)),
+            _ => Ok(()),
+        };
+
         let mut msgs = Vec::new();
+        // The first byte not yet taken, and the first byte the scanner sees.
         let mut start = 0;
+        let mut origin = 0;
+        // Where the whole items after one the decoder skipped begin.
+        let mut skipped_from = None;
 
         loop {
-            let end = match partial.scanner.scan(&partial.bytes) {
-                Ok(Some(end)) => end,
+            let end = match partial.scanner.scan(&partial.bytes[origin..]) {
+                Ok(Some(end)) => origin + end,
                 Ok(None) => break,
+                // Some encoders declare more array items than they write, and
+                // their decoders ignore the count. Such a message ends at the
+                // byte the scanner refuses; scanning restarts after it.
+                Err(ScanError::Malformed) if skipped_from.is_none() => {
+                    let end = origin + partial.scanner.position() + 1;
+                    check(end - start)?;
+
+                    let mut item = partial.bytes[start..end].to_vec();
+                    let Some(msg) = M::from_payload(channel, &mut item) else {
+                        return Err(invalid_data(ScanError::Malformed.to_string()));
+                    };
+
+                    msgs.push(msg);
+                    start = end;
+                    origin = end;
+                    partial.scanner = Scanner::default();
+                    continue;
+                }
                 Err(err) => return Err(invalid_data(err.to_string())),
             };
 
-            if let Some(limit) = limit
-                && end - start > limit
-            {
-                return Err(size_limit_error(limit, end - start));
-            }
+            check(end - start)?;
 
-            let mut item = partial.bytes[start..end].to_vec();
+            if skipped_from.is_none() {
+                let mut item = partial.bytes[start..end].to_vec();
 
-            match M::from_payload(channel, &mut item) {
-                Some(msg) => msgs.push(msg),
-                // An implementation that consumes the item without a message
-                // skips it, as for a channel it does not handle.
-                None if item.is_empty() => (),
-                None => {
-                    return Err(invalid_data(format!(
-                        "CBOR item of {} bytes is not a valid message",
-                        end - start
-                    )));
+                match M::from_payload(channel, &mut item) {
+                    Some(msg) => msgs.push(msg),
+                    None if item.is_empty() => skipped_from = Some(end),
+                    None => {
+                        return Err(invalid_data(format!(
+                            "CBOR item of {} bytes is not a valid message",
+                            end - start
+                        )));
+                    }
                 }
-            }
 
-            if !item.is_empty() {
-                tracing::debug!(len = item.len(), "discarding bytes left in a decoded item");
+                if !item.is_empty() {
+                    tracing::debug!(len = item.len(), "discarding bytes left in a decoded item");
+                }
             }
 
             start = end;
         }
 
-        partial.bytes.drain(..start);
-        partial.scanner.remove_prefix(start);
-
-        if let Some(limit) = limit
-            && partial.bytes.len() > limit
+        // A decoder that consumes an item without a message skips it, as for
+        // a channel it does not handle. The whole items after it are offered
+        // in one payload, as `read_full_msgs` does.
+        if let Some(from) = skipped_from
+            && from < start
         {
-            return Err(size_limit_error(limit, partial.bytes.len()));
+            let mut rest = partial.bytes[from..start].to_vec();
+
+            while let Some(msg) = M::from_payload(channel, &mut rest) {
+                msgs.push(msg);
+            }
+
+            if !rest.is_empty() {
+                tracing::debug!(
+                    len = rest.len(),
+                    "discarding bytes left after a skipped item"
+                );
+            }
         }
+
+        partial.scanner.remove_prefix(start - origin);
+
+        // The bytes left all arrived in this segment, after the last message
+        // it completed, so moving them out of the old buffer stays linear.
+        if start > 0 {
+            partial.bytes = partial.bytes.split_off(start);
+            partial.scanner.shrink_to_fit();
+        }
+
+        check(partial.bytes.len())?;
 
         Ok(msgs)
     }
@@ -661,7 +741,7 @@ mod tests {
                 let chunks = [bytes[..split].to_vec(), bytes[split..].to_vec()];
                 let got = feed(&mut buffers, channel, chunks).unwrap();
                 assert_eq!(payloads(&got), vec![bytes.clone()], "{msg:?} split {split}");
-                assert!(buffers.channels[&channel].bytes.is_empty());
+                assert!(buffers.channels.is_empty());
             }
         }
     }
@@ -768,6 +848,14 @@ mod tests {
                 }),
             ),
             (
+                peersharing::CHANNEL_ID,
+                peersharing::MESSAGE_SIZE_LIMIT,
+                Box::new(|n| {
+                    let peer = peersharing::PeerAddress::V4(Ipv4Addr::new(10, 0, 0, 1), 3001);
+                    AnyMessage::PeerSharing(peersharing::Message::SharePeers(vec![peer; n / 10]))
+                }),
+            ),
+            (
                 leiosnotify::CHANNEL_ID,
                 leiosnotify::MESSAGE_SIZE_LIMIT,
                 Box::new(|n| {
@@ -788,7 +876,7 @@ mod tests {
         ];
 
         for (channel, limit, make) in cases {
-            assert_eq!(size_limit(channel), limit);
+            assert_eq!(size_limit(channel), Some(limit));
             let under = sized(limit, &make);
             let over = sized(limit + 40, &make);
             assert!(over.len() > limit);
@@ -826,8 +914,8 @@ mod tests {
             assert_eq!(payloads(&got), [over], "channel {channel}");
         }
 
-        // Keep-alive and peer-sharing messages cannot grow near their limits;
-        // a message that never ends checks those limits below.
+        // Keep-alive messages cannot grow near their limit; a message that
+        // never ends checks it below.
     }
 
     #[test]
@@ -843,7 +931,7 @@ mod tests {
             peersharing::CHANNEL_ID,
             999,
         ] {
-            let limit = size_limit(channel);
+            let limit = size_limit(channel).unwrap_or(SHARED_SIZE_LIMIT);
             let mut buffers = ChannelBuffers::new();
             let mut sent = 0;
 
@@ -909,29 +997,257 @@ mod tests {
         let mut buffers = ChannelBuffers::new();
         let got = feed(&mut buffers, 999, [item.clone(), item]).unwrap();
         assert!(got.is_empty());
-        assert!(buffers.channels[&999].bytes.is_empty());
+        assert!(buffers.channels.is_empty());
+    }
+
+    /// Feed a message that never ends to `channel` in 16-byte segments, up to
+    /// `len` bytes. Returns the time taken and how often the buffer moved.
+    fn never_ending(
+        buffers: &mut ChannelBuffers,
+        channel: Channel,
+        len: usize,
+    ) -> (std::time::Duration, usize) {
+        let mut start = vec![0x82, 0x00, 0xbb];
+        start.extend([0xff; 8]);
+        buffers.absorb::<AnyMessage>(channel, start).unwrap();
+
+        let mut moves = 0;
+        let mut at = buffers.channels[&channel].bytes.as_ptr();
+        let started = std::time::Instant::now();
+
+        for _ in 0..len / 16 {
+            let msgs = buffers
+                .absorb::<AnyMessage>(channel, vec![0x00; 16])
+                .unwrap();
+            assert!(msgs.is_empty());
+
+            let now = buffers.channels[&channel].bytes.as_ptr();
+            moves += usize::from(now != at);
+            at = now;
+        }
+
+        (started.elapsed(), moves)
     }
 
     #[test]
     fn reassembly_is_linear_in_the_bytes_received() {
-        // A message that never ends, sent in 16-byte segments with limits off.
         let mut buffers = ChannelBuffers::new();
         buffers.disable_size_limits();
-
-        let mut start = vec![0x82, 0x00, 0xbb];
-        start.extend([0xff; 8]);
-        buffers
-            .absorb::<AnyMessage>(handshake::CHANNEL_ID, start)
-            .unwrap();
-
-        let started = std::time::Instant::now();
-        for _ in 0..(1 << 20) / 16 {
-            let msgs = buffers
-                .absorb::<AnyMessage>(handshake::CHANNEL_ID, vec![0x00; 16])
-                .unwrap();
-            assert!(msgs.is_empty());
-        }
+        let (elapsed, _) = never_ending(&mut buffers, handshake::CHANNEL_ID, 1 << 20);
         // Decoding the whole buffer on every segment takes minutes here.
-        assert!(started.elapsed() < std::time::Duration::from_secs(5));
+        assert!(elapsed < std::time::Duration::from_secs(5), "{elapsed:?}");
+
+        // With limits on, on the channel with the largest one. Copying the
+        // whole buffer on every segment moves it every time, and copies
+        // hundreds of gigabytes.
+        let mut buffers = ChannelBuffers::new();
+        let (elapsed, moves) = never_ending(&mut buffers, leiosfetch::CHANNEL_ID, 4 << 20);
+        assert!(elapsed < std::time::Duration::from_secs(5), "{elapsed:?}");
+        assert!(moves < 64, "the buffer moved {moves} times");
+    }
+
+    #[test]
+    fn limits_match_the_network_specification() {
+        for (channel, limit) in [
+            (handshake::CHANNEL_ID, 5_760),
+            (chainsync::CHANNEL_ID, 65_535),
+            (blockfetch::CHANNEL_ID, 2_500_000),
+            (txsubmission::CHANNEL_ID, 2_500_000),
+            (keepalive::CHANNEL_ID, 65_535),
+            (peersharing::CHANNEL_ID, 5_760),
+            (leiosnotify::CHANNEL_ID, 65_535),
+            (leiosfetch::CHANNEL_ID, 16_777_216),
+        ] {
+            assert_eq!(size_limit(channel), Some(limit), "channel {channel}");
+        }
+
+        assert_eq!(size_limit(999), None);
+        assert_eq!(SHARED_SIZE_LIMIT, 65_535);
+    }
+
+    #[test]
+    fn channels_without_a_limit_share_one() {
+        // The start of a message that never ends, on one channel after another.
+        let mut segment = vec![0x82, 0x00, 0xbb];
+        segment.extend([0xff; 8]);
+        segment.resize(1_000, 0x00);
+
+        let mut buffers = ChannelBuffers::new();
+        let mut channels = 1_000..;
+        let err = loop {
+            let channel = channels.next().unwrap();
+            match buffers.absorb::<AnyMessage>(channel, segment.clone()) {
+                Ok(msgs) => assert!(msgs.is_empty()),
+                Err(err) => break err,
+            }
+        };
+
+        assert_eq!(err.kind(), tokio::io::ErrorKind::InvalidData);
+        assert!(
+            err.to_string()
+                .ends_with("exceed their shared limit of 65535 bytes"),
+            "{err}"
+        );
+        assert_eq!(buffers.channels.len(), 65);
+        assert_eq!(buffers.shared, 65_000);
+
+        // Channels with their own limit are not counted against it.
+        let mut partial = AnyMessage::BlockFetch(blockfetch::Message::Block(vec![1; 500_000]))
+            .payload()
+            .chunks(crate::MAX_SEGMENT_PAYLOAD_LENGTH)
+            .map(Vec::from)
+            .collect::<Vec<_>>();
+        partial.pop();
+        assert!(
+            feed(&mut buffers, blockfetch::CHANNEL_ID, partial)
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(buffers.shared, 65_000);
+
+        // The opt-out lifts the shared limit too.
+        let mut buffers = ChannelBuffers::new();
+        buffers.disable_size_limits();
+        for channel in 1_000..1_100 {
+            assert!(
+                feed(&mut buffers, channel, [segment.clone()])
+                    .unwrap()
+                    .is_empty()
+            );
+        }
+        assert_eq!(buffers.channels.len(), 100);
+    }
+
+    #[test]
+    fn whole_items_on_skipped_channels_leave_nothing_buffered() {
+        // Nesting that keeps a deep scanner stack until the item ends.
+        let mut deep = vec![0x81; 60_000];
+        deep.push(0x00);
+
+        let mut buffers = ChannelBuffers::new();
+        for channel in 1_000..1_100 {
+            assert!(
+                feed(&mut buffers, channel, [deep.clone()])
+                    .unwrap()
+                    .is_empty()
+            );
+        }
+        assert!(buffers.channels.is_empty());
+        assert_eq!(buffers.shared, 0);
+
+        // The start of the next item is all a channel keeps.
+        let mut segment = deep.clone();
+        segment.push(0x82);
+        assert!(feed(&mut buffers, 1_000, [segment]).unwrap().is_empty());
+        let partial = &buffers.channels[&1_000];
+        assert_eq!(partial.bytes, [0x82]);
+        assert!(partial.bytes.capacity() < 64);
+        assert_eq!(buffers.shared, 1);
+    }
+
+    thread_local! {
+        static SKIPPER_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    }
+
+    /// A decoder that skips every payload, counting the calls.
+    #[derive(Debug, Clone)]
+    struct Skipper;
+
+    impl Message for Skipper {
+        fn channel(&self) -> Channel {
+            999
+        }
+
+        fn payload(&self) -> Payload {
+            vec![]
+        }
+
+        fn from_payload(_: Channel, payload: &mut Payload) -> Option<Self> {
+            SKIPPER_CALLS.with(|calls| calls.set(calls.get() + 1));
+            payload.clear();
+            None
+        }
+
+        fn into_payload(self) -> (Channel, Payload) {
+            (999, vec![])
+        }
+    }
+
+    #[test]
+    fn a_skipped_channel_is_decoded_at_most_twice_per_segment() {
+        let calls = || SKIPPER_CALLS.with(|calls| calls.replace(0));
+        let mut buffers = ChannelBuffers::new();
+
+        let segment = vec![0x00; crate::MAX_SEGMENT_PAYLOAD_LENGTH];
+        assert!(buffers.absorb::<Skipper>(999, segment).unwrap().is_empty());
+        assert_eq!(calls(), 2);
+        assert!(buffers.channels.is_empty());
+
+        // Whole items are skipped, and the start of the next one waits.
+        let mut segment = vec![0x00; 100];
+        segment.extend([0x82, 0x00]);
+        assert!(buffers.absorb::<Skipper>(999, segment).unwrap().is_empty());
+        assert_eq!(calls(), 2);
+        assert_eq!(buffers.channels[&999].bytes, [0x82, 0x00]);
+
+        assert!(
+            buffers
+                .absorb::<Skipper>(999, vec![0x00])
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(calls(), 1);
+        assert!(buffers.channels.is_empty());
+    }
+
+    #[test]
+    fn peer_addresses_from_released_encoders_are_accepted() {
+        // Released encoders declare eight items for an IPv6 address and write six.
+        let old_v6 = [0x88, 0x01, 0x00, 0x00, 0x00, 0x01, 0x19, 0x0b, 0xb9];
+        let v6 = peersharing::PeerAddress::V6(Ipv6Addr::LOCALHOST, 3001);
+        let v4 = peersharing::PeerAddress::V4(Ipv4Addr::new(10, 0, 0, 1), 3001);
+        let share = |peers| AnyMessage::PeerSharing(peersharing::Message::SharePeers(peers));
+
+        let v4_bytes = share(vec![v4.clone()]).payload();
+        assert_eq!(v4_bytes[..3], [0x82, 0x01, 0x9f]);
+        let v4_bytes = v4_bytes[3..v4_bytes.len() - 1].to_vec();
+
+        let old = |entries: &[&[u8]]| {
+            let mut bytes = vec![0x82, 0x01, 0x9f];
+            bytes.extend(entries.concat());
+            bytes.push(0xff);
+            bytes
+        };
+        let cases = [
+            (old(&[&old_v6]), vec![v6.clone()]),
+            (
+                old(&[&v4_bytes, &old_v6, &v4_bytes]),
+                vec![v4.clone(), v6.clone(), v4.clone()],
+            ),
+            (old(&[&old_v6, &old_v6]), vec![v6.clone(), v6]),
+        ];
+
+        let done = AnyMessage::PeerSharing(peersharing::Message::Done).payload();
+
+        for (bytes, peers) in cases {
+            let expected = [share(peers).payload(), done.clone()];
+            let mut both = bytes.clone();
+            both.extend(&done);
+
+            for split in 0..=both.len() {
+                let mut buffers = ChannelBuffers::new();
+                let chunks = [both[..split].to_vec(), both[split..].to_vec()];
+                let got = feed(&mut buffers, peersharing::CHANNEL_ID, chunks).unwrap();
+                assert_eq!(payloads(&got), expected, "{bytes:02x?} split {split}");
+                assert!(buffers.channels.is_empty());
+            }
+        }
+
+        // Malformed bytes the decoder refuses still fail: an unknown address kind.
+        let mut bytes = old(&[&old_v6]);
+        bytes[4] = 0x05;
+        let mut buffers = ChannelBuffers::new();
+        let err = feed(&mut buffers, peersharing::CHANNEL_ID, [bytes]).unwrap_err();
+        assert_eq!(err.kind(), tokio::io::ErrorKind::InvalidData);
     }
 }
