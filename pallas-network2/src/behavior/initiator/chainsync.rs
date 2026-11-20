@@ -94,9 +94,12 @@ impl ChainSyncBehavior {
                     InitiatorEvent::IntersectionFound(pid.clone(), point.clone(), tip.clone());
                 outbound.push_ready(BehaviorOutput::ExternalEvent(out));
             }
-            chainsync_proto::Data::NoIntersection(..) => {
+            chainsync_proto::Data::NoIntersection(tip) => {
                 tracing::error!("no intersection found");
                 state.violation = true;
+
+                let out = InitiatorEvent::IntersectNotFound(pid.clone(), tip.clone());
+                outbound.push_ready(BehaviorOutput::ExternalEvent(out));
             }
             _ => (),
         }
@@ -281,6 +284,28 @@ mod tests {
         cs.drain_data(&pid, &mut state, &mut outbound);
 
         assert!(state.violation, "NoIntersection should set violation flag");
+    }
+
+    #[test]
+    fn drain_no_intersection_emits_not_found_event() {
+        let cs = ChainSyncBehavior::new(());
+        let pid = PeerId::test(1);
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.chainsync = CsState::Idle(Data::NoIntersection(mock_tip()));
+
+        cs.drain_data(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        let has_event = outputs.iter().any(|o| {
+            matches!(
+                o,
+                BehaviorOutput::ExternalEvent(InitiatorEvent::IntersectNotFound(p, tip))
+                    if *p == pid && *tip == mock_tip()
+            )
+        });
+        assert!(has_event);
     }
 
     #[test]
