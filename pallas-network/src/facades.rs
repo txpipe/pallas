@@ -486,8 +486,8 @@ impl PeerServer {
 
 /// Client of N2C Ouroboros
 ///
-/// The connection closes once the client is dropped. [`Self::abort`] closes it
-/// at once.
+/// The connection closes once the client is dropped. [`Self::abort`] stops its
+/// tasks without waiting for them to end.
 pub struct NodeClient {
     plexer: RunningPlexer,
     handshake: handshake::N2CClient,
@@ -783,8 +783,8 @@ impl NodeServer {
 ///
 /// Described in [CIP-0137](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0137)
 ///
-/// The connection closes once the client is dropped. [`Self::abort`] closes it
-/// at once.
+/// The connection closes once the client is dropped. [`Self::abort`] stops its
+/// tasks without waiting for them to end.
 pub struct DmqClient {
     plexer: RunningPlexer,
     handshake: handshake::N2CClient,

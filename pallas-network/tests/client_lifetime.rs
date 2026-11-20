@@ -145,6 +145,20 @@ where
     assert!(closed.is_err(), "the connection closed while in use");
 }
 
+/// Check that a `PeerClient` connection stays open for [`OPEN_WINDOW`] with
+/// its muxer, demuxer and keep-alive loop all still running.
+async fn assert_in_use<S>(stream: &mut S, before: usize)
+where
+    S: AsyncRead + Unpin,
+{
+    assert_open(stream).await;
+    assert_eq!(
+        tasks().num_alive_tasks(),
+        before + 3,
+        "the keep-alive loop stopped while an agent is in use"
+    );
+}
+
 async fn tcp_listener() -> TcpListener {
     TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))
         .await
@@ -190,11 +204,39 @@ async fn peer_client_agent_moved_out_keeps_the_connection_open() {
     assert_closed(&mut stream, before).await;
 }
 
+/// Connect a `PeerClient`, let `keep` take what it holds on to and drop the
+/// rest, and check that this keeps the keep-alive loop running until it is
+/// dropped too.
+async fn assert_keeps_the_keepalive<T>(keep: impl FnOnce(PeerClient) -> T) {
+    let (client, mut stream, before) = peer_client().await;
+
+    let kept = keep(client);
+    assert_in_use(&mut stream, before).await;
+
+    drop(kept);
+    assert_closed(&mut stream, before).await;
+}
+
+#[tokio::test]
+async fn peer_client_in_use_keeps_its_keepalive_running() {
+    assert_keeps_the_keepalive(|client| client).await;
+}
+
+#[tokio::test]
+async fn any_peer_client_agent_keeps_the_keepalive_running() {
+    assert_keeps_the_keepalive(|client| client.chainsync).await;
+    assert_keeps_the_keepalive(|client| client.blockfetch).await;
+    assert_keeps_the_keepalive(|client| client.txsubmission).await;
+    assert_keeps_the_keepalive(|client| client.peersharing).await;
+}
+
 #[tokio::test]
 async fn peer_client_abort_leaves_no_task() {
     let (client, mut stream, before) = peer_client().await;
 
-    client.abort().await;
+    tokio::time::timeout(CLOSE_TIMEOUT, client.abort())
+        .await
+        .expect("abort does not return");
     assert_eq!(
         tasks().num_alive_tasks(),
         before,
