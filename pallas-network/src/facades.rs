@@ -180,7 +180,10 @@ impl PeerClient {
 
         let versions = handshake::n2n::VersionTable::v7_and_above(magic);
 
-        let handshake = match handshake.handshake(versions).await {
+        let handshake = match plexer
+            .abort_if_cancelled(handshake.handshake(versions))
+            .await
+        {
             Ok(confirmation) => confirmation,
             Err(err) => {
                 plexer.abort_and_join().await;
@@ -231,7 +234,10 @@ impl PeerClient {
 
         let versions = handshake::n2n::VersionTable::v7_and_above_with_query(magic, true);
 
-        let result = match handshake.handshake(versions).await {
+        let result = match plexer
+            .abort_if_cancelled(handshake.handshake(versions))
+            .await
+        {
             Ok(handshake::Confirmation::QueryReply(version_table)) => {
                 debug!("handshake query reply received");
                 Ok(version_table)
@@ -532,7 +538,7 @@ impl NodeClient {
         let versions = handshake::n2c::VersionTable::v15_with_query(magic);
         let mut client = handshake::Client::new(hs_channel);
 
-        let result = match client.handshake(versions).await {
+        let result = match plexer.abort_if_cancelled(client.handshake(versions)).await {
             Ok(Confirmation::Accepted(_, _)) => {
                 error!("handshake accepted when we expected query reply");
                 Err(Error::HandshakeProtocol(handshake::Error::InvalidInbound))
@@ -554,7 +560,11 @@ impl NodeClient {
     /// plexer before returning, so the failed connection leaves no task behind.
     #[cfg(any(unix, windows))]
     async fn confirm(mut self, versions: handshake::n2c::VersionTable) -> Result<Self, Error> {
-        match self.handshake.handshake(versions).await {
+        match self
+            .plexer
+            .abort_if_cancelled(self.handshake.handshake(versions))
+            .await
+        {
             Ok(handshake::Confirmation::Rejected(reason)) => {
                 error!(?reason, "handshake refused");
                 self.plexer.abort_and_join().await;
@@ -819,7 +829,7 @@ impl DmqClient {
         let versions = handshake::n2c::VersionTable::dmq(magic);
         let mut client = handshake::Client::new(hs_channel);
 
-        let result = match client.handshake(versions).await {
+        let result = match plexer.abort_if_cancelled(client.handshake(versions)).await {
             Ok(Confirmation::Accepted(_, _)) => {
                 error!("handshake accepted when we expected query reply");
                 Err(Error::HandshakeProtocol(handshake::Error::InvalidInbound))
@@ -841,7 +851,11 @@ impl DmqClient {
     /// plexer before returning, so the failed connection leaves no task behind.
     #[cfg(any(unix, windows))]
     async fn confirm(mut self, versions: handshake::n2c::VersionTable) -> Result<Self, Error> {
-        match self.handshake.handshake(versions).await {
+        match self
+            .plexer
+            .abort_if_cancelled(self.handshake.handshake(versions))
+            .await
+        {
             Ok(handshake::Confirmation::Rejected(reason)) => {
                 error!(?reason, "handshake refused");
                 self.plexer.abort_and_join().await;

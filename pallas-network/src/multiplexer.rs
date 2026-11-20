@@ -568,6 +568,16 @@ pub struct RunningPlexer {
 }
 
 impl RunningPlexer {
+    /// Await `fut`. If the returned future is dropped before `fut` completes,
+    /// as when a caller's timeout fires, abort the muxer and demuxer tasks so
+    /// they don't outlive the cancelled call and keep the bearer open.
+    pub(crate) async fn abort_if_cancelled<F: std::future::Future>(&self, fut: F) -> F::Output {
+        let guard = AbortOnDrop(self);
+        let output = fut.await;
+        std::mem::forget(guard);
+        output
+    }
+
     /// Abort the muxer and demuxer tasks and wait until both are gone, so the
     /// bearer is closed on return. Anything still queued is discarded.
     pub(crate) async fn abort_and_join(self) {
@@ -600,6 +610,16 @@ impl RunningPlexer {
 
         let _ = muxer.await;
         let _ = demuxer.await;
+    }
+}
+
+/// Aborts the tasks of the borrowed plexer when dropped.
+struct AbortOnDrop<'a>(&'a RunningPlexer);
+
+impl Drop for AbortOnDrop<'_> {
+    fn drop(&mut self) {
+        self.0.demuxer.abort();
+        self.0.muxer.abort();
     }
 }
 
