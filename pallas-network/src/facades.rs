@@ -128,6 +128,19 @@ impl KeepAliveLoop {
         }
     }
 
+    /// Drive a client-side keep-alive loop until it errors or every agent
+    /// holding the sender of `unused` is dropped.
+    async fn run_client_while_used(
+        client: keepalive::Client,
+        interval: Duration,
+        mut unused: tokio::sync::mpsc::Receiver<()>,
+    ) -> Result<(), Error> {
+        tokio::select! {
+            result = Self::run_client(client, interval) => result,
+            _ = unused.recv() => Ok(()),
+        }
+    }
+
     /// Spawn the loop on the current Tokio runtime.
     pub fn spawn(self) -> KeepAliveHandle {
         match self {
@@ -141,10 +154,15 @@ impl KeepAliveLoop {
 
 /// Node-to-node Ouroboros client. Bundles the chain-sync, block-fetch,
 /// tx-submission, peer-sharing, and keep-alive protocols over a single bearer.
+///
+/// The connection closes once the client is dropped, or once every agent
+/// moved out of it is. [`Self::abort`] closes it at once.
 pub struct PeerClient {
     /// Underlying running multiplexer.
     pub plexer: RunningPlexer,
-    /// Handle to the spawned keep-alive task.
+    /// Handle to the spawned keep-alive task. It ends with an error when a
+    /// keep-alive round trip fails, and with `Ok(())` once every agent of the
+    /// client is dropped.
     pub keepalive: KeepAliveHandle,
     /// Chain-sync client (node-to-node).
     pub chainsync: chainsync::N2NClient,
@@ -168,15 +186,27 @@ impl PeerClient {
         let channel = plexer.subscribe_client(PROTOCOL_N2N_HANDSHAKE);
         let mut handshake = handshake::Client::new(channel);
 
-        let cs_channel = plexer.subscribe_client(PROTOCOL_N2N_CHAIN_SYNC);
-        let bf_channel = plexer.subscribe_client(PROTOCOL_N2N_BLOCK_FETCH);
-        let txsub_channel = plexer.subscribe_client(PROTOCOL_N2N_TX_SUBMISSION);
-        let peersharing_channel = plexer.subscribe_client(PROTOCOL_N2N_PEER_SHARING);
+        let mut cs_channel = plexer.subscribe_client(PROTOCOL_N2N_CHAIN_SYNC);
+        let mut bf_channel = plexer.subscribe_client(PROTOCOL_N2N_BLOCK_FETCH);
+        let mut txsub_channel = plexer.subscribe_client(PROTOCOL_N2N_TX_SUBMISSION);
+        let mut peersharing_channel = plexer.subscribe_client(PROTOCOL_N2N_PEER_SHARING);
+
+        // The keep-alive loop runs while any of the caller's agents exists.
+        let (in_use, unused) = tokio::sync::mpsc::channel(1);
+        for channel in [
+            &mut cs_channel,
+            &mut bf_channel,
+            &mut txsub_channel,
+            &mut peersharing_channel,
+        ] {
+            channel.mark_in_use(in_use.clone());
+        }
+        drop(in_use);
 
         let channel = plexer.subscribe_client(PROTOCOL_N2N_KEEP_ALIVE);
         let keepalive = keepalive::Client::new(channel);
 
-        let plexer = plexer.spawn();
+        let plexer = plexer.spawn_until_unused();
 
         let versions = handshake::n2n::VersionTable::v7_and_above(magic);
 
@@ -197,11 +227,11 @@ impl PeerClient {
             return Err(Error::IncompatibleVersion);
         }
 
-        let keepalive = KeepAliveLoop::client(
+        let keepalive = tokio::spawn(KeepAliveLoop::run_client_while_used(
             keepalive,
             Duration::from_secs(DEFAULT_KEEP_ALIVE_INTERVAL_SEC),
-        )
-        .spawn();
+            unused,
+        ));
 
         let client = Self {
             plexer,
@@ -288,9 +318,12 @@ impl PeerClient {
         &mut self.peersharing
     }
 
-    /// Tear down the underlying multiplexer and abort all spawned tasks.
+    /// Abort the keep-alive loop and the multiplexer, and wait until both are
+    /// gone, so the connection is closed on return.
     pub async fn abort(self) {
-        self.plexer.abort().await
+        self.keepalive.abort();
+        let _ = self.keepalive.await;
+        self.plexer.abort_and_join().await;
     }
 }
 
@@ -460,6 +493,9 @@ impl PeerServer {
 }
 
 /// Client of N2C Ouroboros
+///
+/// The connection closes once the client is dropped. [`Self::abort`] stops its
+/// tasks without waiting for them to end.
 pub struct NodeClient {
     plexer: RunningPlexer,
     handshake: handshake::N2CClient,
@@ -480,7 +516,7 @@ impl NodeClient {
         let tx_channel = plexer.subscribe_client(PROTOCOL_N2C_TX_SUBMISSION);
         let mo_channel = plexer.subscribe_client(PROTOCOL_N2C_TX_MONITOR);
 
-        let plexer = plexer.spawn();
+        let plexer = plexer.spawn_until_unused();
 
         Self {
             plexer,
@@ -758,6 +794,9 @@ impl NodeServer {
 /// Client of N2C DMQ (Decentralized Message Queue)
 ///
 /// Described in [CIP-0137](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0137)
+///
+/// The connection closes once the client is dropped. [`Self::abort`] stops its
+/// tasks without waiting for them to end.
 pub struct DmqClient {
     plexer: RunningPlexer,
     handshake: handshake::N2CClient,
@@ -774,7 +813,7 @@ impl DmqClient {
         let msg_submission_channel = plexer.subscribe_client(PROTOCOL_N2C_MSG_SUBMISSION);
         let msg_notification_channel = plexer.subscribe_client(PROTOCOL_N2C_MSG_NOTIFICATION);
 
-        let plexer = plexer.spawn();
+        let plexer = plexer.spawn_until_unused();
 
         Self {
             plexer,
