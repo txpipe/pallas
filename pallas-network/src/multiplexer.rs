@@ -456,6 +456,13 @@ impl Muxer {
         self.2.0.clone()
     }
 
+    /// Swap the muxer's own ingress sender for a closed one, so receiving ends
+    /// once every agent channel is dropped.
+    fn release_sender(&mut self) {
+        let (closed, _) = tokio::sync::mpsc::channel(1);
+        self.2.0 = closed;
+    }
+
     /// Take one queued message and write it as a segment.
     pub async fn tick(&mut self) -> Result<(), Error> {
         let msg = self.2.1.recv().await;
@@ -477,9 +484,10 @@ impl Muxer {
         }
     }
 
-    /// Run the mux loop until an error occurs or `stop` fires. On stop, write
-    /// the messages already queued and return. A dropped `stop` sender is not
-    /// a stop: the loop keeps running, as [`Self::run`] does.
+    /// Run the mux loop until an error occurs, `stop` fires or every ingress
+    /// sender is gone. On stop, write the messages already queued and return.
+    /// A dropped `stop` sender is not a stop: the loop keeps running, as
+    /// [`Self::run`] does.
     async fn run_until(&mut self, mut stop: tokio::sync::mpsc::Receiver<()>) -> Result<(), Error> {
         let stop = async {
             if stop.recv().await.is_none() {
@@ -492,11 +500,10 @@ impl Muxer {
             select! {
                 biased;
                 _ = &mut stop => break,
-                msg = self.2.1.recv() => {
-                    if let Some(msg) = msg {
-                        self.mux(msg).await?;
-                    }
-                }
+                msg = self.2.1.recv() => match msg {
+                    Some(msg) => self.mux(msg).await?,
+                    None => break,
+                },
             }
         }
 
@@ -513,12 +520,18 @@ impl Muxer {
 type ToPlexerPort = tokio::sync::mpsc::Sender<(Protocol, Payload)>;
 type FromPlexerPort = tokio::sync::mpsc::Receiver<Payload>;
 
+/// Held by the agent channels of a connection while they exist. A background
+/// loop of that connection waits on the receiving end and stops once every
+/// copy is dropped.
+pub(crate) type InUse = tokio::sync::mpsc::Sender<()>;
+
 /// Bidirectional channel exposed to a mini-protocol agent: send raw chunks out
 /// through the muxer and receive inbound chunks from the demuxer.
 pub struct AgentChannel {
     protocol: Protocol,
     to_plexer: ToPlexerPort,
     from_plexer: FromPlexerPort,
+    _in_use: Option<InUse>,
 }
 
 impl AgentChannel {
@@ -531,6 +544,7 @@ impl AgentChannel {
             protocol,
             from_plexer,
             to_plexer,
+            _in_use: None,
         }
     }
 
@@ -543,6 +557,7 @@ impl AgentChannel {
             protocol,
             from_plexer,
             to_plexer,
+            _in_use: None,
         }
     }
 
@@ -557,6 +572,11 @@ impl AgentChannel {
     /// Pull the next inbound chunk for this protocol from the demuxer.
     pub async fn dequeue_chunk(&mut self) -> Result<Payload, Error> {
         self.from_plexer.recv().await.ok_or(Error::AgentDequeue)
+    }
+
+    /// Hold `in_use` for as long as this channel exists.
+    pub(crate) fn mark_in_use(&mut self, in_use: InUse) {
+        self._in_use = Some(in_use);
     }
 }
 
@@ -637,13 +657,47 @@ impl Plexer {
     /// Spawn the muxer and demuxer loops on the current Tokio runtime and
     /// return a handle for aborting them.
     pub fn spawn(self) -> RunningPlexer {
+        self.spawn_with(false)
+    }
+
+    /// Spawn like [`Self::spawn`], but also end both loops, closing the bearer,
+    /// once every agent channel is dropped. Messages already queued are
+    /// written first.
+    pub(crate) fn spawn_until_unused(self) -> RunningPlexer {
+        self.spawn_with(true)
+    }
+
+    fn spawn_with(self, until_unused: bool) -> RunningPlexer {
         let mut demuxer = self.demuxer;
         let mut muxer = self.muxer;
 
         let (stop_muxer, stop) = tokio::sync::mpsc::channel(1);
+        let (muxer_done, demuxer_stop) = tokio::sync::oneshot::channel::<()>();
 
-        let demuxer = tokio::spawn(async move { demuxer.run().await });
-        let muxer = tokio::spawn(async move { muxer.run_until(stop).await });
+        if until_unused {
+            muxer.release_sender();
+        }
+
+        // Without `until_unused` the sender is dropped unused, which disables
+        // the second branch and leaves the demuxer running as before.
+        let muxer_done = until_unused.then_some(muxer_done);
+
+        let demuxer = tokio::spawn(async move {
+            select! {
+                result = demuxer.run() => result,
+                Ok(()) = demuxer_stop => Ok(()),
+            }
+        });
+
+        let muxer = tokio::spawn(async move {
+            let result = muxer.run_until(stop).await;
+
+            if let (Ok(()), Some(muxer_done)) = (&result, muxer_done) {
+                let _ = muxer_done.send(());
+            }
+
+            result
+        });
 
         RunningPlexer {
             demuxer,
