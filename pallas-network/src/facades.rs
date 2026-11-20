@@ -180,13 +180,17 @@ impl PeerClient {
 
         let versions = handshake::n2n::VersionTable::v7_and_above(magic);
 
-        let handshake = handshake
-            .handshake(versions)
-            .await
-            .map_err(Error::HandshakeProtocol)?;
+        let handshake = match handshake.handshake(versions).await {
+            Ok(confirmation) => confirmation,
+            Err(err) => {
+                plexer.abort_and_join().await;
+                return Err(Error::HandshakeProtocol(err));
+            }
+        };
 
         if let handshake::Confirmation::Rejected(reason) = handshake {
             error!(?reason, "handshake refused");
+            plexer.abort_and_join().await;
             return Err(Error::IncompatibleVersion);
         }
 
@@ -223,31 +227,29 @@ impl PeerClient {
         let channel = plexer.subscribe_client(PROTOCOL_N2N_HANDSHAKE);
         let mut handshake = handshake::Client::new(channel);
 
-        let _plexer = plexer.spawn();
+        let plexer = plexer.spawn();
 
         let versions = handshake::n2n::VersionTable::v7_and_above_with_query(magic, true);
 
-        let handshake = handshake
-            .handshake(versions)
-            .await
-            .map_err(Error::HandshakeProtocol)?;
-
-        let version_table = match handshake {
-            handshake::Confirmation::QueryReply(version_table) => {
+        let result = match handshake.handshake(versions).await {
+            Ok(handshake::Confirmation::QueryReply(version_table)) => {
                 debug!("handshake query reply received");
-                version_table
+                Ok(version_table)
             }
-            handshake::Confirmation::Accepted(_, _) => {
+            Ok(handshake::Confirmation::Accepted(_, _)) => {
                 error!("handshake accepted when we expected query reply");
-                return Err(Error::HandshakeProtocol(handshake::Error::InvalidInbound));
+                Err(Error::HandshakeProtocol(handshake::Error::InvalidInbound))
             }
-            handshake::Confirmation::Rejected(reason) => {
+            Ok(handshake::Confirmation::Rejected(reason)) => {
                 error!(?reason, "handshake refused");
-                return Err(Error::IncompatibleVersion);
+                Err(Error::IncompatibleVersion)
             }
+            Err(err) => Err(Error::HandshakeProtocol(err)),
         };
 
-        Ok(version_table)
+        plexer.abort_and_join().await;
+
+        result
     }
 
     /// Get mutable access to the chain-sync client.
@@ -491,22 +493,9 @@ impl NodeClient {
             .await
             .map_err(Error::ConnectFailure)?;
 
-        let mut client = Self::new(bearer);
-
         let versions = handshake::n2c::VersionTable::v10_and_above(magic);
 
-        let handshake = client
-            .handshake()
-            .handshake(versions)
-            .await
-            .map_err(Error::HandshakeProtocol)?;
-
-        if let handshake::Confirmation::Rejected(reason) = handshake {
-            error!(?reason, "handshake refused");
-            return Err(Error::IncompatibleVersion);
-        }
-
-        Ok(client)
+        Self::new(bearer).confirm(versions).await
     }
 
     /// Connect to a Windows named-pipe node socket and perform the N2C handshake.
@@ -522,22 +511,9 @@ impl NodeClient {
             .expect("can't join tokio thread")
             .map_err(Error::ConnectFailure)?;
 
-        let mut client = Self::new(bearer);
-
         let versions = handshake::n2c::VersionTable::v10_and_above(magic);
 
-        let handshake = client
-            .handshake()
-            .handshake(versions)
-            .await
-            .map_err(Error::HandshakeProtocol)?;
-
-        if let handshake::Confirmation::Rejected(reason) = handshake {
-            error!(?reason, "handshake refused");
-            return Err(Error::IncompatibleVersion);
-        }
-
-        Ok(client)
+        Self::new(bearer).confirm(versions).await
     }
 
     /// Issue a query-mode handshake over `bearer` and return the node's
@@ -556,23 +532,38 @@ impl NodeClient {
         let versions = handshake::n2c::VersionTable::v15_with_query(magic);
         let mut client = handshake::Client::new(hs_channel);
 
-        let handshake = client
-            .handshake(versions)
-            .await
-            .map_err(Error::HandshakeProtocol)?;
-
-        match handshake {
-            Confirmation::Accepted(_, _) => {
+        let result = match client.handshake(versions).await {
+            Ok(Confirmation::Accepted(_, _)) => {
                 error!("handshake accepted when we expected query reply");
                 Err(Error::HandshakeProtocol(handshake::Error::InvalidInbound))
             }
-            Confirmation::Rejected(reason) => {
+            Ok(Confirmation::Rejected(reason)) => {
                 error!(?reason, "handshake refused");
                 Err(Error::IncompatibleVersion)
             }
-            Confirmation::QueryReply(version_table) => {
-                plexer.abort().await;
-                Ok(version_table)
+            Ok(Confirmation::QueryReply(version_table)) => Ok(version_table),
+            Err(err) => Err(Error::HandshakeProtocol(err)),
+        };
+
+        plexer.abort_and_join().await;
+
+        result
+    }
+
+    /// Run the handshake with `versions`. On an error or a refusal, stop the
+    /// plexer before returning, so the failed connection leaves no task behind.
+    #[cfg(any(unix, windows))]
+    async fn confirm(mut self, versions: handshake::n2c::VersionTable) -> Result<Self, Error> {
+        match self.handshake.handshake(versions).await {
+            Ok(handshake::Confirmation::Rejected(reason)) => {
+                error!(?reason, "handshake refused");
+                self.plexer.abort_and_join().await;
+                Err(Error::IncompatibleVersion)
+            }
+            Ok(_) => Ok(self),
+            Err(err) => {
+                self.plexer.abort_and_join().await;
+                Err(Error::HandshakeProtocol(err))
             }
         }
     }
@@ -790,22 +781,9 @@ impl DmqClient {
             .await
             .map_err(Error::ConnectFailure)?;
 
-        let mut client = Self::new(bearer);
-
         let versions = handshake::n2c::VersionTable::dmq(magic);
 
-        let handshake = client
-            .handshake()
-            .handshake(versions)
-            .await
-            .map_err(Error::HandshakeProtocol)?;
-
-        if let handshake::Confirmation::Rejected(reason) = handshake {
-            error!(?reason, "handshake refused");
-            return Err(Error::IncompatibleVersion);
-        }
-
-        Ok(client)
+        Self::new(bearer).confirm(versions).await
     }
 
     /// Connect to a DMQ node over a Windows named pipe and perform the handshake.
@@ -821,22 +799,9 @@ impl DmqClient {
             .expect("can't join tokio thread")
             .map_err(Error::ConnectFailure)?;
 
-        let mut client = Self::new(bearer);
-
         let versions = handshake::n2c::VersionTable::v10_and_above(magic);
 
-        let handshake = client
-            .handshake()
-            .handshake(versions)
-            .await
-            .map_err(Error::HandshakeProtocol)?;
-
-        if let handshake::Confirmation::Rejected(reason) = handshake {
-            error!(?reason, "handshake refused");
-            return Err(Error::IncompatibleVersion);
-        }
-
-        Ok(client)
+        Self::new(bearer).confirm(versions).await
     }
 
     /// Issue a DMQ query-mode handshake and return the node's advertised version table.
@@ -854,23 +819,38 @@ impl DmqClient {
         let versions = handshake::n2c::VersionTable::dmq(magic);
         let mut client = handshake::Client::new(hs_channel);
 
-        let handshake = client
-            .handshake(versions)
-            .await
-            .map_err(Error::HandshakeProtocol)?;
-
-        match handshake {
-            Confirmation::Accepted(_, _) => {
+        let result = match client.handshake(versions).await {
+            Ok(Confirmation::Accepted(_, _)) => {
                 error!("handshake accepted when we expected query reply");
                 Err(Error::HandshakeProtocol(handshake::Error::InvalidInbound))
             }
-            Confirmation::Rejected(reason) => {
+            Ok(Confirmation::Rejected(reason)) => {
                 error!(?reason, "handshake refused");
                 Err(Error::IncompatibleVersion)
             }
-            Confirmation::QueryReply(version_table) => {
-                plexer.abort().await;
-                Ok(version_table)
+            Ok(Confirmation::QueryReply(version_table)) => Ok(version_table),
+            Err(err) => Err(Error::HandshakeProtocol(err)),
+        };
+
+        plexer.abort_and_join().await;
+
+        result
+    }
+
+    /// Run the handshake with `versions`. On an error or a refusal, stop the
+    /// plexer before returning, so the failed connection leaves no task behind.
+    #[cfg(any(unix, windows))]
+    async fn confirm(mut self, versions: handshake::n2c::VersionTable) -> Result<Self, Error> {
+        match self.handshake.handshake(versions).await {
+            Ok(handshake::Confirmation::Rejected(reason)) => {
+                error!(?reason, "handshake refused");
+                self.plexer.abort_and_join().await;
+                Err(Error::IncompatibleVersion)
+            }
+            Ok(_) => Ok(self),
+            Err(err) => {
+                self.plexer.abort_and_join().await;
+                Err(Error::HandshakeProtocol(err))
             }
         }
     }
