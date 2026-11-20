@@ -160,7 +160,9 @@ impl KeepAliveLoop {
 pub struct PeerClient {
     /// Underlying running multiplexer.
     pub plexer: RunningPlexer,
-    /// Handle to the spawned keep-alive task.
+    /// Handle to the spawned keep-alive task. It ends with an error when a
+    /// keep-alive round trip fails, and with `Ok(())` once every agent of the
+    /// client is dropped.
     pub keepalive: KeepAliveHandle,
     /// Chain-sync client (node-to-node).
     pub chainsync: chainsync::N2NClient,
