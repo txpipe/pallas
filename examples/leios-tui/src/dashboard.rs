@@ -325,6 +325,10 @@ impl Dashboard {
 
             // Block bodies / tx-submission requests are not part of this view.
             InitiatorEvent::BlockBodyReceived(..) | InitiatorEvent::TxRequested(..) => {}
+
+            // `InitiatorEvent` is non exhaustive under the pallas-network2 unstable feature.
+            #[allow(unreachable_patterns)]
+            _ => {}
         }
 
         actions
