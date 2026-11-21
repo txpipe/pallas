@@ -211,7 +211,7 @@ mod tests {
             "80",
             "8100",
             "820301",
-            "9f0400ff", // missing fields / indefinite variant
+            "9f04ff", // missing fields
             "820680",
             "822080",                 // unknown positive / negative variant
             "82019bffffffffffffffff", // enormous truncated child list

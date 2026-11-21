@@ -294,12 +294,13 @@ impl MultiEraParamUpdate<'_> {
     shared_param!(minfee_refscript_cost_per_byte: RationalNumber);
 
     // -- NEW IN DIJKSTRA
-    // keys 34 to 48, except 38 below
+    // keys 34 to 56
 
     dijkstra_param!(max_ref_script_size_per_block: u64);
     dijkstra_param!(max_ref_script_size_per_tx: u64);
     dijkstra_param!(ref_script_cost_stride: u64);
     dijkstra_param!(ref_script_cost_multiplier: RationalNumber);
+    dijkstra_param!(max_pledge_leverage: Nullable<RationalNumber>);
     dijkstra_param!(min_pool_margin: RationalNumber);
     dijkstra_param!(leios_announcement_period_length: u64);
     dijkstra_param!(leios_vote_period_length: u64);
@@ -310,19 +311,14 @@ impl MultiEraParamUpdate<'_> {
     dijkstra_param!(max_endorser_block_txs_size: u64);
     dijkstra_param!(max_endorser_block_execution_units: ExUnits);
     dijkstra_param!(max_ref_script_size_per_endorser_block: u64);
-
-    /// Returns key 38, where an explicit nil proposes removing the cap and
-    /// differs from an absent key.
-    #[cfg(feature = "unstable")]
-    pub fn max_pledge_leverage(&self) -> ParamRead<Nullable<RationalNumber>> {
-        match self {
-            MultiEraParamUpdate::Conway(_) => ParamRead::NoSuchParameter,
-            MultiEraParamUpdate::Dijkstra(x) => match x.max_pledge_leverage.clone() {
-                Some(v) => ParamRead::Proposed(v),
-                None => ParamRead::Unchanged,
-            },
-        }
-    }
+    dijkstra_param!(peras_min_candidate_block_age: u64);
+    dijkstra_param!(peras_healing_factor: RationalNumber);
+    dijkstra_param!(peras_cert_boost: u64);
+    dijkstra_param!(peras_target_committee_size: u64);
+    dijkstra_param!(peras_bootstrap_round: Nullable<u64>);
+    dijkstra_param!(peras_quorum_threshold_safety_margin: RationalNumber);
+    dijkstra_param!(ref_inputs_cost_per_multi_asset_policy: u64);
+    dijkstra_param!(ref_inputs_cost_per_datum_byte: u64);
 
     /// Returns key 18, the cost models the update proposes, under one field
     /// per Plutus language any era names. An update that leaves key 18 alone
@@ -782,7 +778,7 @@ mod tests {
 
 #[cfg(all(test, feature = "unstable"))]
 mod dijkstra_tests {
-    use pallas_codec::minicbor;
+    use pallas_codec::{minicbor, utils::Nullable};
     use pallas_primitives::{
         RationalNumber,
         conway::{
@@ -1059,6 +1055,71 @@ mod dijkstra_tests {
             Some([4i64].as_slice()),
             "this era's cost model type names key 3"
         );
+    }
+
+    fn dijkstra_update(hex_str: &str) -> MultiEraParamUpdate<'static> {
+        let update: dijkstra::ProtocolParamUpdate =
+            minicbor::decode(&hex::decode(hex_str).unwrap()).expect("the update must decode");
+        MultiEraParamUpdate::Dijkstra(Box::new(Cow::Owned(update)))
+    }
+
+    #[test]
+    fn a_dijkstra_update_reads_keys_49_to_56() {
+        let update = dijkstra_update(
+            "a8183118711832d81e8207031833187218341873183518741836d81e8201091837187518381876",
+        );
+        let ratio = |numerator, denominator| RationalNumber {
+            numerator,
+            denominator,
+        };
+
+        assert_eq!(
+            update.peras_min_candidate_block_age(),
+            ParamRead::Proposed(113)
+        );
+        assert_eq!(
+            update.peras_healing_factor(),
+            ParamRead::Proposed(ratio(7, 3))
+        );
+        assert_eq!(update.peras_cert_boost(), ParamRead::Proposed(114));
+        assert_eq!(
+            update.peras_target_committee_size(),
+            ParamRead::Proposed(115)
+        );
+        assert_eq!(
+            update.peras_bootstrap_round(),
+            ParamRead::Proposed(Nullable::Some(116))
+        );
+        assert_eq!(
+            update.peras_quorum_threshold_safety_margin(),
+            ParamRead::Proposed(ratio(1, 9))
+        );
+        assert_eq!(
+            update.ref_inputs_cost_per_multi_asset_policy(),
+            ParamRead::Proposed(117)
+        );
+        assert_eq!(
+            update.ref_inputs_cost_per_datum_byte(),
+            ParamRead::Proposed(118)
+        );
+        assert_eq!(update.max_pledge_leverage(), ParamRead::Unchanged);
+    }
+
+    #[test]
+    fn a_nil_at_key_38_or_53_is_read_apart_from_an_absent_key() {
+        let nils = dijkstra_update("a21826f61835f6");
+        assert_eq!(
+            nils.max_pledge_leverage(),
+            ParamRead::Proposed(Nullable::Null)
+        );
+        assert_eq!(
+            nils.peras_bootstrap_round(),
+            ParamRead::Proposed(Nullable::Null)
+        );
+
+        let absent = dijkstra_update("a0");
+        assert_eq!(absent.max_pledge_leverage(), ParamRead::Unchanged);
+        assert_eq!(absent.peras_bootstrap_round(), ParamRead::Unchanged);
     }
 
     #[test]

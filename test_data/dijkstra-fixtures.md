@@ -60,6 +60,27 @@ models is exercised by no fixture and is modelled from the CDDL alone.
 | dijkstra13.block | 0, 1, 2, 4 | 0 | array | 7, 9 | tagged | 0 | nil | nil |
 | dijkstra14.block | 0, 1, 2, 3, 4 | 0 | map | 3 | bare | 0 | nil | nil |
 | dijkstra15.block | none | none | none | none | none | 0 | present | present |
+| dijkstra-rc-2026w42-7.block | 0, 1, 2 | 0 | map, array | none | tagged | 1 | nil | nil |
+| dijkstra-rc-2026w42-11.block | none | none | none | none | none | 0 | present | nil |
+
+## A certifying block from local ChainSync
+
+`dijkstra-rc-2026w45-23123.block` is lowercase hex of one block as the Musashi
+node's local ChainSync sent it on 2026-11-17, the tag 24 payload of
+`MsgRollForward` (wrapper and block), no trailing newline. The node runs the
+ouroboros-leios `rc-2026w45` image, network magic 164, and its consensus pin
+`1f2984cc9726f3c9f33a9e92298a6b3ce1237d88` sends a certifying block with the
+certified endorser block's transactions spliced into its body
+(`inlineCertifiedEbTxs` in `Ouroboros/Consensus/MiniProtocol/ChainSync/Server.hs`).
+The header is the one on chain, so its `block_body_size` of 73 and its
+`block_body_hash` describe the stored body, which held no transactions.
+
+| file | slot | block | hash | bytes | tag | txs | why |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| dijkstra-rc-2026w45-23123.block | 501373 | 23123 | `1cb41ea9a58a86f7c19740b8f0a94c54ac02dd0ca60d74ee02802cc598fd0eff` | 7784 | 8 | 13 | a Leios certificate with its endorser block's thirteen transactions in a definite length list |
+
+The hash, transaction hashes and certificate signers were read with Python's
+`cbor2` and `hashlib` rather than with pallas.
 
 ## Endorser block bodies
 
@@ -158,3 +179,25 @@ the builder cannot drift apart.
 The two proposal files are read by `pallas-primitives` and by
 `pallas-traverse`, and the two transaction files by `pallas-utxorpc`, so one
 set of bytes serves every crate that needs the shape.
+
+## rc-2026w42 blocks
+
+Two blocks from a private devnet, as lowercase hex of the block exactly as the
+node's volatile database stored it, wrapper and all, no trailing newline.
+
+| | |
+| --- | --- |
+| node release | ouroboros-leios `rc-2026w42`, cardano-node 11.2.0.164 rev `2d6a2a66` |
+| config | `demo/proto-devnet` of that tag (commit `49f7c4a2`), network magic 164, every hard fork at epoch 0 |
+| ledger commit | `9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c`, the ledger that node pins |
+
+| file | slot | block | hash | bytes | tag | txs | why |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| dijkstra-rc-2026w42-7.block | 245 | 7 | `0d88c2182f7b6f1c2796677109d918c430538bf6b4df11c1ebf29a94243a3cd6` | 5706 | 8 | 1 | a transaction paying 126 outputs in both forms |
+| dijkstra-rc-2026w42-11.block | 413 | 11 | `f2fccd6e970425d1403101bc6553a4fb6a548a27d465fd29ae4c2ab11992b204` | 911 | 8 | 0 | a Leios certificate without an announcement |
+
+The Haskell ledger at that commit decoded each block with its Dijkstra block
+decoder and read the hash above, the header version info as highest supported
+major version 12 and software tag 0, block 7's one input as
+`9786e790..f24f#0` and its first output as 100000000 lovelace to
+`601597b3..85c5`, and block 11's certificate signers as `e0`.
