@@ -7,7 +7,7 @@ use pallas_primitives::conway;
 #[cfg(feature = "unstable")]
 use pallas_primitives::dijkstra;
 
-use crate::{ComputeHash as _, Era, MultiEraNativeScript, MultiEraScriptRef, OriginalHash as _};
+use crate::{ComputeHash as _, Era, MultiEraNativeScript, MultiEraScriptRef};
 
 impl<'b> MultiEraScriptRef<'b> {
     /// Read a Babbage or Conway reference script.
@@ -108,14 +108,18 @@ impl<'b> MultiEraScriptRef<'b> {
     pub fn hash(&self) -> Hash<28> {
         match self {
             Self::Conway(x) => match x.deref() {
-                conway::ScriptRef::NativeScript(s) => s.original_hash(),
+                conway::ScriptRef::NativeScript(s) => {
+                    MultiEraNativeScript::from_alonzo_compatible(s).hash()
+                }
                 conway::ScriptRef::PlutusV1Script(s) => s.compute_hash(),
                 conway::ScriptRef::PlutusV2Script(s) => s.compute_hash(),
                 conway::ScriptRef::PlutusV3Script(s) => s.compute_hash(),
             },
             #[cfg(feature = "unstable")]
             Self::Dijkstra(x) => match x.deref() {
-                dijkstra::ScriptRef::NativeScript(s) => s.original_hash(),
+                dijkstra::ScriptRef::NativeScript(s) => {
+                    MultiEraNativeScript::from_dijkstra(s).hash()
+                }
                 dijkstra::ScriptRef::PlutusV1Script(s) => s.compute_hash(),
                 dijkstra::ScriptRef::PlutusV2Script(s) => s.compute_hash(),
                 dijkstra::ScriptRef::PlutusV3Script(s) => s.compute_hash(),
@@ -260,6 +264,27 @@ mod tests {
         let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
 
         assert!(tx.outputs()[0].multi_era_script_ref().is_none());
+    }
+
+    #[test]
+    fn a_native_reference_script_without_bytes_hashes_its_encoding() {
+        let built: pallas_codec::utils::KeepRaw<'_, conway::NativeScript> =
+            conway::NativeScript::ScriptAll(vec![]).into();
+        let encoded = pallas_codec::minicbor::to_vec(&*built).unwrap();
+        let script = conway::ScriptRef::NativeScript(built);
+        assert_eq!(
+            MultiEraScriptRef::from_conway(&script).hash(),
+            Hasher::<224>::hash_tagged(&encoded, 0)
+        );
+
+        let nonminimal = [0x98, 0x02, 0x18, 0x01, 0x80];
+        let decoded: pallas_codec::utils::KeepRaw<'_, conway::NativeScript> =
+            pallas_codec::minicbor::decode(&nonminimal).unwrap();
+        let script = conway::ScriptRef::NativeScript(decoded);
+        assert_eq!(
+            MultiEraScriptRef::from_conway(&script).hash(),
+            Hasher::<224>::hash_tagged(&nonminimal, 0)
+        );
     }
 }
 

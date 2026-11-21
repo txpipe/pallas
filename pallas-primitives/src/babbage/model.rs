@@ -52,6 +52,7 @@ pub struct HeaderBody {
     pub operational_cert: OperationalCert,
 
     #[n(9)]
+    #[cbor(decode_with = "crate::protocol_version::decode")]
     pub protocol_version: ProtocolVersion,
 }
 
@@ -160,6 +161,7 @@ pub struct ProtocolParamUpdate {
     pub treasury_growth_rate: Option<UnitInterval>,
 
     #[n(14)]
+    #[cbor(decode_with = "crate::protocol_version::decode_option")]
     pub protocol_version: Option<ProtocolVersion>,
     #[n(16)]
     pub min_pool_cost: Option<Coin>,
@@ -308,7 +310,64 @@ pub struct GenPostAlonzoTransactionOutput<'b, V, S> {
     pub datum_option: Option<KeepRaw<'b, DatumOption<'b>>>,
 
     #[n(3)]
+    #[cfg_attr(
+        feature = "unstable",
+        cbor(
+            decode_with = "decode_script_ref",
+            decode_bound = "S: minicbor::Decode<'bytes, Ctx> + DecodeJoined<Ctx>"
+        )
+    )]
     pub script_ref: Option<CborWrap<S>>,
+}
+
+/// A value read from the joined chunks of indefinite length bytes, keeping no borrow of them.
+#[cfg(feature = "unstable")]
+pub trait DecodeJoined<C>: Sized {
+    fn decode_joined(cbor: &[u8], ctx: &mut C) -> Result<Self, minicbor::decode::Error>;
+}
+
+/// Implements `DecodeJoined` for a script reference enum from the names of its Plutus variants.
+#[cfg(feature = "unstable")]
+macro_rules! decode_joined_script_ref {
+    ($name:ident, $($plutus:ident),+) => {
+        impl<C> $crate::babbage::DecodeJoined<C> for $name<'_> {
+            fn decode_joined(
+                cbor: &[u8],
+                ctx: &mut C,
+            ) -> Result<Self, pallas_codec::minicbor::decode::Error> {
+                Ok(match pallas_codec::minicbor::decode_with(cbor, ctx)? {
+                    $name::NativeScript(script) => $name::NativeScript(script.to_owned()),
+                    $($name::$plutus(script) => $name::$plutus(script),)+
+                })
+            }
+        }
+    };
+}
+#[cfg(feature = "unstable")]
+pub(crate) use decode_joined_script_ref;
+
+#[cfg(feature = "unstable")]
+decode_joined_script_ref!(ScriptRef, PlutusV1Script, PlutusV2Script);
+
+/// Decodes an output's script reference, tagged bytes of either length form that hold the script's CBOR.
+#[cfg(feature = "unstable")]
+fn decode_script_ref<'b, Ctx, S>(
+    d: &mut minicbor::Decoder<'b>,
+    ctx: &mut Ctx,
+) -> Result<Option<CborWrap<S>>, minicbor::decode::Error>
+where
+    S: Decode<'b, Ctx> + DecodeJoined<Ctx>,
+{
+    if d.datatype()? == minicbor::data::Type::Null {
+        d.skip()?;
+        return Ok(None);
+    }
+    d.tag()?;
+    let script = match pallas_codec::utils::decode_bytes_def_or_indef(d, ctx)? {
+        std::borrow::Cow::Borrowed(cbor) => minicbor::decode_with(cbor, ctx)?,
+        std::borrow::Cow::Owned(cbor) => S::decode_joined(&cbor, ctx)?,
+    };
+    Ok(Some(CborWrap(script)))
 }
 
 pub type PostAlonzoTransactionOutput<'b> = GenPostAlonzoTransactionOutput<'b, Value, ScriptRef<'b>>;
@@ -374,13 +433,42 @@ pub struct PostAlonzoAuxiliaryData {
 }
 
 // datum_option = [ 0, $hash32 // 1, data ]
-#[derive(Encode, Decode, Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[derive(Encode, Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 #[cbor(flat)]
 pub enum DatumOption<'b> {
     #[n(0)]
     Hash(#[n(0)] DatumHash),
     #[n(1)]
     Data(#[b(0)] CborWrap<KeepRaw<'b, PlutusData>>),
+}
+
+#[cfg(not(feature = "unstable"))]
+crate::flat_enum::decode_flat_enum!(DatumOption<'b>,
+    0 => Hash(hash),
+    1 => Data(data),
+);
+
+#[cfg(feature = "unstable")]
+crate::flat_enum::decode_flat_enum!(DatumOption<'b>,
+    0 => Hash(hash),
+    1 => Data(data: decode_inline_datum),
+);
+
+/// Decodes inline datum data, tagged bytes of either length form that hold the data's CBOR.
+#[cfg(feature = "unstable")]
+fn decode_inline_datum<'b, C>(
+    d: &mut minicbor::Decoder<'b>,
+    ctx: &mut C,
+) -> Result<CborWrap<KeepRaw<'b, PlutusData>>, minicbor::decode::Error> {
+    d.tag()?;
+    let data = match pallas_codec::utils::decode_bytes_def_or_indef(d, ctx)? {
+        std::borrow::Cow::Borrowed(cbor) => minicbor::decode_with(cbor, ctx)?,
+        std::borrow::Cow::Owned(cbor) => {
+            let data: KeepRaw<'_, PlutusData> = minicbor::decode_with(&cbor, ctx)?;
+            data.to_owned()
+        }
+    };
+    Ok(CborWrap(data))
 }
 
 #[deprecated(since = "1.0.0-alpha", note = "use `DatumOption` instead")]
@@ -393,7 +481,7 @@ pub type PlutusV1Script = PlutusScript<1>;
 pub type PlutusV2Script = PlutusScript<2>;
 
 // script = [ 0, native_script // 1, plutus_v1_script // 2, plutus_v2_script ]
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 #[cbor(flat)]
 pub enum ScriptRef<'b> {
     #[n(0)]
@@ -403,6 +491,12 @@ pub enum ScriptRef<'b> {
     #[n(2)]
     PlutusV2Script(#[n(0)] PlutusScript<2>),
 }
+
+crate::flat_enum::decode_flat_enum!(ScriptRef<'b>,
+    0 => NativeScript(script),
+    1 => PlutusV1Script(script),
+    2 => PlutusV2Script(script),
+);
 
 #[deprecated(since = "1.0.0-alpha", note = "use `ScriptRef` instead")]
 pub type MintedScriptRef<'b> = ScriptRef<'b>;
@@ -457,10 +551,41 @@ pub type MintedTx<'b> = Tx<'b>;
 mod tests {
     use pallas_codec::minicbor;
 
-    use super::{Block, TransactionOutput};
+    use super::{Block, DatumOption, ScriptRef, TransactionOutput};
     use crate::Fragment;
+    use crate::flat_enum::assert_reads_either_length_form;
 
     type BlockWrapper<'b> = (u16, Block<'b>);
+
+    const HASH: &str = "581c11111111111111111111111111111111111111111111111111111111";
+    const HASH32: &str = "58201111111111111111111111111111111111111111111111111111111111111111";
+
+    #[test]
+    fn a_datum_option_reads_either_length_form() {
+        assert_reads_either_length_form::<DatumOption>(&[
+            format!("8200{HASH32}"),
+            "8201d8184180".to_string(),
+        ]);
+    }
+
+    #[test]
+    fn tag_24_bytes_in_chunks_read_only_in_an_unstable_build() {
+        let address = format!("581d61{}", "11".repeat(28));
+        for field in ["03d8185f42820043820180ff", "028201d8185f41184118ff"] {
+            let bytes = hex::decode(format!("a300{address}0100{field}")).unwrap();
+            let read = minicbor::decode::<super::PostAlonzoTransactionOutput>(&bytes);
+            assert_eq!(read.is_ok(), cfg!(feature = "unstable"), "{field}");
+        }
+    }
+
+    #[test]
+    fn a_script_reference_reads_either_length_form() {
+        assert_reads_either_length_form::<ScriptRef>(&[
+            format!("82008200{HASH}"),
+            "82014100".to_string(),
+            "82024100".to_string(),
+        ]);
+    }
 
     #[test]
     fn block_isomorphic_decoding_encoding() {

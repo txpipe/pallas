@@ -1,7 +1,7 @@
 //! Native scripts, shared across eras.
 //!
-//! Every era's `NativeScript` has the wire shape Shelley gave it: a definite
-//! array of `[variant, fields..]` where `ScriptAll`, `ScriptAny` and
+//! Every era's `NativeScript` has the wire shape Shelley gave it: an array of
+//! `[variant, fields..]` where `ScriptAll`, `ScriptAny` and
 //! `ScriptNOfK` end in a child list. Later eras only add leaf variants:
 //! Dijkstra's `ScriptRequireGuard`, for example. The tree may be arbitrarily
 //! deep within a small transaction, so nothing here recurses per nesting
@@ -53,7 +53,8 @@ struct Node<S>(S);
 
 struct Builder<S> {
     script: S,
-    trailing_fields: u64,
+    len: Option<u64>,
+    required: u64,
 }
 
 impl<'b, C, S: NativeScript> TreeDecode<'b, C> for Node<S> {
@@ -64,13 +65,8 @@ impl<'b, C, S: NativeScript> TreeDecode<'b, C> for Node<S> {
         ctx: &mut C,
     ) -> Result<(Builder<S>, Arity), minicbor::decode::Error> {
         let position = d.position();
-        // Match the former #[cbor(flat)] codec, including its acceptance of
-        // extra fields and indefinite child lists (but not indefinite variants).
-        let len = d.array()?.ok_or_else(|| {
-            minicbor::decode::Error::message("flat enum requires definite-length array")
-                .at(position)
-        })?;
-        if len == 0 {
+        let len = d.array()?;
+        if len == Some(0) {
             return Err(
                 minicbor::decode::Error::message("flat enum requires non-empty array").at(position),
             );
@@ -80,7 +76,9 @@ impl<'b, C, S: NativeScript> TreeDecode<'b, C> for Node<S> {
         let required = S::field_count(variant).ok_or_else(|| {
             minicbor::decode::Error::unknown_variant(variant).at(variant_position)
         })?;
-        if len < required {
+        if let Some(len) = len
+            && len < required
+        {
             return Err(minicbor::decode::Error::missing_value((len - 1) as i64).at(position));
         }
         let mut script = S::begin(variant, d, ctx)?;
@@ -91,7 +89,8 @@ impl<'b, C, S: NativeScript> TreeDecode<'b, C> for Node<S> {
         };
         let builder = Builder {
             script,
-            trailing_fields: len - required,
+            len,
+            required,
         };
         Ok((builder, arity))
     }
@@ -110,9 +109,7 @@ impl<'b, C, S: NativeScript> TreeDecode<'b, C> for Node<S> {
         d: &mut Decoder<'b>,
         _: &mut C,
     ) -> Result<Node<S>, minicbor::decode::Error> {
-        for _ in 0..builder.trailing_fields {
-            d.skip()?;
-        }
+        pallas_codec::utils::skip_array_rest(d, builder.len, builder.required)?;
         Ok(Node(builder.script))
     }
 }

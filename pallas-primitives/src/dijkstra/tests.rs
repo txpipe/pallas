@@ -1,11 +1,14 @@
 use super::{
     AccountBalanceInterval, AccountBalanceIntervals, AuxiliaryData, Block, BlockTransaction,
-    Certificate, CostModels, DRep, EndorserBlock, GovAction, Guards, Header, MempoolTransaction,
-    NativeScript, NonEmptySet, ProposalProcedure, Set, SetArm, StakeCredential, TransactionBody,
-    TransactionOutput, Value, WitnessSet,
+    Certificate, CostModels, DRep, DatumOption, EndorserBlock, GovAction, Guards, Header,
+    MempoolTransaction, NativeScript, NonEmptySet, PlutusData, ProposalProcedure,
+    ProtocolParamUpdate, RationalNumber, Relay, ScriptRef, Set, SetArm, StakeCredential,
+    SubTransactionBody, TransactionBody, TransactionOutput, Value, Voter, WitnessSet,
 };
+use crate::flat_enum::{assert_reads_either_length_form, decode_all};
 use pallas_codec::minicbor;
-use pallas_codec::utils::{KeepRaw, Nullable};
+use pallas_codec::utils::{CborWrap, KeepRaw, Nullable};
+use pallas_crypto::hash::Hasher;
 
 type BlockWrapper<'b> = (u16, Block<'b>);
 
@@ -70,6 +73,14 @@ const TEST_BLOCKS: &[(&str, &str)] = &[
     (
         "dijkstra15",
         include_str!("../../../test_data/dijkstra15.block"),
+    ),
+    (
+        "dijkstra-rc-2026w42-7",
+        include_str!("../../../test_data/dijkstra-rc-2026w42-7.block"),
+    ),
+    (
+        "dijkstra-rc-2026w42-11",
+        include_str!("../../../test_data/dijkstra-rc-2026w42-11.block"),
     ),
 ];
 
@@ -227,8 +238,8 @@ fn transaction_payloads_reencode_to_their_wire_bytes() {
 
     assert_eq!(
         (bodies, witness_sets, auxiliary_data),
-        (45, 45, 5),
-        "the fixtures should carry forty five transactions, each with a body and a witness set, five of them with auxiliary data"
+        (46, 46, 5),
+        "the fixtures should carry forty six transactions, each with a body and a witness set, five of them with auxiliary data"
     );
 }
 
@@ -624,8 +635,9 @@ const ABSENT_RULES: &[&str] = &[
     "transaction",
     // Renamed to `mempool_transaction`.
     "transaction_mempool",
-    // Renamed to `eb_announcement`.
+    // Renamed to `eb_announcement`, then to `eb_references_announcement`.
     "leios_announcement",
+    "eb_announcement",
     // Renamed to `bls_key`.
     "leios_key",
     // Deleted with `redeemers`' array arm.
@@ -659,8 +671,10 @@ const NOT_RULES: &[&str] = &[
     "deposit",
     "eb_hash",
     "eb_size",
+    "highest_supported_major_version",
     "is_valid",
     "pledge",
+    "self_reported_software_tag",
     "signers",
     "success",
     "ttl",
@@ -955,6 +969,34 @@ fn a_proposal_keeps_the_dijkstra_parameter_keys() {
     }
 }
 
+#[test]
+fn a_parameter_update_re_encodes_every_key_and_each_nil() {
+    let cases = [
+        // Key 38 set to a value, the shape every earlier key has.
+        ("38 set", "a11826d81e820301"),
+        // Keys 49 to 56, with 50 and 54 as tag 30 rationals.
+        (
+            "49 to 56",
+            "a8183118711832d81e8207031833187218341873183518741836d81e8201091837187518381876",
+        ),
+        // Keys 38 and 53 set to nil, which the CDDL admits for those two keys alone.
+        ("38 and 53 nil", "a21826f61835f6"),
+    ];
+
+    let mut lost = Vec::new();
+    for (label, hex_str) in cases {
+        let bytes = hex::decode(hex_str).unwrap();
+        let update: ProtocolParamUpdate = minicbor::decode(&bytes)
+            .unwrap_or_else(|e| panic!("{label}: the update did not decode: {e:?}"));
+        let encoded = hex::encode(minicbor::to_vec(&update).unwrap());
+        if encoded != hex_str {
+            lost.push((label, encoded));
+        }
+    }
+
+    assert_eq!(lost, vec![], "these updates lost a key on re-encode");
+}
+
 /// `pool_params` carries `? bls_key : bls_key/ nil` (`defs.cddl`) between
 /// `vrf_keyhash` and `pledge`. Every fixture certificate reaches the wire
 /// inside a `KeepRaw` body, so without this the length choice runs nowhere.
@@ -1102,6 +1144,40 @@ fn an_empty_guards_array_is_refused() {
     assert!(matches!(decoded, Guards::Credentials(_)));
 }
 
+/// The bytes of a body with one input and no outputs, ending with the given hex keys.
+fn body_ending(top: bool, rest: &str) -> &'static [u8] {
+    let (header, fee) = if top { ("a4", "0200") } else { ("a3", "") };
+    let input = format!("d9010281825820{}00", "03".repeat(32));
+    generated(&format!("{header}00{input}0180{fee}{rest}"))
+}
+
+#[test]
+fn an_empty_guards_set_in_either_body_reads_as_no_guards() {
+    for empty in ["d9010280", "80", "9fff"] {
+        let top: TransactionBody = decode_all(body_ending(true, &format!("0e{empty}")));
+        assert_eq!(top.guards, None, "{empty}");
+        let sub: SubTransactionBody = decode_all(body_ending(false, &format!("0e{empty}")));
+        assert_eq!(sub.guards, None, "{empty}");
+    }
+}
+
+#[test]
+fn a_guards_set_with_a_key_in_either_body_reads_as_that_key() {
+    let one = format!("0ed9010281581c{}", "06".repeat(28));
+    let top: TransactionBody = decode_all(body_ending(true, &one));
+    assert!(matches!(top.guards, Some(Guards::AddrKeyhashes(_))));
+    let sub: SubTransactionBody = decode_all(body_ending(false, &one));
+    assert!(matches!(sub.guards, Some(Guards::AddrKeyhashes(_))));
+}
+
+#[test]
+fn a_guards_value_that_is_not_a_set_is_refused_in_either_body() {
+    let top: Result<TransactionBody, _> = minicbor::decode(body_ending(true, "0e01"));
+    assert!(top.is_err());
+    let sub: Result<SubTransactionBody, _> = minicbor::decode(body_ending(false, "0e01"));
+    assert!(sub.is_err());
+}
+
 /// A type reaching Alonzo's native script from here would refuse a whole
 /// block over a guard clause in a transaction that used the array form.
 #[test]
@@ -1124,7 +1200,7 @@ fn the_array_form_of_auxiliary_data_carries_this_eras_native_scripts() {
         .expect("a guard clause must not make the whole auxiliary scripts field read as absent");
     assert_eq!(scripts.len(), 1);
     assert!(
-        matches!(scripts[0], NativeScript::ScriptRequireGuard(_)),
+        matches!(*scripts[0], NativeScript::ScriptRequireGuard(_)),
         "the guard clause must survive, found {:?}",
         scripts[0]
     );
@@ -1217,6 +1293,14 @@ const HEADER_HASHES: &[(&str, &str)] = &[
     (
         "dijkstra15",
         "0db84efa0259153a240cecacd0f9e52f942d40f96b132ebd0d5b3526e19b3a7b",
+    ),
+    (
+        "dijkstra-rc-2026w42-7",
+        "0d88c2182f7b6f1c2796677109d918c430538bf6b4df11c1ebf29a94243a3cd6",
+    ),
+    (
+        "dijkstra-rc-2026w42-11",
+        "f2fccd6e970425d1403101bc6553a4fb6a548a27d465fd29ae4c2ab11992b204",
     ),
 ];
 
@@ -1350,7 +1434,7 @@ fn a_certificate_travels_without_an_announcement() {
     );
 }
 
-/// `eb_announcement = [eb_hash : hash32, eb_size : uint .size 4]` (`defs.cddl`).
+/// `eb_references_announcement = [eb_hash : hash32, eb_size : uint .size 4]` (`defs.cddl`).
 /// dijkstra15 announces 71103 bytes, past what two bytes hold, so the size is
 /// written as a five byte uint where dijkstra8's 39495 is a three byte one.
 #[test]
@@ -1542,8 +1626,8 @@ fn a_set_re_encodes_the_arm_it_was_read_from() {
 
     assert_eq!(
         (tagged, bare),
-        (38, 7),
-        "the fixtures carry thirty eight tagged input sets and seven bare ones"
+        (39, 7),
+        "the fixtures carry thirty nine tagged input sets and seven bare ones"
     );
 
     // A type that normalised the arms would satisfy everything above and fail here.
@@ -1649,7 +1733,7 @@ fn the_array_form_still_carries_a_clause_every_era_has() {
     };
     let scripts = inner.auxiliary_scripts.as_ref().expect("readable");
     assert_eq!(scripts.len(), 1);
-    assert!(matches!(scripts[0], NativeScript::ScriptPubkey(_)));
+    assert!(matches!(*scripts[0], NativeScript::ScriptPubkey(_)));
 
     assert_eq!(
         hex::encode(minicbor::to_vec(&decoded).unwrap()),
@@ -1694,6 +1778,37 @@ fn an_empty_array_is_not_a_nonempty_set() {
         assert!(
             err.to_string().contains("a nonempty set"),
             "the {arm} empty array was refused for some other reason: {err}"
+        );
+    }
+}
+
+#[test]
+fn a_body_field_typed_nonempty_refuses_an_empty_array() {
+    let top: &[u8] = &[0xa3, 0x00, 0x80, 0x01, 0x80, 0x02, 0x00];
+    let sub: &[u8] = &[0xa2, 0x00, 0x80, 0x01, 0x80];
+    minicbor::decode::<TransactionBody>(top).expect("a body without the field must decode");
+    minicbor::decode::<SubTransactionBody>(sub).expect("a sub body without the field must decode");
+
+    let with_empty = |body: &[u8], key: u8| {
+        let mut bytes = vec![body[0] + 1];
+        bytes.extend_from_slice(&body[1..]);
+        bytes.extend_from_slice(&[key, 0x80]);
+        bytes
+    };
+    for key in [4, 13, 18, 20, 23] {
+        let err = minicbor::decode::<TransactionBody>(&with_empty(top, key))
+            .expect_err("an empty nonempty field must not decode");
+        assert!(
+            err.to_string().contains("a nonempty set"),
+            "body key {key} was refused for some other reason: {err}"
+        );
+    }
+    for key in [4, 18, 20] {
+        let err = minicbor::decode::<SubTransactionBody>(&with_empty(sub, key))
+            .expect_err("an empty nonempty field must not decode");
+        assert!(
+            err.to_string().contains("a nonempty set"),
+            "sub body key {key} was refused for some other reason: {err}"
         );
     }
 }
@@ -1774,6 +1889,50 @@ fn the_legal_account_balance_interval_forms_still_read() {
     assert_eq!(decoded.len(), 2);
 }
 
+/// The bytes of a map form output with an address and a coin, ending with the given hex field.
+fn output_ending_in(field: &str) -> Vec<u8> {
+    hex::decode(format!("a300581d61{}0100{field}", "11".repeat(28))).unwrap()
+}
+
+#[test]
+fn a_script_reference_in_tag_24_bytes_in_chunks_reads_as_the_joined_chunks() {
+    let bytes = output_ending_in("03d8185f42820043820180ff");
+    let TransactionOutput::PostAlonzo(output) = decode_all(&bytes) else {
+        panic!("the output is a map");
+    };
+    let Some(CborWrap(ScriptRef::NativeScript(script))) = &output.script_ref else {
+        panic!("the output holds a native script reference");
+    };
+    assert_eq!(**script, NativeScript::ScriptAll(vec![]));
+    assert_eq!(script.raw_cbor(), [0x82, 0x01, 0x80]);
+}
+
+#[test]
+fn an_inline_datum_in_tag_24_bytes_in_chunks_reads_as_the_joined_chunks() {
+    let bytes = output_ending_in("028201d8185f41184118ff");
+    let TransactionOutput::PostAlonzo(output) = decode_all(&bytes) else {
+        panic!("the output is a map");
+    };
+    let Some(DatumOption::Data(CborWrap(data))) = output.datum_option.as_deref() else {
+        panic!("the output holds an inline datum");
+    };
+    assert_eq!(data.raw_cbor(), [0x18, 0x18]);
+}
+
+#[test]
+fn values_ending_in_an_absent_value_reencode_as_the_ledger_wrote_them() {
+    use super::TransactionBody;
+
+    for hex in [
+        include_str!("../../../test_data/dijkstra-generated/body-certificates-ending-in-null.hex"),
+        include_str!("../../../test_data/dijkstra-generated/body-governance-ending-in-null.hex"),
+    ] {
+        let bytes = hex::decode(hex).unwrap();
+        let body: TransactionBody = minicbor::decode(&bytes).unwrap();
+        assert_eq!(hex::encode(minicbor::to_vec(&body).unwrap()), hex);
+    }
+}
+
 #[test]
 fn an_account_balance_interval_is_two_elements_or_none() {
     let cases: &[(&str, &[u8])] = &[
@@ -1791,4 +1950,466 @@ fn an_account_balance_interval_is_two_elements_or_none() {
             "the {name} array was refused for some other reason: {err}"
         );
     }
+}
+
+/// The bytes of one vector from `test_data/dijkstra-generated`.
+fn generated(hex: &str) -> &'static [u8] {
+    Box::leak(hex::decode(hex).unwrap().into_boxed_slice())
+}
+
+/// Whether a rational number equals `numerator / denominator` as a ratio.
+fn same_ratio(found: &RationalNumber, numerator: u64, denominator: u64) -> bool {
+    found.numerator as u128 * denominator as u128 == found.denominator as u128 * numerator as u128
+}
+
+#[test]
+fn a_generated_parameter_update_keeps_the_keys_after_an_indefinite_rational() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/ppu-rational-indefinite.hex"
+    ));
+    let update: ProtocolParamUpdate = decode_all(bytes);
+
+    assert_eq!(update.minfee_a, Some(0x30417a8beab11095));
+    assert_eq!(update.minfee_b, Some(0x93d15ea0c1acc926));
+    assert_eq!(update.max_block_body_size, Some(0x327f8f25));
+    assert_eq!(update.max_transaction_size, Some(0x7f16cbc8));
+    assert_eq!(update.max_block_header_size, Some(0x4a9f));
+    assert_eq!(update.key_deposit, Some(0xd78ece0e55ae6876));
+    assert_eq!(update.pool_deposit, Some(0xf20ce478efceddf0));
+    assert_eq!(update.maximum_epoch, Some(0x13adde3c));
+    assert_eq!(update.desired_number_of_stake_pools, Some(0x890a));
+    assert!(same_ratio(
+        update.pool_pledge_influence.as_ref().unwrap(),
+        0x6e24f5aeed36f7f5,
+        0xd81f3b4fc11e15ae
+    ));
+    assert!(same_ratio(
+        update.expansion_rate.as_ref().unwrap(),
+        251,
+        832
+    ));
+    assert!(same_ratio(
+        update.treasury_growth_rate.as_ref().unwrap(),
+        0x555555555555540a,
+        0x555555555555543d
+    ));
+    assert_eq!(update.ada_per_utxo_byte, Some(0xe242b5b210626137));
+}
+
+#[test]
+fn a_generated_relay_in_an_indefinite_array_reads_to_its_break() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/relay-indefinite.hex"
+    ));
+    let relay: Relay = decode_all(bytes);
+
+    assert_eq!(
+        relay,
+        Relay::MultiHostName("\u{241a}\u{3bdc1}\u{d0}".to_string())
+    );
+}
+
+#[test]
+fn a_generated_certificate_in_an_indefinite_array_reads_to_its_break() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-certificate-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    let certificates: Vec<_> = body.certificates.unwrap().to_vec();
+    assert_eq!(
+        certificates,
+        vec![Certificate::UpdateDRepCert(
+            StakeCredential::ScriptHash(
+                "931c0e475a84cfe718b21f9ae8224c5077671633d9f8cacff61e009b"
+                    .parse()
+                    .unwrap()
+            ),
+            None
+        )]
+    );
+}
+
+#[test]
+fn a_generated_value_in_an_indefinite_array_reads_to_its_break() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-value-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    let [TransactionOutput::Legacy(output)] = &body.outputs[..] else {
+        panic!("the body holds one array form output");
+    };
+    let crate::alonzo::Value::Multiasset(coin, assets) = &output.amount else {
+        panic!("the output value is a coin and assets");
+    };
+    assert_eq!(*coin, 18052182784416840275);
+    let policy: crate::PolicyId = "a05a12f1f644247a57a10eec17c3f9752b30f44fbe49736dbc92c083"
+        .parse()
+        .unwrap();
+    let names: Vec<_> = assets[&policy].iter().collect();
+    assert_eq!(names.len(), 1);
+    assert!(names[0].0.is_empty());
+    assert_eq!(*names[0].1, 5424943601111550909);
+}
+
+#[test]
+fn a_generated_transaction_in_an_indefinite_array_reads_to_its_break() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/tx-indefinite.hex"
+    ));
+    let tx: MempoolTransaction = decode_all(bytes);
+
+    assert!(tx.is_valid_supplied);
+    assert_eq!(tx.transaction_body.fee, 10309690930332875869);
+    let [TransactionOutput::Legacy(output)] = &tx.transaction_body.outputs[..] else {
+        panic!("the body holds one array form output");
+    };
+    let coin = match &output.amount {
+        crate::alonzo::Value::Coin(coin) | crate::alonzo::Value::Multiasset(coin, _) => *coin,
+    };
+    assert_eq!(coin, 13818883891935063992);
+    assert_eq!(
+        tx.transaction_witness_set
+            .vkeywitness
+            .as_ref()
+            .map(|w| w.len()),
+        Some(2)
+    );
+    assert_eq!(
+        tx.transaction_witness_set
+            .plutus_v1_script
+            .as_ref()
+            .map(|s| s.len()),
+        Some(1)
+    );
+    assert!(matches!(tx.auxiliary_data, crate::Nullable::Null));
+}
+
+#[test]
+fn a_generated_constructor_102_in_an_indefinite_array_hashes_as_the_ledger_does() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/wits-constr-102-indefinite.hex"
+    ));
+    let witnesses: WitnessSet = decode_all(bytes);
+
+    let datums = witnesses.plutus_data.unwrap();
+    let hashes: Vec<String> = datums
+        .iter()
+        .map(|datum| Hasher::<256>::hash(datum.raw_cbor()).to_string())
+        .collect();
+    assert_eq!(
+        hashes,
+        [
+            "f929da3fb67b303d9fd90a2fce58316023844d6b1f5d49fb399480f0f8e2f73e",
+            "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25",
+        ]
+    );
+    let PlutusData::Constr(constr) = &*datums[0] else {
+        panic!("the first datum is a constructor");
+    };
+    assert_eq!(constr.constr_index(), 1000);
+    assert!(constr.fields.is_empty());
+}
+
+#[test]
+fn a_generated_hard_fork_version_in_an_indefinite_array_decodes() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/proposal-hard-fork-indefinite-version.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    let proposals: Vec<_> = body.proposal_procedures.unwrap().to_vec();
+    assert_eq!(proposals.len(), 1);
+    assert_eq!(proposals[0].deposit, 15225768051747963167);
+    assert_eq!(
+        proposals[0].gov_action,
+        GovAction::HardForkInitiation(None, (3, 2317795968))
+    );
+}
+
+/// Provenance for this fixture is in `test_data/dijkstra-generated.md`.
+const VERSION_INFO_BLOCK: &str =
+    include_str!("../../../test_data/dijkstra-generated/block-header-version-info.hex");
+
+/// The version info of the generated block's header, as hex.
+const VERSION_INFO: &str = "821a3be658c11aeb03cba5";
+
+fn generated_header_hex() -> String {
+    let block = hex::decode(VERSION_INFO_BLOCK.trim()).unwrap();
+    let mut d = minicbor::Decoder::new(&block);
+    d.array().unwrap();
+    let start = d.position();
+    d.skip().unwrap();
+    hex::encode(&block[start..d.position()])
+}
+
+#[test]
+fn a_version_info_in_an_indefinite_array_reads_to_its_break() {
+    let header = generated_header_hex();
+    let bytes = hex::decode(header.replace(VERSION_INFO, "9f1a3be658c11aeb03cba5ff")).unwrap();
+    let mut d = minicbor::Decoder::new(&bytes);
+    let header: Header = d.decode().expect("an indefinite version info must decode");
+    assert_eq!(d.position(), bytes.len());
+    let info = &header.header_body.header_version_info;
+    assert_eq!(info.highest_supported_major_version, 1004951745);
+    assert_eq!(info.self_reported_software_tag, 3942894501);
+}
+
+#[test]
+fn a_version_info_field_past_four_bytes_is_refused() {
+    let header = generated_header_hex();
+    assert_eq!(header.matches(VERSION_INFO).count(), 1);
+    let at = header.find(VERSION_INFO).unwrap() / 2;
+
+    let widest = hex::decode(header.replace(VERSION_INFO, "821affffffff1affffffff")).unwrap();
+    minicbor::decode::<Header>(&widest).expect("both fields at u32::MAX must decode");
+
+    for (field, info, position) in [
+        (
+            "highest_supported_major_version",
+            "821b00000001000000001aeb03cba5",
+            at + 1,
+        ),
+        (
+            "self_reported_software_tag",
+            "821a3be658c11b0000000100000000",
+            at + 6,
+        ),
+    ] {
+        let mutated = hex::decode(header.replace(VERSION_INFO, info)).unwrap();
+        let err =
+            minicbor::decode::<Header>(&mutated).expect_err("a field of 2^32 must not decode");
+        assert_eq!(
+            err.position(),
+            Some(position),
+            "{field} was refused somewhere else: {err}"
+        );
+    }
+}
+
+const HASH: &str = "581c11111111111111111111111111111111111111111111111111111111";
+const HASH32: &str = "58201111111111111111111111111111111111111111111111111111111111111111";
+const REWARD: &str = "581de111111111111111111111111111111111111111111111111111111111";
+
+#[test]
+fn a_gov_action_reads_either_length_form() {
+    let id = format!("82{HASH32}00");
+    let credential = format!("8200{HASH}");
+    assert_reads_either_length_form::<GovAction>(&[
+        format!("8400{id}a10001{HASH}"),
+        format!("8301{id}820a00"),
+        format!("8302a1{REWARD}01{HASH}"),
+        format!("8203{id}"),
+        format!("8504{id}81{credential}a1{credential}01d81e820102"),
+        format!("8305{id}828260{HASH32}{HASH}"),
+        "8106".to_string(),
+    ]);
+}
+
+#[test]
+fn a_script_reference_reads_either_length_form() {
+    assert_reads_either_length_form::<ScriptRef>(&[
+        format!("82008200{HASH}"),
+        "82014100".to_string(),
+        "82024100".to_string(),
+        "82034100".to_string(),
+        "82044100".to_string(),
+    ]);
+}
+
+#[test]
+fn a_native_script_reads_either_length_form() {
+    let script = format!("8200{HASH}");
+    assert_reads_either_length_form::<NativeScript>(&[
+        script.clone(),
+        format!("820181{script}"),
+        "820280".to_string(),
+        "83030180".to_string(),
+        "820401".to_string(),
+        "820501".to_string(),
+        format!("82068201{HASH}"),
+    ]);
+}
+
+#[test]
+fn a_generated_credential_in_an_indefinite_array_decodes() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-credential-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    assert_eq!(
+        body.certificates.unwrap().to_vec(),
+        vec![Certificate::StakeDelegation(
+            StakeCredential::ScriptHash(
+                "17ab434af5e4d2fcc4815897879f52d2068af2dc2630974ac0333a2b"
+                    .parse()
+                    .unwrap()
+            ),
+            "bc7069ba4ab9909c4b1517f3bd9ccbb45b075569c163820971dbe63e"
+                .parse()
+                .unwrap(),
+        )]
+    );
+}
+
+#[test]
+fn generated_dreps_in_indefinite_arrays_decode() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-drep-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    assert_eq!(
+        body.certificates.unwrap().to_vec(),
+        vec![
+            Certificate::VoteRegDeleg(
+                StakeCredential::AddrKeyhash(
+                    "098118293e4e9f9862dd7a9e876d00ca97e3b98ead92b6a2e7c30dc9"
+                        .parse()
+                        .unwrap()
+                ),
+                DRep::NoConfidence,
+                0x97a8a827c45150b1
+            ),
+            Certificate::VoteRegDeleg(
+                StakeCredential::AddrKeyhash(
+                    "b8f80a08bf5b6bad733522cd91768136b5aad289bff7a51d7d620508"
+                        .parse()
+                        .unwrap()
+                ),
+                DRep::Abstain,
+                0x41a4ecaab467a454
+            ),
+        ]
+    );
+}
+
+#[test]
+fn generated_datum_options_in_indefinite_arrays_decode() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-datum-option-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    let [
+        TransactionOutput::PostAlonzo(hashed),
+        TransactionOutput::PostAlonzo(inline),
+    ] = &body.outputs[..]
+    else {
+        panic!("the body holds two map form outputs");
+    };
+    assert!(matches!(
+        hashed.datum_option.as_deref(),
+        Some(DatumOption::Hash(hash))
+            if hash.to_string() == "f76479ff10b1f158e4b6c98049836b3bd0abe3fcceab1a5d646fdaa8f0d312fb"
+    ));
+    assert!(matches!(
+        inline.datum_option.as_deref(),
+        Some(DatumOption::Data(CborWrap(data))) if data.raw_cbor() == [0x80]
+    ));
+}
+
+#[test]
+fn a_generated_gov_action_in_an_indefinite_array_decodes() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-gov-action-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    let proposals: Vec<_> = body.proposal_procedures.unwrap().to_vec();
+    assert_eq!(proposals.len(), 1);
+    assert_eq!(proposals[0].deposit, 0x3092f0c34ad35adb);
+    let account =
+        hex::decode("f100020200000101010201000101010000010100000001010201000101").unwrap();
+    assert_eq!(
+        proposals[0].gov_action,
+        GovAction::TreasuryWithdrawals([(account.into(), 0xa1d446b07e0bbe31)].into(), None)
+    );
+}
+
+#[test]
+fn a_generated_voter_in_an_indefinite_array_decodes() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-voter-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    let voters: Vec<_> = body.voting_procedures.unwrap().into_keys().collect();
+    assert_eq!(
+        voters,
+        vec![Voter::ConstitutionalCommitteeKey(
+            "7ff244d677b8920e733c5117a58478eb164d06298ca4bde583ac1e76"
+                .parse()
+                .unwrap()
+        )]
+    );
+}
+
+#[test]
+fn a_generated_guard_credential_in_an_indefinite_array_decodes() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-guard-credential-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    let Some(Guards::Credentials(credentials)) = body.guards else {
+        panic!("the body holds credential guards");
+    };
+    assert_eq!(
+        credentials.to_vec(),
+        vec![StakeCredential::AddrKeyhash(
+            "b7fa435c83b33b9504b0aa55247460636800452cd4ed29cedd431dfe"
+                .parse()
+                .unwrap()
+        )]
+    );
+}
+
+#[test]
+fn a_generated_script_reference_in_an_indefinite_array_decodes() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/body-script-ref-indefinite.hex"
+    ));
+    let body: TransactionBody = decode_all(bytes);
+
+    let [TransactionOutput::PostAlonzo(output)] = &body.outputs[..] else {
+        panic!("the body holds one map form output");
+    };
+    let Some(CborWrap(ScriptRef::NativeScript(script))) = &output.script_ref else {
+        panic!("the output holds a native script reference");
+    };
+    assert_eq!(**script, NativeScript::InvalidHereafter(0x73e96a1328c7873b));
+}
+
+#[test]
+fn generated_native_scripts_in_indefinite_arrays_decode() {
+    let bytes = generated(include_str!(
+        "../../../test_data/dijkstra-generated/wits-native-scripts-indefinite.hex"
+    ));
+    let witnesses: WitnessSet = decode_all(bytes);
+
+    let scripts: Vec<NativeScript> = witnesses
+        .native_script
+        .unwrap()
+        .to_vec()
+        .into_iter()
+        .map(KeepRaw::unwrap)
+        .collect();
+    assert_eq!(
+        scripts,
+        vec![
+            NativeScript::InvalidHereafter(0x73e96a1328c7873b),
+            NativeScript::ScriptAny(vec![
+                NativeScript::InvalidHereafter(0x7b16eeee03a344c6),
+                NativeScript::InvalidBefore(0xdc760102a6a9e550),
+            ]),
+            NativeScript::ScriptRequireGuard(StakeCredential::ScriptHash(
+                "35315820fb38df0f2034fa91fed7a4199d1d4b2d1b0d2a165345e349"
+                    .parse()
+                    .unwrap()
+            )),
+        ]
+    );
 }

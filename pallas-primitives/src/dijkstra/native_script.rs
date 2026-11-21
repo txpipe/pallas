@@ -192,7 +192,7 @@ mod tests {
             "80",
             "8100",
             "820301",
-            "9f0400ff",
+            "9f04ff",
             "820780",                 // unknown variant, one past the guard clause
             "822080",                 // negative variant
             "82019bffffffffffffffff", // enormous truncated child list

@@ -237,9 +237,12 @@ pub enum MultiEraTx<'b> {
     /// Dijkstra transaction, whose `success` flag is written last.
     #[cfg(feature = "unstable")]
     Dijkstra(Box<Cow<'b, dijkstra::BlockTransaction<'b>>>),
-    /// A Dijkstra sub transaction with the `success` flag of the transaction whose body lists it.
+    /// A Dijkstra sub transaction with the transaction whose body lists it.
     #[cfg(feature = "unstable")]
-    DijkstraSub(Box<Cow<'b, dijkstra::SubTransaction<'b>>>, bool),
+    DijkstraSub(
+        Box<Cow<'b, dijkstra::SubTransaction<'b>>>,
+        Box<Cow<'b, dijkstra::BlockTransaction<'b>>>,
+    ),
 }
 
 /// Ada-plus-multi-asset value normalized across eras.
@@ -632,10 +635,11 @@ pub enum MultiEraScriptRef<'b> {
 /// The `AlonzoCompatible` variant carries the type every era through Conway
 /// shares. The `unstable` build adds a Dijkstra variant with a seventh clause.
 ///
-/// Each variant keeps a [`KeepRaw`], so a script read from a witness set or a
-/// reference script carries the bytes it arrived in and gives the hash the
-/// ledger keys it by. A script read from auxiliary data carries none, because
-/// the auxiliary data types hold a decoded script.
+/// The `AlonzoCompatible` and `Dijkstra` variants keep a [`KeepRaw`], so a
+/// script read from a witness set or a reference script carries the bytes it
+/// arrived in and gives the hash the ledger keys it by. A script read from
+/// auxiliary data carries none, because the auxiliary data types hold a
+/// decoded script.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum MultiEraNativeScript<'b> {
@@ -644,6 +648,11 @@ pub enum MultiEraNativeScript<'b> {
     /// Native script from a Dijkstra transaction, which may require a guard.
     #[cfg(feature = "unstable")]
     Dijkstra(Cow<'b, KeepRaw<'b, dijkstra::NativeScript>>),
+    /// Native script from any era through Conway, held by another script and so without bytes of its own.
+    AlonzoCompatibleDecoded(Cow<'b, alonzo::NativeScript>),
+    /// Native script from a Dijkstra transaction, held by another script and so without bytes of its own.
+    #[cfg(feature = "unstable")]
+    DijkstraDecoded(Cow<'b, dijkstra::NativeScript>),
 }
 
 /// The clause at the root of a native script, normalized across eras.
@@ -1138,6 +1147,7 @@ mod attribute_tests {
             ],
             MultiEraNativeScript: crate::MultiEraNativeScript => [
                 crate::MultiEraNativeScript::AlonzoCompatible(..),
+                crate::MultiEraNativeScript::AlonzoCompatibleDecoded(..),
             ],
             MultiEraOutput: crate::MultiEraOutput => [
                 crate::MultiEraOutput::AlonzoCompatible(..),

@@ -573,6 +573,10 @@ pub struct Constitution {
     #[n(0)]
     pub anchor: Anchor,
     #[n(1)]
+    #[cbor(
+        encode_with = "minicbor::Encode::encode",
+        is_nil = "pallas_codec::utils::never_nil"
+    )]
     pub script: Option<ScriptHash>,
 }
 

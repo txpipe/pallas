@@ -31,6 +31,7 @@ unstable = [
   "hardano",
   "pallas-traverse/unstable",
   "pallas-primitives/unstable",
+  "pallas-validate/unstable",
   "pallas-utxorpc/unstable",
 ]
 
