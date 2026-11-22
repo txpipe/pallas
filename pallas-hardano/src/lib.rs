@@ -29,8 +29,8 @@
 //!   which a running node may still be writing. Their `_with` forms take a
 //!   [`storage::immutable::DirKind`]: pass `Certified` for a directory whose
 //!   every chunk is complete, such as a verified Mithril download without
-//!   its ancillary files, to read the highest chunk too. That mode does not
-//!   check for a truncated chunk.
+//!   its ancillary files, to read the highest chunk too (read one with them
+//!   as `Live`). That mode does not check for a truncated chunk.
 //! - [`display`] — pretty-printing helpers for the structures above.
 //!
 //! # Usage as part of `pallas`

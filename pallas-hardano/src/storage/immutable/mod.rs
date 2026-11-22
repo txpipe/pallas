@@ -15,8 +15,9 @@
 //!
 //! A Mithril download that includes the ancillary files is not such a
 //! directory: they add the chunk after the last certified one, which the
-//! Mithril certificate does not cover and which was still being written when
-//! it was copied. Read it as [`DirKind::Live`], which leaves that chunk out.
+//! Mithril certificate does not cover, and which may still have been written
+//! to when it was copied. Read it as [`DirKind::Live`], which leaves that chunk
+//! out.
 
 use std::{
     cmp::Ordering,
