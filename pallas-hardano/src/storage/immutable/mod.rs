@@ -1,3 +1,17 @@
+//! Readers over the node's `immutable/` directory of chunk files.
+//!
+//! Each entry point comes in two forms. [`read_blocks`],
+//! [`read_blocks_from_point`] and [`get_tip`] treat the directory as
+//! [`DirKind::Live`]: they leave out the highest chunk, which a running node
+//! may still be writing. Use them for a node's own directory, or any directory
+//! that might still be written to.
+//!
+//! [`read_blocks_with`], [`read_blocks_from_point_with`] and [`get_tip_with`]
+//! take a [`DirKind`]. Pass [`DirKind::Certified`] for a directory whose every
+//! chunk is complete, such as a verified Mithril snapshot download, so the
+//! highest chunk is read too. That mode does not check whether the highest
+//! chunk is truncated; the caller must have verified the directory.
+
 use std::{
     cmp::Ordering,
     ffi::OsStr,
@@ -121,7 +135,25 @@ fn iterate_till_point<T: Iterator<Item = FallibleBlock>>(
     }
 }
 
-fn build_stack_of_chunk_names(dir: &Path) -> Result<ChunkNameSack, Error> {
+/// What a caller knows about the chunks of an immutable directory, which
+/// decides whether the reader keeps the highest one.
+///
+/// The default, [`DirKind::Live`], is what the functions without a `_with`
+/// suffix use.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum DirKind {
+    /// A directory a node may still be writing, such as a running node's
+    /// `immutable/`. The highest chunk may be incomplete, so it is left out.
+    #[default]
+    Live,
+    /// A directory whose every chunk is complete, such as a verified Mithril
+    /// snapshot download. The highest chunk is read too. Nothing checks that
+    /// it is not truncated: the caller must have verified the directory.
+    Certified,
+}
+
+fn build_stack_of_chunk_names(dir: &Path, kind: DirKind) -> Result<ChunkNameSack, Error> {
     let mut chunks = std::fs::read_dir(dir)
         .map_err(Error::CannotReadDir)?
         .map_while(|e| e.ok())
@@ -136,10 +168,11 @@ fn build_stack_of_chunk_names(dir: &Path) -> Result<ChunkNameSack, Error> {
         .collect::<Vec<_>>();
 
     chunks.sort();
-    // According to this docs https://mithril.network/doc/glossary/#immutable-file-number,
-    // the last chunk files are not really immutable.
-    // So to preserve only immutable data the last chunk files are omitted.
-    chunks.pop();
+    // In a live directory the highest chunk is still being written, see
+    // https://mithril.network/doc/glossary/#immutable-file-number.
+    if kind == DirKind::Live {
+        chunks.pop();
+    }
     chunks.reverse();
 
     Ok(chunks)
@@ -165,8 +198,22 @@ impl Iterator for ChunkReaders {
 
 pub type FallibleBlock = Result<Block, chunk::Error>;
 
+/// Returns an iterator over every block of a live directory, leaving out the
+/// highest chunk.
+///
+/// Same as [`read_blocks_with`] with [`DirKind::Live`].
 pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, Error> {
-    let names = build_stack_of_chunk_names(dir)?;
+    read_blocks_with(dir, DirKind::Live)
+}
+
+/// Returns an iterator over every block of the directory, in chain order.
+///
+/// `kind` decides whether the highest chunk is read, see [`DirKind`].
+pub fn read_blocks_with(
+    dir: &Path,
+    kind: DirKind,
+) -> Result<impl Iterator<Item = FallibleBlock> + use<>, Error> {
+    let names = build_stack_of_chunk_names(dir, kind)?;
 
     let iter = ChunkReaders(dir.to_owned(), names)
         .map_while(Result::ok)
@@ -177,6 +224,9 @@ pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, Er
 
 /// Returns an iterator over the chain from the given point if the specific
 /// block is found, otherwise returns an error.
+///
+/// The directory is read as [`DirKind::Live`], leaving out the highest chunk;
+/// use [`read_blocks_from_point_with`] to choose.
 ///
 /// # Note:
 ///
@@ -234,7 +284,20 @@ pub fn read_blocks_from_point(
     dir: &Path,
     point: Point,
 ) -> Result<Box<dyn Iterator<Item = FallibleBlock> + Send + Sync>, Error> {
-    let names = build_stack_of_chunk_names(dir)?;
+    read_blocks_from_point_with(dir, point, DirKind::Live)
+}
+
+/// Returns an iterator over the chain from the given point, reading the
+/// directory as `kind` says, see [`DirKind`].
+///
+/// [`read_blocks_from_point`] is this function with [`DirKind::Live`]; its
+/// notes and errors apply here too.
+pub fn read_blocks_from_point_with(
+    dir: &Path,
+    point: Point,
+    kind: DirKind,
+) -> Result<Box<dyn Iterator<Item = FallibleBlock> + Send + Sync>, Error> {
+    let names = build_stack_of_chunk_names(dir, kind)?;
 
     match point {
         // Establish iterator from the beginning of the chain
@@ -308,6 +371,9 @@ pub fn read_blocks_from_point(
 /// of the latest block if it exists, or `None` if there are no blocks in the
 /// directory.
 ///
+/// The directory is read as [`DirKind::Live`], so the tip is the last block of
+/// the second-highest chunk; use [`get_tip_with`] to choose.
+///
 /// # Errors
 ///
 /// * `Error::CannotReadDir` - If the directory cannot be read.
@@ -338,7 +404,17 @@ pub fn read_blocks_from_point(
 /// }
 /// ```
 pub fn get_tip(dir: &Path) -> Result<Option<Point>, Error> {
-    match build_stack_of_chunk_names(dir)?.into_iter().next() {
+    get_tip_with(dir, DirKind::Live)
+}
+
+/// Retrieves the tip `Point` value for the given directory, reading it as
+/// `kind` says, see [`DirKind`].
+///
+/// With [`DirKind::Certified`] the tip is the last block of the highest chunk.
+/// [`get_tip`] is this function with [`DirKind::Live`]; its errors apply here
+/// too.
+pub fn get_tip_with(dir: &Path, kind: DirKind) -> Result<Option<Point>, Error> {
+    match build_stack_of_chunk_names(dir, kind)?.into_iter().next() {
         Some(name) => {
             let tip_point = ChunkReaders(dir.to_owned(), vec![name])
                 .map_while(Result::ok)
