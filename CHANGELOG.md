@@ -2,16 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0-rc.3] - 2026-11-22
+
+### 🚀 Features
+
+- *(network)* Add accept_with_timeout to bound the server handshake (#871)
+- *(network)* Reassemble messages in linear time and bound their size (#872)
+- *(network2)* Reassemble messages in linear time and bound their size (#877)
+
+### 🐛 Bug Fixes
+
+- *(network)* Deliver handshake refusals from the server facades (#859)
+- *(network)* Stop the plexer when a server handshake fails (#870)
+- *(network)* Stop the plexer when a client handshake fails (#879)
+- *(network)* Stop the plexer when a client handshake is cancelled (#880)
+- *(network)* Close a client facade's connection once it is dropped (#881)
+
 ## [1.5.0-rc.2] - 2026-11-11
-
-### ⚠️ Upgrade notes
-
-- The public `Drop` impls that 1.5.0-rc.1 added are removed again (#864), so code written for 1.4 compiles unchanged. Code adapted to rc.1 keeps compiling, and the `into_*` accessors stay.
-- Decoding `PlutusData`, `Metadatum` and `NativeScript`, in both pallas-primitives and the node-to-client protocols, now fails at 16,384 nesting levels (`pallas_codec::MAX_DECODE_DEPTH`). The node-to-client `BlockQuery` fails at 1,024 nested `GetCBOR` wrappers (#867). No value valid under the current `maxTxSize` is rejected. `pallas_codec::tree::decode_tree` stays unlimited; use `decode_tree_with_max_depth` to bound your own types.
-- Values below the limit are dropped recursively, as in 1.4. The stack this needs depends on how your binary compiles. Give threads that decode chain data at least 4 MiB of stack in release builds, and more in debug builds.
-- `handshake::Server::handshake` is deprecated in favour of `handshake_negotiated`, which negotiates version data the way the node does (#832, #865).
-- Several traverse accessors are deprecated in favour of `multi_era_*` versions that can represent Dijkstra data: `MultiEraRedeemer::tag`, `MultiEraTx::native_scripts` and `aux_native_scripts`, and `MultiEraOutput::script_ref`. Builds that deny warnings will flag them.
-- The Leios message types in pallas-network2 changed shape to match current nodes (#836, already in rc.1). This breaks code that builds or matches them.
 
 ### 🚀 Features
 
@@ -42,6 +49,10 @@ All notable changes to this project will be documented in this file.
 
 - *(primitives)* Cover a mainnet block at protocol version 11 (#853)
 - *(primitives)* Cover deep constructor fields and map keys in decode error cleanup (#866)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.5.0-rc.2
 
 ### Build
 
