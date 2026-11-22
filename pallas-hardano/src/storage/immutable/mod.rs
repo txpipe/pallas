@@ -8,9 +8,15 @@
 //!
 //! [`read_blocks_with`], [`read_blocks_from_point_with`] and [`get_tip_with`]
 //! take a [`DirKind`]. Pass [`DirKind::Certified`] for a directory whose every
-//! chunk is complete, such as a verified Mithril snapshot download, so the
-//! highest chunk is read too. That mode does not check whether the highest
-//! chunk is truncated; the caller must have verified the directory.
+//! chunk is complete, such as a verified Mithril snapshot download without its
+//! ancillary files, so the highest chunk is read too. That mode does not check
+//! whether the highest chunk is truncated; the caller must have verified the
+//! directory.
+//!
+//! A Mithril download that includes the ancillary files is not such a
+//! directory: they add the chunk after the last certified one, which the
+//! Mithril certificate does not cover and which was still being written when
+//! it was copied. Read it as [`DirKind::Live`], which leaves that chunk out.
 
 use std::{
     cmp::Ordering,
@@ -148,8 +154,10 @@ pub enum DirKind {
     #[default]
     Live,
     /// A directory whose every chunk is complete, such as a verified Mithril
-    /// snapshot download. The highest chunk is read too. Nothing checks that
-    /// it is not truncated: the caller must have verified the directory.
+    /// snapshot download without its ancillary files. The highest chunk is
+    /// read too. Nothing checks that it is not truncated: the caller must have
+    /// verified the directory. A download with the ancillary files holds one
+    /// uncertified chunk past the certified ones; read it as [`DirKind::Live`].
     Certified,
 }
 
