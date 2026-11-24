@@ -122,7 +122,8 @@ jobs:
       - run: cargo check --workspace --all-targets
 
   # main is the v1 lineage, where public API changes must be additive; see
-  # "API compatibility" in AGENTS.md. Other targets, such as vnext, may break.
+  # "API compatibility" in AGENTS.md. Other targets, such as vnext, may break,
+  # and so may pallas-network2, which is experimental and left out of both jobs.
   #
   # Both jobs compare the PR's merge commit with the target branch tip, so a
   # stale PR branch doesn't read as removing newer items. Neither tool is enough
@@ -142,6 +143,7 @@ jobs:
           baseline-rev: ${{ github.event.pull_request.base.sha }}
           # The version alone won't do: main can sit on a prerelease.
           release-type: minor
+          exclude: pallas-network2
 
   public-api:
     name: API compatibility (public-api, ${{ matrix.crate }})
@@ -150,8 +152,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The published crates. Add a new crate here once it's on main; until
-        # then the base revision doesn't have it to diff against.
+        # The published crates, except the experimental pallas-network2. Add a
+        # new crate here once it's on main; until then the base revision
+        # doesn't have it to diff against.
         crate:
           - pallas
           - pallas-addresses
@@ -161,7 +164,6 @@ jobs:
           - pallas-hardano
           - pallas-math
           - pallas-network
-          - pallas-network2
           - pallas-primitives
           - pallas-traverse
           - pallas-txbuilder

@@ -19,7 +19,7 @@
 ## Network
 
 - [pallas-network](https://docs.rs/pallas-network/latest/pallas_network/): multiplexer, mini-protocols and per-role facades
-- [pallas-network2](https://docs.rs/pallas-network2/latest/pallas_network2/): P2P-first rewrite of the networking stack
+- [pallas-network2](https://docs.rs/pallas-network2/latest/pallas_network2/): P2P-first rewrite of the networking stack (experimental, outside the semver guarantees)
 
 ## Core
 

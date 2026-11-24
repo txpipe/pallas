@@ -9,6 +9,10 @@ inspired by libp2p's swarm.
 Once this crate is thoroughly tested and adopted by downstream clients,
 `network2` is intended to replace the original `pallas-network`.
 
+**This crate is experimental.** Until then it is outside the semver
+guarantees of the other Pallas crates: its public API may change in any
+release, minor ones included.
+
 ## Usage
 
 A typical setup pairs a transport (an `Interface` impl, e.g. the
