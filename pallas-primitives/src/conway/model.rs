@@ -154,19 +154,14 @@ pub enum Language {
 #[deprecated(since = "0.31.0", note = "use `CostModels` instead")]
 pub type CostMdls = CostModels;
 
-#[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Eq, Clone)]
-#[cbor(map)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct CostModels {
-    #[n(0)]
     pub plutus_v1: Option<CostModel>,
 
-    #[n(1)]
     pub plutus_v2: Option<CostModel>,
 
-    #[n(2)]
     pub plutus_v3: Option<CostModel>,
 
-    #[cbor(skip)]
     pub unknown: BTreeMap<u64, CostModel>,
 }
 
@@ -194,6 +189,39 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
             plutus_v3,
             unknown: unknown.into_iter().collect(),
         })
+    }
+}
+
+impl<Ctx> minicbor::Encode<Ctx> for CostModels {
+    fn encode<__W777>(
+        &self,
+        e: &mut minicbor::Encoder<__W777>,
+        ctx: &mut Ctx,
+    ) -> Result<(), minicbor::encode::Error<__W777::Error>>
+    where
+        __W777: minicbor::encode::Write,
+    {
+        let named = [
+            (0u64, &self.plutus_v1),
+            (1, &self.plutus_v2),
+            (2, &self.plutus_v3),
+        ];
+
+        let present =
+            named.iter().filter(|(_, model)| model.is_some()).count() + self.unknown.len();
+        e.map(present as u64)?;
+
+        for (key, model) in named {
+            if let Some(model) = model {
+                e.u64(key)?.encode_with(model, ctx)?;
+            }
+        }
+
+        for (key, model) in &self.unknown {
+            e.u64(*key)?.encode_with(model, ctx)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -826,6 +854,35 @@ mod tests {
 
             assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
         }
+    }
+
+    #[test]
+    fn cost_models_of_the_three_named_languages_round_trip() {
+        // a map of three, keys 0, 1 and 2
+        let wire = hex::decode("a30082010201810302822004").expect("hex");
+
+        let models: super::CostModels = minicbor::decode(&wire).expect("decode");
+        assert!(models.unknown.is_empty());
+
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&models).expect("encode")),
+            hex::encode(&wire)
+        );
+    }
+
+    #[test]
+    fn cost_models_beyond_the_named_languages_round_trip() {
+        // a map of five, keys 0, 1, 2, 3 and 9
+        let wire = hex::decode("a5008201020181030282200403810509820607").expect("hex");
+
+        let models: super::CostModels = minicbor::decode(&wire).expect("decode");
+        let carried: Vec<u64> = models.unknown.keys().copied().collect();
+        assert_eq!(carried, vec![3, 9]);
+
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&models).expect("encode")),
+            hex::encode(&wire)
+        );
     }
 
     // #[test]
