@@ -1464,7 +1464,7 @@ fn the_array_form_of_auxiliary_data_carries_this_eras_native_scripts() {
         .expect("a guard clause must not make the whole auxiliary scripts field read as absent");
     assert_eq!(scripts.len(), 1);
     assert!(
-        matches!(scripts[0], NativeScript::ScriptRequireGuard(_)),
+        matches!(*scripts[0], NativeScript::ScriptRequireGuard(_)),
         "the guard clause must survive, found {:?}",
         scripts[0]
     );
@@ -1994,7 +1994,7 @@ fn the_array_form_still_carries_a_clause_every_era_has() {
     };
     let scripts = inner.auxiliary_scripts.as_ref().expect("readable");
     assert_eq!(scripts.len(), 1);
-    assert!(matches!(scripts[0], NativeScript::ScriptPubkey(_)));
+    assert!(matches!(*scripts[0], NativeScript::ScriptPubkey(_)));
 
     assert_eq!(
         hex::encode(minicbor::to_vec(&decoded).unwrap()),

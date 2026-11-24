@@ -18,6 +18,8 @@ pub enum MultiEraProtocolParameters {
     Alonzo(AlonzoProtParams),
     Babbage(BabbageProtParams),
     Conway(ConwayProtParams),
+    #[cfg(feature = "unstable")]
+    Dijkstra(DijkstraProtParams),
 }
 
 impl MultiEraProtocolParameters {
@@ -40,6 +42,8 @@ impl MultiEraProtocolParameters {
             MultiEraProtocolParameters::Conway(ConwayProtParams { system_start, .. }) => {
                 *system_start
             }
+            #[cfg(feature = "unstable")]
+            MultiEraProtocolParameters::Dijkstra(pp) => pp.system_start,
         }
     }
 
@@ -65,6 +69,8 @@ impl MultiEraProtocolParameters {
                 protocol_version: (x, ..),
                 ..
             }) => *x as usize,
+            #[cfg(feature = "unstable")]
+            MultiEraProtocolParameters::Dijkstra(pp) => pp.protocol_version.0 as usize,
         }
     }
 
@@ -89,6 +95,8 @@ impl MultiEraProtocolParameters {
             MultiEraProtocolParameters::Conway(ConwayProtParams { epoch_length, .. }) => {
                 *epoch_length
             }
+            #[cfg(feature = "unstable")]
+            MultiEraProtocolParameters::Dijkstra(pp) => pp.epoch_length,
         }
     }
 
@@ -109,6 +117,8 @@ impl MultiEraProtocolParameters {
             MultiEraProtocolParameters::Conway(ConwayProtParams { slot_length, .. }) => {
                 *slot_length
             }
+            #[cfg(feature = "unstable")]
+            MultiEraProtocolParameters::Dijkstra(pp) => pp.slot_length,
         }
     }
 }
@@ -293,4 +303,66 @@ impl Environment {
     pub fn acnt(&self) -> &Option<AccountState> {
         &self.acnt
     }
+}
+
+#[cfg(feature = "unstable")]
+#[derive(Debug, Clone)]
+pub struct DijkstraProtParams {
+    pub system_start: chrono::DateTime<chrono::FixedOffset>,
+    pub epoch_length: u64,
+    pub slot_length: u64,
+    pub minfee_a: u32,
+    pub minfee_b: u32,
+    pub max_block_body_size: u32,
+    pub max_transaction_size: u32,
+    pub max_block_header_size: u32,
+    pub key_deposit: Coin,
+    pub pool_deposit: Coin,
+    pub desired_number_of_stake_pools: u32,
+    pub protocol_version: ProtocolVersion,
+    pub min_pool_cost: Coin,
+    pub ada_per_utxo_byte: Coin,
+    pub cost_models_for_script_languages: pallas_primitives::dijkstra::CostModels,
+    pub execution_costs: ExUnitPrices,
+    pub max_tx_ex_units: ExUnits,
+    pub max_block_ex_units: ExUnits,
+    pub max_value_size: u32,
+    pub collateral_percentage: u32,
+    pub max_collateral_inputs: u32,
+    pub expansion_rate: UnitInterval,
+    pub treasury_growth_rate: UnitInterval,
+    pub maximum_epoch: Epoch,
+    pub pool_pledge_influence: RationalNumber,
+    pub pool_voting_thresholds: pallas_primitives::conway::PoolVotingThresholds,
+    pub drep_voting_thresholds: pallas_primitives::conway::DRepVotingThresholds,
+    pub min_committee_size: u64,
+    pub committee_term_limit: Epoch,
+    pub governance_action_validity_period: Epoch,
+    pub governance_action_deposit: Coin,
+    pub drep_deposit: Coin,
+    pub drep_inactivity_period: Epoch,
+    pub minfee_refscript_cost_per_byte: UnitInterval,
+    pub max_ref_script_size_per_block: u32,
+    pub max_ref_script_size_per_tx: u32,
+    pub ref_script_cost_stride: u32,
+    pub ref_script_cost_multiplier: RationalNumber,
+    pub max_pledge_leverage: Option<RationalNumber>,
+    pub min_pool_margin: UnitInterval,
+    pub leios_announcement_period_length: u32,
+    pub leios_vote_period_length: u32,
+    pub leios_diffusion_period_length: u32,
+    pub leios_committee_size: u16,
+    pub leios_quorum_stake_threshold: UnitInterval,
+    pub max_endorser_block_references_size: u32,
+    pub max_endorser_block_txs_size: u32,
+    pub max_endorser_block_ex_units: ExUnits,
+    pub max_ref_script_size_per_endorser_block: u32,
+    pub peras_min_candidate_block_age: u32,
+    pub peras_healing_factor: RationalNumber,
+    pub peras_cert_boost: u16,
+    pub peras_target_committee_size: u16,
+    pub peras_bootstrap_round: Option<u32>,
+    pub peras_quorum_threshold_safety_margin: UnitInterval,
+    pub ref_inputs_cost_per_multi_asset_policy: Coin,
+    pub ref_inputs_cost_per_datum_byte: Coin,
 }
