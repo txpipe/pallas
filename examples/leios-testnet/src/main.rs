@@ -15,14 +15,15 @@
 //!   transactions. Surfaced as [`InitiatorEvent::EbFetched`].
 //!
 //! The only thing that "turns Leios on" is the handshake: we must propose an
-//! N2N version `>= LEIOS_MIN_VERSION` (v15, the Dijkstra era) with the testnet's
-//! network magic. The default [`InitiatorBehavior`] only proposes a mainnet v13
-//! handshake, so this example swaps in a v15-capable version table.
+//! N2N version `>= LEIOS_MIN_VERSION` (v16) with the testnet's network magic.
+//! The default [`InitiatorBehavior`] only proposes a mainnet v13 handshake, so
+//! this example swaps in a v16-capable version table.
 //!
-//! Run with:
+//! v16 is only proposed with the `unstable` feature of `pallas-network2`;
+//! without it the peer negotiates at most v15 and no EB is diffused. Run with:
 //!
 //! ```sh
-//! RUST_LOG=info cargo run -p leios-testnet
+//! RUST_LOG=info cargo run -p leios-testnet --features pallas-network2/unstable
 //! ```
 
 use std::collections::HashMap;
@@ -85,7 +86,7 @@ impl LeiosNode {
 
         // The default behavior only proposes a mainnet v13 handshake, which does
         // not carry the Leios overlay. Swap in a version table that proposes
-        // v11..=v15 with the testnet magic so the peer can negotiate v15 and
+        // v11..=v16 with the testnet magic so the peer can negotiate v16 and
         // enable leios-notify / leios-fetch. The rest of the behavior (chain-sync,
         // block-fetch, keepalive, ...) is left at its defaults.
         let behavior = InitiatorBehavior {

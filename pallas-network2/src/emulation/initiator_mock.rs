@@ -158,6 +158,8 @@ impl MockInitiatorInterface {
             initiator_only_diffusion_mode: false,
             peer_sharing: Some(1),
             query: Some(false),
+            #[cfg(feature = "unstable")]
+            peras_support: None,
         };
 
         let mut values = std::collections::HashMap::new();

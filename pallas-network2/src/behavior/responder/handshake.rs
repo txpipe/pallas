@@ -33,6 +33,8 @@ impl Default for HandshakeResponder {
                         initiator_only_diffusion_mode: false,
                         peer_sharing: Some(1),
                         query: Some(false),
+                        #[cfg(feature = "unstable")]
+                        peras_support: None,
                     },
                 )]
                 .into_iter()
@@ -223,6 +225,51 @@ mod tests {
             accepted_version,
             Some(14),
             "should accept highest common version"
+        );
+        assert_eq!(state.connection, ConnectionState::Initialized);
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn accepts_v16_with_peras_support() {
+        // We support v15, v16. Peer proposes the same; v16 data has five fields.
+        let versions: HashMap<u64, handshake_proto::n2n::VersionData> = [
+            (15, make_version_data(MAINNET_MAGIC)),
+            (
+                16,
+                handshake_proto::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false))
+                    .with_peras_support(false),
+            ),
+        ]
+        .into_iter()
+        .collect();
+        let mut hs = HandshakeResponder::new(HandshakeResponderConfig {
+            supported_version: handshake_proto::n2n::VersionTable {
+                values: versions.clone(),
+            },
+        });
+        let pid = PeerId::test(1);
+        let mut state = ResponderState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.handshake =
+            handshake_proto::State::Confirm(handshake_proto::VersionTable { values: versions });
+
+        hs.visit_inbound_msg(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        let accepted = outputs.iter().find_map(|o| match o {
+            BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                _,
+                AnyMessage::Handshake(handshake_proto::Message::Accept(v, data)),
+            )) => Some((*v, data.peras_support)),
+            _ => None,
+        });
+
+        assert_eq!(
+            accepted,
+            Some((16, Some(false))),
+            "should accept v16 and reply with its peras support flag"
         );
         assert_eq!(state.connection, ConnectionState::Initialized);
     }
