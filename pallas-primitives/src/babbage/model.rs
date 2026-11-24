@@ -52,6 +52,10 @@ pub struct HeaderBody {
     pub operational_cert: OperationalCert,
 
     #[n(9)]
+    #[cfg_attr(
+        feature = "unstable",
+        cbor(decode_with = "crate::protocol_version::decode")
+    )]
     pub protocol_version: ProtocolVersion,
 }
 
@@ -160,6 +164,10 @@ pub struct ProtocolParamUpdate {
     pub treasury_growth_rate: Option<UnitInterval>,
 
     #[n(14)]
+    #[cfg_attr(
+        feature = "unstable",
+        cbor(decode_with = "crate::protocol_version::decode_option")
+    )]
     pub protocol_version: Option<ProtocolVersion>,
     #[n(16)]
     pub min_pool_cost: Option<Coin>,
@@ -374,7 +382,8 @@ pub struct PostAlonzoAuxiliaryData {
 }
 
 // datum_option = [ 0, $hash32 // 1, data ]
-#[derive(Encode, Decode, Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[derive(Encode, Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[cfg_attr(not(feature = "unstable"), derive(Decode))]
 #[cbor(flat)]
 pub enum DatumOption<'b> {
     #[n(0)]
@@ -382,6 +391,12 @@ pub enum DatumOption<'b> {
     #[n(1)]
     Data(#[b(0)] CborWrap<KeepRaw<'b, PlutusData>>),
 }
+
+#[cfg(feature = "unstable")]
+crate::flat_enum::decode_flat_enum!(DatumOption<'b>,
+    0 => Hash(hash),
+    1 => Data(data),
+);
 
 #[deprecated(since = "1.0.0-alpha", note = "use `DatumOption` instead")]
 pub type MintedDatumOption<'b> = DatumOption<'b>;
@@ -461,6 +476,15 @@ mod tests {
     use crate::Fragment;
 
     type BlockWrapper<'b> = (u16, Block<'b>);
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_datum_option_reads_either_length_form() {
+        crate::flat_enum::assert_reads_either_length_form::<super::DatumOption>(&[
+            format!("82005820{}", "11".repeat(32)),
+            "8201d8184180".to_string(),
+        ]);
+    }
 
     #[test]
     fn block_isomorphic_decoding_encoding() {

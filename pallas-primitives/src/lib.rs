@@ -60,6 +60,8 @@
 //!
 //! [`pallas`]: https://crates.io/crates/pallas
 
+#[cfg(feature = "unstable")]
+mod flat_enum;
 mod framework;
 mod metadatum;
 mod native_script;
@@ -89,7 +91,7 @@ pub use pallas_codec::utils::{
 pub use pallas_crypto::hash::Hash;
 
 use pallas_codec::minicbor::{self, Decode, Encode, data::Tag};
-use pallas_codec::utils::decode_text_def_or_indef;
+use pallas_codec::utils::{decode_text_def_or_indef, skip_array_rest};
 use serde::{Deserialize, Serialize};
 
 use std::collections::BTreeMap;
@@ -280,6 +282,34 @@ pub type PositiveInterval = RationalNumber;
 /// Protocol version: `(major, minor)`.
 pub type ProtocolVersion = (u64, u64);
 
+/// Decoders for a [`ProtocolVersion`] field written as an array of either length form.
+#[cfg(feature = "unstable")]
+pub(crate) mod protocol_version {
+    use super::ProtocolVersion;
+    use pallas_codec::minicbor::{self, data::Type, decode::Error};
+    use pallas_codec::utils::decode_array;
+
+    /// Decodes a [`ProtocolVersion`].
+    pub fn decode<Ctx>(
+        d: &mut minicbor::Decoder<'_>,
+        ctx: &mut Ctx,
+    ) -> Result<ProtocolVersion, Error> {
+        decode_array(d, |a| Ok((a.decode_with(ctx)?, a.decode_with(ctx)?)))
+    }
+
+    /// Decodes an optional [`ProtocolVersion`], reading a null as `None`.
+    pub fn decode_option<Ctx>(
+        d: &mut minicbor::Decoder<'_>,
+        ctx: &mut Ctx,
+    ) -> Result<Option<ProtocolVersion>, Error> {
+        if d.datatype()? == Type::Null {
+            d.skip()?;
+            return Ok(None);
+        }
+        decode(d, ctx).map(Some)
+    }
+}
+
 /// On-chain rational number, encoded as a CBOR tag-30 array of `[num, den]`.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct RationalNumber {
@@ -293,11 +323,15 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for RationalNumber {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         // TODO: Enforce tag == 30 & array of size 2
         d.tag()?;
-        d.array()?;
-        Ok(RationalNumber {
+        let len = d.array()?;
+        let rational = RationalNumber {
             numerator: d.decode_with(ctx)?,
             denominator: d.decode_with(ctx)?,
-        })
+        };
+        if cfg!(feature = "unstable") {
+            skip_array_rest(d, len, 2)?;
+        }
+        Ok(rational)
     }
 }
 
@@ -328,24 +362,34 @@ pub enum Relay {
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for Relay {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
+        let len = d.array()?;
         let variant = d.u16()?;
 
-        match variant {
-            0 => Ok(Relay::SingleHostAddr(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            1 => Ok(Relay::SingleHostName(
-                d.decode_with(ctx)?,
-                decode_text_def_or_indef(d, ctx)?,
-            )),
-            2 => Ok(Relay::MultiHostName(decode_text_def_or_indef(d, ctx)?)),
-            _ => Err(minicbor::decode::Error::message(
-                "invalid variant id for Relay",
-            )),
+        let (relay, read) = match variant {
+            0 => (
+                Relay::SingleHostAddr(
+                    d.decode_with(ctx)?,
+                    d.decode_with(ctx)?,
+                    d.decode_with(ctx)?,
+                ),
+                4,
+            ),
+            1 => (
+                Relay::SingleHostName(d.decode_with(ctx)?, decode_text_def_or_indef(d, ctx)?),
+                3,
+            ),
+            2 => (Relay::MultiHostName(decode_text_def_or_indef(d, ctx)?), 2),
+            _ => {
+                return Err(minicbor::decode::Error::message(
+                    "invalid variant id for Relay",
+                ));
+            }
+        };
+
+        if cfg!(feature = "unstable") {
+            skip_array_rest(d, len, read)?;
         }
+        Ok(relay)
     }
 }
 
@@ -390,9 +434,8 @@ pub type RewardAccount = Bytes;
 /// Hash of a script (Blake2b-224).
 pub type ScriptHash = Hash<28>;
 
-#[derive(
-    Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Hash, Encode, Decode,
-)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Hash, Encode)]
+#[cfg_attr(not(feature = "unstable"), derive(Decode))]
 // !! NOTE / IMPORTANT !!
 // It is tempting to swap the order of the two constructors so that AddrKeyHash
 // comes first. This indeed nicely maps the binary representation which
@@ -413,6 +456,12 @@ pub enum StakeCredential {
     #[n(0)]
     AddrKeyhash(#[n(0)] AddrKeyhash),
 }
+
+#[cfg(feature = "unstable")]
+flat_enum::decode_flat_enum!(StakeCredential,
+    0 => AddrKeyhash(hash),
+    1 => ScriptHash(hash),
+);
 
 /// Index of a transaction within its containing block.
 pub type TransactionIndex = u32;
@@ -460,7 +509,7 @@ pub type VrfKeyhash = Hash<32>;
 
 #[cfg(test)]
 mod tests {
-    use super::{PoolMetadata, Relay};
+    use super::{PoolMetadata, RationalNumber, Relay};
     use pallas_codec::minicbor;
 
     const ABC: [&str; 2] = ["63616263", "7f6161626263ff"];
@@ -485,6 +534,26 @@ mod tests {
             let raw = hex::decode(format!("8202{name}")).unwrap();
             let relay: Relay = minicbor::decode(&raw).unwrap();
             assert_eq!(relay, Relay::MultiHostName("abc".into()), "{name}");
+        }
+    }
+
+    #[test]
+    fn a_rational_reads_its_denominator_past_the_end_of_a_short_definite_array() {
+        let mut d = minicbor::Decoder::new(&[0xd8, 0x1e, 0x81, 0x01, 0x02]);
+        let rational: RationalNumber = d.decode().unwrap();
+        assert_eq!((rational.numerator, rational.denominator), (1, 2));
+        assert_eq!(d.position(), 5);
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_version_of_two_numbers_decodes_in_either_length_form() {
+        for version in ["82031a8a26c280", "9f031a8a26c280ff"] {
+            let raw = hex::decode(version).unwrap();
+            let mut d = minicbor::Decoder::new(&raw);
+            let decoded = super::protocol_version::decode(&mut d, &mut ()).unwrap();
+            assert_eq!(decoded, (3, 2317795968), "{version}");
+            assert_eq!(d.position(), raw.len(), "{version}");
         }
     }
 }
