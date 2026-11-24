@@ -342,7 +342,7 @@ impl Demuxer {
     /// Read the next segment off the bearer and return its `(protocol, payload)`.
     pub async fn read_segment(&mut self) -> Result<(Protocol, Payload), Error> {
         trace!("waiting for segment header");
-        let mut buf = vec![0u8; HEADER_LEN];
+        let mut buf = [0u8; HEADER_LEN];
         self.0.read_exact(&mut buf).await.map_err(Error::BearerIo)?;
         let header = Header::from(buf.as_slice());
 
@@ -425,9 +425,19 @@ impl Muxer {
             payload_len: payload.len() as u16,
         };
 
-        let buf: [u8; 8] = header.into();
-        self.0.write_all(&buf).await?;
-        self.0.write_all(payload).await?;
+        let header_bytes: [u8; HEADER_LEN] = header.into();
+        const STACK_PAYLOAD_MAX: usize = 256;
+        if payload.len() <= STACK_PAYLOAD_MAX {
+            let mut buf = [0u8; HEADER_LEN + STACK_PAYLOAD_MAX];
+            buf[..HEADER_LEN].copy_from_slice(&header_bytes);
+            buf[HEADER_LEN..HEADER_LEN + payload.len()].copy_from_slice(payload);
+            self.0.write_all(&buf[..HEADER_LEN + payload.len()]).await?;
+        } else {
+            let mut buf = Vec::with_capacity(HEADER_LEN + payload.len());
+            buf.extend_from_slice(&header_bytes);
+            buf.extend_from_slice(payload);
+            self.0.write_all(&buf).await?;
+        }
 
         self.0.flush().await?;
 
@@ -784,9 +794,12 @@ impl ChannelBuffer {
         let mut payload = Vec::new();
         minicbor::encode(msg, &mut payload).map_err(|err| Error::Encoding(err.to_string()))?;
 
-        let chunks = payload.chunks(MAX_SEGMENT_PAYLOAD_LENGTH);
+        self.send_raw_chunks(&payload).await
+    }
 
-        for chunk in chunks {
+    /// Enqueues pre-encoded message bytes as a sequence of payload chunks.
+    pub(crate) async fn send_raw_chunks(&mut self, payload: &[u8]) -> Result<(), Error> {
+        for chunk in payload.chunks(MAX_SEGMENT_PAYLOAD_LENGTH) {
             self.channel.enqueue_chunk(Vec::from(chunk)).await?;
         }
 

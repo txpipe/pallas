@@ -1,4 +1,4 @@
-use pallas_codec::Fragment;
+use pallas_codec::{Fragment, minicbor};
 use std::marker::PhantomData;
 use thiserror::Error;
 use tracing::debug;
@@ -47,6 +47,11 @@ pub enum NextResponse<CONTENT> {
     Await,
 }
 
+struct ClientMeta<O> {
+    in_flight: usize,
+    _content: PhantomData<O>,
+}
+
 /// Chain-sync client agent generic over the content type (`HeaderContent` for
 /// node-to-node, `BlockContent` for node-to-client).
 ///
@@ -54,7 +59,7 @@ pub enum NextResponse<CONTENT> {
 /// [`MESSAGE_SIZE_LIMIT`](super::MESSAGE_SIZE_LIMIT) fail with [`multiplexer::Error::Decoding`], unless
 /// [`Self::disable_size_limits`] is called. Other content types are received
 /// without limits.
-pub struct Client<O>(State, multiplexer::ChannelBuffer, PhantomData<O>)
+pub struct Client<O>(State, multiplexer::ChannelBuffer, ClientMeta<O>)
 where
     Message<O>: Fragment;
 
@@ -71,7 +76,14 @@ where
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
         let mut buffer = multiplexer::ChannelBuffer::new(channel);
         buffer.set_size_limits(super::is_node_to_node::<O>());
-        Self(State::Idle, buffer, PhantomData {})
+        Self(
+            State::Idle,
+            buffer,
+            ClientMeta {
+                in_flight: 0,
+                _content: PhantomData,
+            },
+        )
     }
 
     /// Receive inbound messages of any size, as releases before 1.5 did.
@@ -248,13 +260,157 @@ where
         self.recv_intersect_response().await
     }
 
+    /// Returns the number of unanswered `RequestNext` messages currently in flight.
+    ///
+    /// This is `0` when the client is in [`State::Idle`], [`State::Intersect`],
+    /// or [`State::Done`], and `>= 1` while awaiting responses in
+    /// [`State::CanAwait`] or [`State::MustReply`]. Receiving
+    /// [`NextResponse::Await`] does not decrement this count because the
+    /// underlying request is still awaiting a `RollForward` or `RollBackward`.
+    pub fn in_flight(&self) -> usize {
+        self.2.in_flight
+    }
+
+    /// Returns `true` when another pipelined `RequestNext` may be sent.
+    ///
+    /// Pipelining is permitted in [`State::Idle`] and [`State::CanAwait`], and
+    /// disallowed in [`State::MustReply`] (server already signaled no ready
+    /// block), [`State::Intersect`], and [`State::Done`].
+    pub fn can_pipeline_request_next(&self) -> bool {
+        matches!(self.0, State::Idle | State::CanAwait)
+    }
+
+    fn complete_one_in_flight(&mut self) {
+        self.2.in_flight = self.2.in_flight.saturating_sub(1);
+        self.0 = if self.2.in_flight > 0 {
+            State::CanAwait
+        } else {
+            State::Idle
+        };
+    }
+
     /// Send a `RequestNext` message and transition to `CanAwait`.
     pub async fn send_request_next(&mut self) -> Result<(), ClientError> {
         let msg = Message::RequestNext;
         self.send_message(&msg).await?;
         self.0 = State::CanAwait;
+        self.2.in_flight = 1;
 
         Ok(())
+    }
+
+    /// Send a `RequestNext` message, allowing pipelining while already in
+    /// [`State::CanAwait`].
+    ///
+    /// Unlike [`Self::send_request_next`], which requires [`State::Idle`], this
+    /// method may be called repeatedly while catching up so multiple
+    /// `RequestNext` messages stay in flight concurrently.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::AgencyIsTheirs`] if the client is in
+    /// [`State::MustReply`], [`State::Intersect`], or [`State::Done`].
+    pub async fn send_request_next_pipelined(&mut self) -> Result<(), ClientError> {
+        self.send_request_next_n(1).await
+    }
+
+    /// Send `count` pipelined `RequestNext` messages coalesced into as few
+    /// multiplexer segments as possible.
+    ///
+    /// Sending `0` is a no-op and returns `Ok(())`. For `count > 0`, the client
+    /// must be in [`State::Idle`] or [`State::CanAwait`]. Keeping the total
+    /// in-flight count at or below
+    /// [`DEFAULT_PIPELINE_WINDOW`](super::DEFAULT_PIPELINE_WINDOW) avoids
+    /// filling the multiplexer's 100-slot queues and starving sibling
+    /// mini-protocols such as keep-alive.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::AgencyIsTheirs`] if the client is in
+    /// [`State::MustReply`], [`State::Intersect`], or [`State::Done`], or
+    /// [`ClientError::InvalidOutbound`] if `in_flight + count` overflows.
+    pub async fn send_request_next_n(&mut self, count: usize) -> Result<(), ClientError> {
+        if count == 0 {
+            return Ok(());
+        }
+
+        if !self.can_pipeline_request_next() {
+            return Err(ClientError::AgencyIsTheirs);
+        }
+
+        let new_in_flight = self
+            .2
+            .in_flight
+            .checked_add(count)
+            .ok_or(ClientError::InvalidOutbound)?;
+
+        let mut single = Vec::with_capacity(2);
+        minicbor::encode(Message::<O>::RequestNext, &mut single)
+            .map_err(|err| ClientError::Plexer(multiplexer::Error::Encoding(err.to_string())))?;
+
+        if count == 1 {
+            self.1
+                .send_raw_chunks(&single)
+                .await
+                .map_err(ClientError::Plexer)?;
+        } else {
+            let total_len = single
+                .len()
+                .checked_mul(count)
+                .ok_or(ClientError::InvalidOutbound)?;
+            let mut batch = Vec::with_capacity(total_len);
+            for _ in 0..count {
+                batch.extend_from_slice(&single);
+            }
+            self.1
+                .send_raw_chunks(&batch)
+                .await
+                .map_err(ClientError::Plexer)?;
+        }
+
+        self.0 = State::CanAwait;
+        self.2.in_flight = new_in_flight;
+
+        Ok(())
+    }
+
+    /// Receives the next response while the client has an in-flight
+    /// `RequestNext` (in either [`State::CanAwait`] or [`State::MustReply`]).
+    ///
+    /// - On [`Message::AwaitReply`] (valid only in `CanAwait`), transitions to
+    ///   [`State::MustReply`] without decrementing [`Self::in_flight`].
+    /// - On [`Message::RollForward`] or [`Message::RollBackward`], decrements
+    ///   [`Self::in_flight`] and transitions to [`State::CanAwait`] if further
+    ///   pipelined requests remain in flight, or [`State::Idle`] once
+    ///   `in_flight` reaches `0`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::AgencyIsOurs`] in [`State::Idle`], or
+    /// [`ClientError::InvalidInbound`] in [`State::Intersect`] / [`State::Done`]
+    /// or if the peer sends an unexpected message for the current state.
+    pub async fn recv_next(&mut self) -> Result<NextResponse<O>, ClientError> {
+        match self.0 {
+            State::Idle => return Err(ClientError::AgencyIsOurs),
+            State::Intersect | State::Done => return Err(ClientError::InvalidInbound),
+            State::CanAwait | State::MustReply => {}
+        }
+
+        match self.recv_message().await? {
+            Message::AwaitReply => {
+                self.0 = State::MustReply;
+                Ok(NextResponse::Await)
+            }
+            Message::RollForward(a, b) => {
+                self.complete_one_in_flight();
+                Ok(NextResponse::RollForward(a, b))
+            }
+            Message::RollBackward(a, b) => {
+                self.complete_one_in_flight();
+                Ok(NextResponse::RollBackward(a, b))
+            }
+            _ => Err(ClientError::InvalidInbound),
+        }
     }
 
     /// Receives a response while the client is in the CanAwait state.
@@ -269,11 +425,11 @@ where
                 Ok(NextResponse::Await)
             }
             Message::RollForward(a, b) => {
-                self.0 = State::Idle;
+                self.complete_one_in_flight();
                 Ok(NextResponse::RollForward(a, b))
             }
             Message::RollBackward(a, b) => {
-                self.0 = State::Idle;
+                self.complete_one_in_flight();
                 Ok(NextResponse::RollBackward(a, b))
             }
             _ => Err(ClientError::InvalidInbound),
@@ -288,11 +444,11 @@ where
     pub async fn recv_while_must_reply(&mut self) -> Result<NextResponse<O>, ClientError> {
         match self.recv_message().await? {
             Message::RollForward(a, b) => {
-                self.0 = State::Idle;
+                self.complete_one_in_flight();
                 Ok(NextResponse::RollForward(a, b))
             }
             Message::RollBackward(a, b) => {
-                self.0 = State::Idle;
+                self.complete_one_in_flight();
                 Ok(NextResponse::RollBackward(a, b))
             }
             _ => Err(ClientError::InvalidInbound),
@@ -323,7 +479,7 @@ where
         if self.has_agency() {
             self.request_next().await
         } else {
-            self.recv_while_must_reply().await
+            self.recv_next().await
         }
     }
 
