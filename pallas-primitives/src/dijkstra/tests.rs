@@ -1,8 +1,8 @@
 use super::{
     AccountBalanceInterval, AccountBalanceIntervals, AuxiliaryData, Block, BlockTransaction,
-    Certificate, CostModels, DRep, EndorserBlock, GovAction, Guards, Header, MempoolTransaction,
-    NativeScript, NonEmptySet, ProposalProcedure, Set, SetArm, StakeCredential, TransactionBody,
-    TransactionOutput, Value, WitnessSet,
+    Certificate, CostModels, DRep, EndorserBlock, GovAction, Guards, Header, HeaderBody,
+    MempoolTransaction, NativeScript, NonEmptySet, ProposalProcedure, Set, SetArm, StakeCredential,
+    TransactionBody, TransactionOutput, Value, WitnessSet,
 };
 use pallas_codec::minicbor;
 use pallas_codec::utils::{KeepRaw, Nullable};
@@ -70,6 +70,10 @@ const TEST_BLOCKS: &[(&str, &str)] = &[
     (
         "dijkstra15",
         include_str!("../../../test_data/dijkstra15.block"),
+    ),
+    (
+        "dijkstra16",
+        include_str!("../../../test_data/dijkstra16.block"),
     ),
 ];
 
@@ -227,8 +231,8 @@ fn transaction_payloads_reencode_to_their_wire_bytes() {
 
     assert_eq!(
         (bodies, witness_sets, auxiliary_data),
-        (45, 45, 5),
-        "the fixtures should carry forty five transactions, each with a body and a witness set, five of them with auxiliary data"
+        (46, 46, 5),
+        "the fixtures should carry forty six transactions, each with a body and a witness set, five of them with auxiliary data"
     );
 }
 
@@ -397,17 +401,23 @@ fn dijkstra_header_is_not_a_babbage_header() {
     }
 
     let empty: Header = header_of("dijkstra1");
-    assert!(!empty.header_body.block_body_contains_leios_cert);
+    assert_eq!(
+        empty.header_body.block_body_contains_leios_cert,
+        Some(false)
+    );
     assert!(matches!(
         empty.header_body.eb_announcement,
-        crate::Nullable::Null
+        Some(crate::Nullable::Null)
     ));
 
     let populated: Header = header_of("dijkstra8");
-    assert!(populated.header_body.block_body_contains_leios_cert);
+    assert_eq!(
+        populated.header_body.block_body_contains_leios_cert,
+        Some(true)
+    );
     assert!(matches!(
         populated.header_body.eb_announcement,
-        crate::Nullable::Some(_)
+        Some(crate::Nullable::Some(_))
     ));
 
     let width = |h: &Header| {
@@ -898,17 +908,69 @@ fn every_leios_fetch_citation_matches_the_leios_fetch_messages() {
     assert!(!defines_rule(LEIOS_FETCH_CDDL, "block_body"));
 }
 
+/// The official cardano-node forges the ten field Praos header in Dijkstra, without
+/// the two Leios fields, so the header type reads it with both absent and
+/// gives every byte back.
 #[test]
-fn conway_header_is_refused_as_dijkstra() {
-    let conway = hex::decode(include_str!("../../../test_data/conway1.block")).unwrap();
-    let (_, block): (u16, crate::conway::Block) = minicbor::decode(&conway).unwrap();
+fn a_ten_field_header_decodes_as_dijkstra_without_the_leios_fields() {
+    let bytes = hex::decode(include_str!("../../../test_data/dijkstra16.block")).unwrap();
+    let (_, block): BlockWrapper = minicbor::decode(&bytes)
+        .unwrap_or_else(|e| panic!("dijkstra16 should decode as a Dijkstra block: {e:?}"));
     let raw = block.header.raw_cbor();
 
-    let decoded: Result<KeepRaw<'_, Header>, _> = minicbor::decode(raw);
-    assert!(
-        decoded.is_err(),
-        "a ten field Conway header must not decode as a Dijkstra header"
+    let header: Header = minicbor::decode(raw).unwrap();
+    assert_eq!(header.header_body.block_number, 153913);
+    assert_eq!(header.header_body.protocol_version, (12, 0));
+    assert_eq!(header.header_body.block_body_contains_leios_cert, None);
+    assert_eq!(header.header_body.eb_announcement, None);
+    assert_eq!(
+        minicbor::to_vec(&header).unwrap(),
+        raw,
+        "the Dijkstra header type should give every byte of a ten field header back"
     );
+}
+
+/// The certificate flag is a plain `bool` in the CDDL, so a header that carries
+/// the Leios fields with a null flag is refused rather than read as a header
+/// without them.
+#[test]
+fn a_null_leios_certificate_flag_is_refused() {
+    let header_body = header_of("dijkstra1").header_body;
+    let mut bytes = minicbor::to_vec(&header_body).unwrap();
+    assert_eq!(bytes[bytes.len() - 2..], [0xf4, 0xf6]);
+    let flag_position = bytes.len() - 2;
+    bytes[flag_position] = 0xf6;
+
+    let decoded: Result<HeaderBody, _> = minicbor::decode(&bytes);
+
+    assert!(decoded.is_err());
+}
+
+#[cfg(feature = "json")]
+#[test]
+fn a_header_without_the_leios_fields_survives_a_json_round_trip() {
+    let header = header_of("dijkstra16");
+    assert_eq!(header.header_body.eb_announcement, None);
+
+    let json = serde_json::to_string(&header).unwrap();
+    let restored: Header = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(restored, header);
+}
+
+#[cfg(feature = "json")]
+#[test]
+fn a_header_with_a_nil_announcement_survives_a_json_round_trip() {
+    let header = header_of("dijkstra1");
+    assert_eq!(
+        header.header_body.eb_announcement,
+        Some(crate::Nullable::Null)
+    );
+
+    let json = serde_json::to_string(&header).unwrap();
+    let restored: Header = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(restored, header);
 }
 
 /// A `proposal_procedure` whose `gov_action` is a `parameter_change_action`
@@ -1218,6 +1280,10 @@ const HEADER_HASHES: &[(&str, &str)] = &[
         "dijkstra15",
         "0db84efa0259153a240cecacd0f9e52f942d40f96b132ebd0d5b3526e19b3a7b",
     ),
+    (
+        "dijkstra16",
+        "3765872ae453542afb13ae96c731c6838edfbe8ae75fe313c762abaefc8ce211",
+    ),
 ];
 
 /// The hash is over the header CBOR span, so it also pins where the body begins.
@@ -1258,8 +1324,9 @@ fn a_block_carrying_both_leios_fields_reads_both() {
     let header = header_of("dijkstra8");
 
     // The header's flag and the body's slot are independent, and they agree.
-    assert!(
+    assert_eq!(
         header.header_body.block_body_contains_leios_cert,
+        Some(true),
         "dijkstra8 is a block whose header says it carries a certificate"
     );
 
@@ -1282,7 +1349,7 @@ fn a_block_carrying_both_leios_fields_reads_both() {
         "a BLS12-381 signature is 48 bytes"
     );
 
-    let crate::Nullable::Some(announcement) = &header.header_body.eb_announcement else {
+    let Some(crate::Nullable::Some(announcement)) = &header.header_body.eb_announcement else {
         panic!("dijkstra8 must carry an endorser block announcement");
     };
     assert_eq!(
@@ -1306,9 +1373,15 @@ fn a_certificate_travels_without_an_announcement() {
     let block = block_of("dijkstra9");
     let header = header_of("dijkstra9");
 
-    assert!(header.header_body.block_body_contains_leios_cert);
+    assert_eq!(
+        header.header_body.block_body_contains_leios_cert,
+        Some(true)
+    );
     assert!(
-        matches!(header.header_body.eb_announcement, crate::Nullable::Null),
+        matches!(
+            header.header_body.eb_announcement,
+            Some(crate::Nullable::Null)
+        ),
         "dijkstra9 is the block that certifies without announcing"
     );
 
@@ -1341,12 +1414,13 @@ fn a_certificate_travels_without_an_announcement() {
     ));
     assert!(matches!(
         header_of("dijkstra11").header_body.eb_announcement,
-        crate::Nullable::Null
+        Some(crate::Nullable::Null)
     ));
-    assert!(
-        !header_of("dijkstra11")
+    assert_eq!(
+        header_of("dijkstra11")
             .header_body
-            .block_body_contains_leios_cert
+            .block_body_contains_leios_cert,
+        Some(false)
     );
 }
 
@@ -1367,7 +1441,7 @@ fn an_announced_size_reaches_the_five_byte_uint() {
         let block = block_of(name);
         let header = header_of(name);
 
-        let crate::Nullable::Some(announcement) = &header.header_body.eb_announcement else {
+        let Some(crate::Nullable::Some(announcement)) = &header.header_body.eb_announcement else {
             panic!("{name} must carry an endorser block announcement");
         };
         assert_eq!(announcement.eb_size, size, "{name}: the announced size");
@@ -1542,8 +1616,8 @@ fn a_set_re_encodes_the_arm_it_was_read_from() {
 
     assert_eq!(
         (tagged, bare),
-        (38, 7),
-        "the fixtures carry thirty eight tagged input sets and seven bare ones"
+        (39, 7),
+        "the fixtures carry thirty nine tagged input sets and seven bare ones"
     );
 
     // A type that normalised the arms would satisfy everything above and fail here.

@@ -382,6 +382,29 @@ mod tests {
 
     #[cfg(feature = "unstable")]
     #[test]
+    fn a_dijkstranet_block_decodes_without_the_leios_fields() {
+        let cbor = dijkstra_block(include_str!("../../test_data/dijkstra16.block"));
+        let block = MultiEraBlock::decode(&cbor).expect("a Dijkstranet block must decode");
+
+        assert_eq!(block.era(), Era::Dijkstra);
+        assert_eq!(block.number(), 153913);
+        assert_eq!(block.slot(), 3178776);
+        assert_eq!(
+            block.hash().to_string(),
+            "3765872ae453542afb13ae96c731c6838edfbe8ae75fe313c762abaefc8ce211"
+        );
+        assert_eq!(block.header().block_body_contains_leios_cert(), None);
+        let txs = block.txs();
+        assert_eq!(txs.len(), 1);
+        assert_eq!(
+            txs[0].hash().to_string(),
+            "94ac9a72722a64b9f96e14051c3ec528548aa166cc8277ffd33d1c9aa03ae7c8"
+        );
+        assert!(txs[0].is_valid());
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
     fn the_block_before_the_fork_is_conway() {
         let cbor = dijkstra_block(include_str!("../../test_data/conway5.block"));
         let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");

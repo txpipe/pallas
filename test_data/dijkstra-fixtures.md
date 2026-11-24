@@ -60,6 +60,7 @@ models is exercised by no fixture and is modelled from the CDDL alone.
 | dijkstra13.block | 0, 1, 2, 4 | 0 | array | 7, 9 | tagged | 0 | nil | nil |
 | dijkstra14.block | 0, 1, 2, 3, 4 | 0 | map | 3 | bare | 0 | nil | nil |
 | dijkstra15.block | none | none | none | none | none | 0 | present | present |
+| dijkstra16.block | 0, 1, 2 | 0 | array | none | tagged | 0 | absent | absent |
 
 ## Endorser block bodies
 
@@ -177,3 +178,23 @@ the builder cannot drift apart.
 The two proposal files are read by `pallas-primitives` and by
 `pallas-traverse`, and the two transaction files by `pallas-utxorpc`, so one
 set of bytes serves every crate that needs the shape.
+
+## Dijkstranet block with the Praos header without the Leios fields
+
+One block from the public Dijkstra testnet forged by the official cardano-node
+release, as lowercase hex of the block exactly as the relay served it, wrapper
+and all, no trailing newline.
+
+| | |
+| --- | --- |
+| network | Dijkstranet, network magic 6 |
+| node release | cardano-node 11.2.1, the release the network documentation lists |
+| header body | 10 fields, the Praos header without the Leios fields |
+| protocol version | 12.0 |
+
+The Kleio explorer shows the [block](https://kleioscan.com/#/dijkstra/block/3765872ae453542afb13ae96c731c6838edfbe8ae75fe313c762abaefc8ce211)
+and its [transaction](https://kleioscan.com/#/dijkstra/tx/94ac9a72722a64b9f96e14051c3ec528548aa166cc8277ffd33d1c9aa03ae7c8).
+
+| file | chunk/index | slot | block | hash | bytes | tag | txs | why |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| dijkstra16.block | n/a | 3178776 | 153913 | `3765872ae453542afb13ae96c731c6838edfbe8ae75fe313c762abaefc8ce211` | 1064 | 8 | 1 | a Dijkstranet block with the Praos header and one transaction |

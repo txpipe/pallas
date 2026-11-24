@@ -196,6 +196,8 @@ tag_preserving_set!(NonEmptySet, "a nonempty set", 1);
 pub use crate::babbage::OperationalCert;
 
 /// `header_body` (`defs.cddl`) appends `block_body_contains_leios_cert` and `eb_announcement` to Conway's ten fields.
+///
+/// Both fields are `None` for the ten field Praos header that cardano-node forges in Dijkstra without Leios, as on Dijkstranet.
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct HeaderBody {
     #[n(0)]
@@ -229,11 +231,69 @@ pub struct HeaderBody {
     pub protocol_version: ProtocolVersion,
 
     // -- NEW IN DIJKSTRA
+    /// Whether the block body carries a Leios certificate, `None` when the header has no Leios fields.
     #[n(10)]
-    pub block_body_contains_leios_cert: bool,
+    #[cbor(with = "trailing")]
+    #[serde(default, skip_serializing_if = "Option::is_none", with = "trailing")]
+    pub block_body_contains_leios_cert: Option<bool>,
 
+    /// The announced endorser block, `None` when the header has no Leios fields and `Some(Nullable::Null)` when it announces none.
     #[n(11)]
-    pub eb_announcement: Nullable<EbAnnouncement>,
+    #[cbor(with = "trailing")]
+    #[serde(default, skip_serializing_if = "Option::is_none", with = "trailing")]
+    pub eb_announcement: Option<Nullable<EbAnnouncement>>,
+}
+
+/// Codec of a trailing array element that may be absent.
+///
+/// `None` stands only for a missing element: a present element is always read by its own type,
+/// so a null is refused by a `bool` and kept as `Nullable::Null` by a `Nullable`.
+mod trailing {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    use pallas_codec::minicbor::{self, Decode, Decoder, Encode, Encoder};
+
+    /// Decode a present CBOR element with the codec of its own type.
+    pub fn decode<'b, Ctx, T>(
+        d: &mut Decoder<'b>,
+        ctx: &mut Ctx,
+    ) -> Result<Option<T>, minicbor::decode::Error>
+    where
+        T: Decode<'b, Ctx>,
+    {
+        T::decode(d, ctx).map(Some)
+    }
+
+    /// Encode the CBOR element.
+    pub fn encode<Ctx, T, W>(
+        v: &Option<T>,
+        e: &mut Encoder<W>,
+        ctx: &mut Ctx,
+    ) -> Result<(), minicbor::encode::Error<W::Error>>
+    where
+        T: Encode<Ctx>,
+        W: minicbor::encode::Write,
+    {
+        v.encode(e, ctx)
+    }
+
+    /// Deserialize a present value with its own type.
+    pub fn deserialize<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+    where
+        D: Deserializer<'de>,
+        T: Deserialize<'de>,
+    {
+        T::deserialize(deserializer).map(Some)
+    }
+
+    /// Serialize the value.
+    pub fn serialize<S, T>(v: &Option<T>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+        T: Serialize,
+    {
+        v.serialize(serializer)
+    }
 }
 
 impl HeaderBody {
