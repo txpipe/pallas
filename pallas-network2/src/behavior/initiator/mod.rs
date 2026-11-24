@@ -155,6 +155,10 @@ pub struct InitiatorState {
     pub(crate) sync_next_deferred: bool,
     pub(crate) unsent: UnsentRequests,
     pub(crate) in_flight: Option<BlockRange>,
+    /// When the handshake must have completed, set once the peer is connected.
+    pub(crate) handshake_deadline: Option<handshake::Instant>,
+    /// When the peer must have answered the keepalive in flight, if any.
+    pub(crate) keepalive_deadline: Option<handshake::Instant>,
 }
 
 impl InitiatorState {
@@ -177,6 +181,8 @@ impl InitiatorState {
             sync_next_deferred: false,
             unsent: UnsentRequests::default(),
             in_flight: None,
+            handshake_deadline: None,
+            keepalive_deadline: None,
         }
     }
 
@@ -332,6 +338,8 @@ impl InitiatorState {
         self.violation = false;
         self.unsent = UnsentRequests::default();
         self.in_flight = None;
+        self.handshake_deadline = None;
+        self.keepalive_deadline = None;
     }
 }
 
