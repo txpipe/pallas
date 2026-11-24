@@ -19,7 +19,7 @@ Library crates:
 | `pallas-validate` | phase-1 transaction validation, and phase-2 (Plutus) behind the `phase2` feature |
 | `pallas-txbuilder` | build and sign transactions, Conway only |
 | `pallas-network` | original networking stack: multiplexer, mini-protocols and per-role facades |
-| `pallas-network2` | P2P-first rewrite of the networking stack, intended to replace `pallas-network` once mature |
+| `pallas-network2` | experimental P2P-first rewrite of the networking stack, intended to replace `pallas-network` once mature |
 | `pallas-configs` | parse the Haskell node's genesis files |
 | `pallas-hardano` | read artifacts of the Haskell node, such as its immutable chunks |
 | `pallas-utxorpc` | map Pallas ledger types onto the UTxO RPC schema, `v1alpha` and `v1beta` |
@@ -120,6 +120,8 @@ same, in every published crate. A `!` in the commit title records a break, it do
 What this doesn't cover:
 
 - Anything behind the `unstable` feature, including the Dijkstra era.
+- `pallas-network2`, which is experimental: its public API may change in any release until it
+  replaces `pallas-network`. CI leaves it out of both compatibility checks.
 - PRs that target `vnext`, the branch for breaking changes.
 - MSRV bumps, which follow the policy in `README.md`.
 
@@ -146,7 +148,7 @@ CI checks PRs to `main` with `cargo-semver-checks` and `cargo-public-api`. Neith
 green jobs don't prove a change is compatible. To run them locally:
 
 ```sh
-cargo semver-checks --baseline-rev origin/main --release-type minor
+cargo semver-checks --workspace --exclude pallas-network2 --baseline-rev origin/main --release-type minor
 cargo +nightly public-api -p <crate> diff --deny=changed --deny=removed origin/main..HEAD
 ```
 

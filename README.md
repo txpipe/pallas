@@ -89,7 +89,7 @@ Wire-level implementation of the Ouroboros mini-protocols used to communicate wi
 | Crates                              | Description                                                           |
 | ----------------------------------- | --------------------------------------------------------------------- |
 | [pallas-network](/pallas-network)   | Network stack providing multiplexer and mini-protocol implementations |
-| [pallas-network2](/pallas-network2) | P2P-first rewrite of the Ouroboros networking stack                   |
+| [pallas-network2](/pallas-network2) | P2P-first rewrite of the Ouroboros networking stack (experimental)    |
 
 ### Ledger
 
