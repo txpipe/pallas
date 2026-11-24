@@ -653,12 +653,12 @@ mod tests {
 
             assert_eq!(
                 body.len() as u64,
-                inner.header.header_body.block_body_size,
+                inner.header.header_body.block_body_size(),
                 "{name}: re-encoded body length against the size the header names"
             );
             assert_eq!(
                 pallas_crypto::hash::Hasher::<256>::hash(&body),
-                inner.header.header_body.block_body_hash,
+                inner.header.header_body.block_body_hash(),
                 "{name}: re-encoded body hash against the hash the header names"
             );
         }

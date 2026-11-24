@@ -704,6 +704,14 @@ pub enum ScriptRef<'b> {
     PlutusV3Script(#[n(0)] PlutusScript<3>),
 }
 
+#[cfg(feature = "unstable")]
+crate::babbage::decode_joined_script_ref!(
+    ScriptRef,
+    PlutusV1Script,
+    PlutusV2Script,
+    PlutusV3Script
+);
+
 // TODO: Remove in favour of multierascriptref
 impl<'b> From<babbage::ScriptRef<'b>> for ScriptRef<'b> {
     fn from(value: babbage::ScriptRef<'b>) -> Self {
