@@ -114,7 +114,10 @@ pub struct PeerId {
 
 impl std::fmt::Display for PeerId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}", self.host, self.port)
+        match fmt_ip_and_port(f, self) {
+            Some(result) => result,
+            None => fmt_hostname_and_port(f, self),
+        }
     }
 }
 
@@ -122,12 +125,43 @@ impl std::str::FromStr for PeerId {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (host, port) = s.split_once(':').ok_or("invalid peer id")?;
-        Ok(PeerId {
-            host: host.to_string(),
-            port: port.parse().unwrap(),
-        })
+        match parse_ip_and_port(s) {
+            Some(peer) => Ok(peer),
+            None => parse_hostname_and_port(s),
+        }
     }
+}
+
+fn fmt_ip_and_port(f: &mut std::fmt::Formatter<'_>, peer: &PeerId) -> Option<std::fmt::Result> {
+    let ip = peer.host.parse::<std::net::IpAddr>().ok()?;
+    Some(std::fmt::Display::fmt(
+        &std::net::SocketAddr::new(ip, peer.port),
+        f,
+    ))
+}
+
+fn fmt_hostname_and_port(f: &mut std::fmt::Formatter<'_>, peer: &PeerId) -> std::fmt::Result {
+    write!(f, "{}:{}", peer.host, peer.port)
+}
+
+fn parse_ip_and_port(s: &str) -> Option<PeerId> {
+    let addr = s.parse::<std::net::SocketAddr>().ok()?;
+    Some(PeerId {
+        host: addr.ip().to_string(),
+        port: addr.port(),
+    })
+}
+
+fn parse_hostname_and_port(s: &str) -> Result<PeerId, String> {
+    let invalid = || format!("invalid peer id: {s:?}");
+    let (host, port) = s.rsplit_once(':').ok_or_else(invalid)?;
+    if host.is_empty() || host.contains([':', '[', ']']) {
+        return Err(invalid());
+    }
+    Ok(PeerId {
+        host: host.to_string(),
+        port: port.parse().map_err(|_| invalid())?,
+    })
 }
 
 /// An error that occurred within the network interface.
@@ -358,3 +392,75 @@ impl<B: Behavior> Default for OutboundQueue<B> {
 
 #[cfg(test)]
 mod testing;
+
+#[cfg(test)]
+mod peer_id_tests {
+    use super::PeerId;
+
+    fn pid(host: &str, port: u16) -> PeerId {
+        PeerId {
+            host: host.to_string(),
+            port,
+        }
+    }
+
+    #[test]
+    fn parses_hostname() {
+        assert_eq!(
+            "relays-new.cardano-mainnet.iohk.io:3001".parse::<PeerId>(),
+            Ok(pid("relays-new.cardano-mainnet.iohk.io", 3001))
+        );
+    }
+
+    #[test]
+    fn parses_ipv4() {
+        assert_eq!(
+            "127.0.0.1:3001".parse::<PeerId>(),
+            Ok(pid("127.0.0.1", 3001))
+        );
+    }
+
+    #[test]
+    fn parses_bracketed_ipv6() {
+        assert_eq!("[::1]:3001".parse::<PeerId>(), Ok(pid("::1", 3001)));
+        assert_eq!(
+            "[2001:db8::1]:3001".parse::<PeerId>(),
+            Ok(pid("2001:db8::1", 3001))
+        );
+    }
+
+    #[test]
+    fn rejects_unbracketed_ipv6() {
+        assert!("2001:db8::1:3001".parse::<PeerId>().is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_input_without_panicking() {
+        for s in [
+            "",
+            "host",
+            "host:",
+            "host:notaport",
+            "host:70000",
+            "[::1]",
+            "[::1]3001",
+            "[::1:3001",
+            ":3001",
+        ] {
+            assert!(s.parse::<PeerId>().is_err(), "{s:?} should be rejected");
+        }
+    }
+
+    #[test]
+    fn display_roundtrips() {
+        for p in [
+            pid("example.com", 3001),
+            pid("127.0.0.1", 3001),
+            pid("::1", 3001),
+            pid("2001:db8::1", 6000),
+        ] {
+            assert_eq!(p.to_string().parse::<PeerId>(), Ok(p));
+        }
+        assert_eq!(pid("::1", 3001).to_string(), "[::1]:3001");
+    }
+}
