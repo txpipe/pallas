@@ -28,6 +28,13 @@
 //!   [`storage::immutable::get_tip`].
 //! - [`display`] — pretty-printing helpers for the structures above.
 //!
+//! # Feature flags
+//!
+//! - `unstable` — exposes APIs that are not yet considered stable and may
+//!   change between minor releases. The Dijkstra era (its tx rejections in
+//!   [`display`]) is behind this flag. Enable it whenever
+//!   `pallas-network/unstable` is on, or this crate does not compile.
+//!
 //! # Usage as part of `pallas`
 //!
 //! When depending on the umbrella [`pallas`] crate (with the `hardano`

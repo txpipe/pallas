@@ -43,6 +43,12 @@
 //!   [`miniprotocols::PREVIEW_MAGIC`], [`miniprotocols::PREPROD_MAGIC`],
 //!   [`miniprotocols::SANCHONET_MAGIC`]) are re-exported from this module.
 //!
+//! # Feature flags
+//!
+//! - `unstable` — exposes APIs that are not yet considered stable and may
+//!   change between minor releases. The Dijkstra era (its tx rejections in
+//!   `localtxsubmission`) is behind this flag.
+//!
 //! # Usage as part of `pallas`
 //!
 //! When depending on the umbrella [`pallas`] crate, this crate is re-exported

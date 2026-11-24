@@ -29,6 +29,8 @@ pallas-network2 = { workspace = true, optional = true }
 hardano = ["pallas-hardano"]
 unstable = [
   "hardano",
+  "pallas-network/unstable",
+  "pallas-hardano/unstable",
   "pallas-traverse/unstable",
   "pallas-primitives/unstable",
   "pallas-utxorpc/unstable",

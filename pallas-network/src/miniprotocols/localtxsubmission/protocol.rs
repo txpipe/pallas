@@ -65,6 +65,9 @@ pub enum ShelleyBasedEra {
     Babbage,
     #[n(6)]
     Conway,
+    #[cfg(feature = "unstable")]
+    #[n(7)]
+    Dijkstra,
 }
 
 /// Purpose of the script. It corresponds to
@@ -601,6 +604,13 @@ pub enum TxValidationError {
     },
     ShelleyTxValidationError {
         error: ApplyTxError,
+        era: ShelleyBasedEra,
+    },
+    /// Rejection carrying the Dijkstra ledger failure tree, which differs from Conway's.
+    /// Only `era` Dijkstra (7) so far; later eras may reuse this tree.
+    #[cfg(feature = "unstable")]
+    DijkstraTxValidationError {
+        error: super::dijkstra::ApplyTxError,
         era: ShelleyBasedEra,
     },
     Plutus(String),

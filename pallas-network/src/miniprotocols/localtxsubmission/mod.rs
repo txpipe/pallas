@@ -10,3 +10,7 @@ mod server;
 
 /// CBOR-encoded primitives reported by the local node when a submission is rejected.
 pub mod primitives;
+
+/// Dijkstra-era rejection reasons (unstable).
+#[cfg(feature = "unstable")]
+pub mod dijkstra;

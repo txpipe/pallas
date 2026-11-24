@@ -141,6 +141,25 @@ form, written as lowercase hex with no trailing newline.
 The script at key 8 is `450101002499` in both. The spans, witness keys and
 hashes were read with Python's `cbor2` and `hashlib` rather than with pallas.
 
+## Transaction rejections
+
+One file is a node's answer to a rejected submission, the `MsgRejectTx` message
+of node-to-client local tx submission exactly as it came out of the node, as
+lowercase hex with no trailing newline. It was captured on Musashi (network
+magic 164) on 2026-11-10 at 15:05:56 UTC, from a `cardano-node` 11.2.0.164 built
+from IntersectMBO/cardano-node `leios-prototype` at `7b8ca5a17` (cardano-ledger
+`9df9f98cc`), with a `socat -x -v` proxy between a client and the node socket.
+The client submitted the transaction tagged with era 6; the node answered for
+era 7. That is the hard fork combinator at work: a transaction from another era
+is re-encoded and decoded again as one of the ledger's current era, then
+validated by that era's ledger, so the failures are Dijkstra's
+(ouroboros-consensus `matchTx` in `Ouroboros/Consensus/HardFork/Combinator/InjectTxs.hs`,
+commit `87f0fd0a3`).
+
+| file | transaction | bytes | what it carries |
+| --- | --- | --- | --- |
+| `dijkstra-all-inputs-spent.reject` | `57afe39aa7272904411200f61189f1ac5a066f1cc7ccae5b847af592f6a87813` | 8 | `[2, [[7, [[3]]]]]`: `MsgRejectTx` for era 7 with a single `AllInputsAreSpent` mempool failure, every input of the transaction being already spent |
+
 ## Fixtures built rather than cut
 
 Four files here are hand built CBOR, for shapes no block on this chain
