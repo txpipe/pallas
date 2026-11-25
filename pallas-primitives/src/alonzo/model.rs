@@ -89,11 +89,66 @@ pub enum Value {
     Multiasset(Coin, Multiasset<Coin>),
 }
 
+#[cfg(not(feature = "unstable"))]
 codec_by_datatype! {
     Value,
     U8 | U16 | U32 | U64 => Coin,
     (coin, multi => Multiasset)
 }
+
+/// Implements the codec of a value enum, reading its `Multiasset` variant from an array of either length form.
+#[cfg(feature = "unstable")]
+macro_rules! value_codec {
+    ($name:ident) => {
+        impl<'b, C> pallas_codec::minicbor::Decode<'b, C> for $name {
+            fn decode(
+                d: &mut pallas_codec::minicbor::Decoder<'b>,
+                ctx: &mut C,
+            ) -> Result<Self, pallas_codec::minicbor::decode::Error> {
+                use pallas_codec::minicbor::data::Type;
+                match d.datatype()? {
+                    Type::Array | Type::ArrayIndef => {
+                        let len = d.array()?;
+                        let value = $name::Multiasset(d.decode_with(ctx)?, d.decode_with(ctx)?);
+                        pallas_codec::utils::skip_array_rest(d, len, 2)?;
+                        Ok(value)
+                    }
+                    Type::U8 | Type::U16 | Type::U32 | Type::U64 => {
+                        Ok($name::Coin(d.decode_with(ctx)?))
+                    }
+                    _ => Err(pallas_codec::minicbor::decode::Error::message(
+                        "Unknown cbor data type for this macro-defined enum.",
+                    )),
+                }
+            }
+        }
+
+        impl<C> pallas_codec::minicbor::Encode<C> for $name {
+            fn encode<W: pallas_codec::minicbor::encode::Write>(
+                &self,
+                e: &mut pallas_codec::minicbor::Encoder<W>,
+                ctx: &mut C,
+            ) -> Result<(), pallas_codec::minicbor::encode::Error<W::Error>> {
+                match self {
+                    $name::Multiasset(coin, multi) => {
+                        e.array(2)?;
+                        e.encode_with(coin, ctx)?;
+                        e.encode_with(multi, ctx)?;
+                    }
+                    $name::Coin(coin) => {
+                        e.encode_with(coin, ctx)?;
+                    }
+                }
+                Ok(())
+            }
+        }
+    };
+}
+#[cfg(feature = "unstable")]
+pub(crate) use value_codec;
+
+#[cfg(feature = "unstable")]
+value_codec!(Value);
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct TransactionOutput {
@@ -236,6 +291,10 @@ pub struct ProtocolParamUpdate {
     #[n(13)]
     pub extra_entropy: Option<Nonce>,
     #[n(14)]
+    #[cfg_attr(
+        feature = "unstable",
+        cbor(decode_with = "crate::protocol_version::decode_option")
+    )]
     pub protocol_version: Option<ProtocolVersion>,
     #[n(16)]
     pub min_pool_cost: Option<Coin>,
@@ -513,8 +572,50 @@ mod tests {
     use crate::{Fragment, alonzo::PlutusData};
 
     use super::{Block, Header};
+    use crate::alonzo::NativeScript;
 
     type BlockWrapper<'b> = (u16, Block<'b>);
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_native_script_reads_either_length_form() {
+        let script = format!("8200581c{}", "11".repeat(28));
+        crate::flat_enum::assert_reads_either_length_form::<NativeScript>(&[
+            script.clone(),
+            format!("820181{script}"),
+            "820280".to_string(),
+            "83030180".to_string(),
+            "820401".to_string(),
+            "820501".to_string(),
+        ]);
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_native_script_with_extra_elements_reads_to_the_end_of_its_array() {
+        for (bytes, expected) in [
+            ("83050100", NativeScript::InvalidHereafter(1)),
+            ("9f05019f00ff00ff", NativeScript::InvalidHereafter(1)),
+            ("83018000", NativeScript::ScriptAll(vec![])),
+            ("9f019fff00ff", NativeScript::ScriptAll(vec![])),
+        ] {
+            let bytes = hex::decode(bytes).unwrap();
+            let mut d = minicbor::Decoder::new(&bytes);
+            let script: NativeScript = d.decode().unwrap();
+            assert_eq!(script, expected);
+            assert_eq!(d.position(), bytes.len());
+        }
+    }
+
+    #[test]
+    fn a_native_script_without_its_fields_or_with_an_unknown_index_is_refused() {
+        for bytes in ["80", "8105", "9f05ff", "9fff", "820701", "9f0701ff"] {
+            assert!(
+                minicbor::decode::<NativeScript>(&hex::decode(bytes).unwrap()).is_err(),
+                "{bytes} must be refused"
+            );
+        }
+    }
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
