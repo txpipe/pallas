@@ -79,13 +79,13 @@ impl MultiEraTx<'_> {
                     .native_scripts
                     .iter()
                     .flat_map(|s| s.iter())
-                    .map(MultiEraNativeScript::from_decoded_dijkstra)
+                    .map(MultiEraNativeScript::from_dijkstra)
                     .collect(),
                 dijkstra::AuxiliaryData::ShelleyMa(x) => x
                     .auxiliary_scripts
                     .iter()
                     .flat_map(|s| s.iter())
-                    .map(MultiEraNativeScript::from_decoded_dijkstra)
+                    .map(MultiEraNativeScript::from_dijkstra)
                     .collect(),
                 dijkstra::AuxiliaryData::Shelley(_) => vec![],
             };

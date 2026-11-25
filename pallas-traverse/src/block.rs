@@ -159,9 +159,11 @@ impl<'b> MultiEraBlock<'b> {
                 .map(|x| MultiEraTx::Conway(Box::new(Cow::Owned(x))))
                 .collect(),
             #[cfg(feature = "unstable")]
-            MultiEraBlock::Dijkstra(x) => support::clone_dijkstra_txs(x)
-                .into_iter()
-                .map(|x| MultiEraTx::Dijkstra(Box::new(Cow::Owned(x))))
+            MultiEraBlock::Dijkstra(x) => x
+                .block_body
+                .transactions
+                .iter()
+                .map(|x| MultiEraTx::Dijkstra(Box::new(Cow::Borrowed(x))))
                 .collect(),
             MultiEraBlock::EpochBoundary(_) => vec![],
         }
@@ -508,6 +510,61 @@ mod tests {
 
     #[cfg(feature = "unstable")]
     #[test]
+    fn a_block_under_a_praos_header_reads_its_transactions() {
+        let cbor = dijkstra_block(include_str!("../../test_data/dijkstranet-126727.block"));
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(block.era(), Era::Dijkstra);
+        assert_eq!(block.number(), 126727);
+        assert_eq!(block.header().block_body_contains_leios_cert(), None);
+
+        let hashes: Vec<_> = block.txs().iter().map(|tx| tx.hash().to_string()).collect();
+        assert_eq!(
+            hashes,
+            [
+                "5aded5626162eeba270690e57a4741c1be9a37e62d9c7af938f5c5a2d6b7f4ad",
+                "c8ef3e0d778120a05b2ec806bd10a6127bb12e00db9cdd84b48e563a0cf4e6d9",
+            ]
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_certifying_block_from_local_chain_sync_carries_the_certified_transactions() {
+        let cbor = dijkstra_block(include_str!(
+            "../../test_data/dijkstra-rc-2026w45-23123.block"
+        ));
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(block.era(), Era::Dijkstra);
+        assert_eq!(
+            block.hash().to_string(),
+            "1cb41ea9a58a86f7c19740b8f0a94c54ac02dd0ca60d74ee02802cc598fd0eff"
+        );
+        assert_eq!(block.header().block_body_contains_leios_cert(), Some(true));
+
+        let leios = block
+            .leios_certificate()
+            .expect("the block certifies an endorser block");
+        assert_eq!(
+            hex::encode(leios.signers.as_slice()),
+            "ff5effdffce7fefedd24011f38893933f5b8"
+        );
+
+        let hashes: Vec<_> = block.txs().iter().map(|tx| tx.hash().to_string()).collect();
+        assert_eq!(hashes.len(), 13);
+        assert_eq!(
+            hashes[0],
+            "e7bb22900eccbcfc905e84b7084f434a4f2cb14faf1dfe1200969b4d67400a6f"
+        );
+        assert_eq!(
+            hashes[12],
+            "7a5988040420cdb2f0b588970244560cc7a93a3cda60676b70808ad8c9a2eecd"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
     fn auxiliary_data_is_reported_only_where_a_block_carries_it() {
         let with = dijkstra_block(include_str!("../../test_data/dijkstra4.block"));
         let with = MultiEraBlock::decode(&with).expect("invalid cbor");
@@ -642,6 +699,31 @@ mod tests {
         }
 
         assert_eq!(seen, 8);
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn dijkstra_block_transactions_are_the_block_body_transactions() {
+        let cbor = dijkstra_block(include_str!("../../test_data/dijkstra6.block"));
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+        let body = &block.as_dijkstra().unwrap().block_body.transactions;
+
+        let txs = block.txs();
+
+        assert_eq!(txs.len(), 4);
+        for (tx, listed) in txs.iter().zip(body.iter()) {
+            let MultiEraTx::Dijkstra(tx) = tx else {
+                panic!("a Dijkstra block gave a {:?} transaction", tx.era());
+            };
+            assert_eq!(
+                tx.transaction_body.raw_cbor(),
+                listed.transaction_body.raw_cbor()
+            );
+            assert!(
+                matches!(&**tx, Cow::Borrowed(tx) if std::ptr::eq(*tx, listed)),
+                "the transaction must be the one the block body holds, not a copy of it"
+            );
+        }
     }
 
     #[cfg(feature = "unstable")]

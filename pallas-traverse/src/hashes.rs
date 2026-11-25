@@ -164,14 +164,14 @@ impl OriginalHash<32> for KeepRaw<'_, dijkstra::SubTransactionBody<'_>> {
 }
 
 #[cfg(feature = "unstable")]
-impl ComputeHash<32> for dijkstra::AuxiliaryData {
+impl ComputeHash<32> for dijkstra::AuxiliaryData<'_> {
     fn compute_hash(&self) -> Hash<32> {
         Hasher::<256>::hash_cbor(self)
     }
 }
 
 #[cfg(feature = "unstable")]
-impl OriginalHash<32> for KeepRaw<'_, dijkstra::AuxiliaryData> {
+impl OriginalHash<32> for KeepRaw<'_, dijkstra::AuxiliaryData<'_>> {
     fn original_hash(&self) -> Hash<32> {
         Hasher::<256>::hash(self.raw_cbor())
     }
@@ -653,12 +653,12 @@ mod tests {
 
             assert_eq!(
                 body.len() as u64,
-                inner.header.header_body.block_body_size,
+                inner.header.header_body.block_body_size(),
                 "{name}: re-encoded body length against the size the header names"
             );
             assert_eq!(
                 pallas_crypto::hash::Hasher::<256>::hash(&body),
-                inner.header.header_body.block_body_hash,
+                inner.header.header_body.block_body_hash(),
                 "{name}: re-encoded body hash against the hash the header names"
             );
         }

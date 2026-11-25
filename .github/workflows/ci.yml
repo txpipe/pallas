@@ -78,6 +78,8 @@ jobs:
         run: cargo test -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-network -p pallas-hardano --features unstable
       - name: Test unstable blueprint feature
         run: cargo test -p pallas-primitives --features unstable,blueprint
+      - name: Test unstable validate feature
+        run: cargo test -p pallas-validate --features unstable
 
   features:
     name: Features (${{ matrix.flags }})

@@ -91,6 +91,13 @@ pub fn validate_tx(
             }
             _ => Err(TxAndProtParamsDiffer),
         },
+        #[cfg(feature = "unstable")]
+        (MultiEraProtocolParameters::Dijkstra(_), _) => match metx {
+            MultiEraTx::Dijkstra(_) | MultiEraTx::DijkstraSub(..) => {
+                unimplemented!("validate_tx is not yet implemented for Dijkstra")
+            }
+            _ => Err(TxAndProtParamsDiffer),
+        },
         (_, None) => Err(EnvMissingAccountState),
     }
 }

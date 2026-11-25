@@ -12,9 +12,8 @@ use crate::utils::{
     get_lovelace_from_conway_val, get_payment_part, get_shelley_address, is_byron_address,
     mk_alonzo_vk_wits_check_list, verify_signature,
 };
-use pallas_addresses::{
-    Address, Network, ScriptHash, ShelleyAddress, ShelleyPaymentPart, StakeAddress, StakePayload,
-};
+use itertools::Itertools;
+use pallas_addresses::{Address, ScriptHash, ShelleyAddress, ShelleyPaymentPart, StakeAddress};
 use pallas_codec::utils::{Bytes, KeepRaw, NonEmptySet};
 use pallas_primitives::{
     AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin, TransactionInput, babbage,
@@ -23,8 +22,9 @@ use pallas_primitives::{
         ScriptRef, TransactionBody, TransactionOutput, Tx, VKeyWitness, Value, WitnessSet,
     },
 };
-use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
-use std::cmp::Ordering;
+use pallas_traverse::{
+    MultiEraInput, MultiEraOutput, OriginalHash, withdrawals::cmp_reward_accounts,
+};
 use std::ops::Deref;
 
 pub fn validate_conway_tx(
@@ -1231,28 +1231,6 @@ fn sort_inputs(unsorted_inputs: &[TransactionInput]) -> Vec<TransactionInput> {
     res
 }
 
-// Sorting function for reward accounts (withdrawals).
-fn sort_reward_accounts(a: &StakeAddress, b: &StakeAddress) -> Ordering {
-    fn network_tag(network: Network) -> u8 {
-        match network {
-            Network::Testnet => 0,
-            Network::Mainnet => 1,
-            Network::Other(tag) => tag,
-        }
-    }
-
-    if a.network() != b.network() {
-        return network_tag(a.network()).cmp(&network_tag(b.network()));
-    }
-
-    match (a.payload(), b.payload()) {
-        (StakePayload::Script(..), StakePayload::Stake(..)) => Ordering::Less,
-        (StakePayload::Stake(..), StakePayload::Script(..)) => Ordering::Greater,
-        (StakePayload::Script(hash_a), StakePayload::Script(hash_b)) => hash_a.cmp(hash_b),
-        (StakePayload::Stake(hash_a), StakePayload::Stake(hash_b)) => hash_a.cmp(hash_b),
-    }
-}
-
 fn mk_plutus_script_redeemer_pointers(
     plutus_v1_scripts: &[PolicyId],
     plutus_v2_scripts: &[PolicyId],
@@ -1297,14 +1275,14 @@ fn mk_plutus_script_redeemer_pointers(
         }
     }
     if let Some(withdrawals) = &tx_body.withdrawals {
-        let mut parsed: Vec<StakeAddress> = withdrawals
+        let parsed: Vec<StakeAddress> = withdrawals
             .keys()
+            .sorted_by(|a, b| cmp_reward_accounts(a, b))
             .map(|bytes| match Address::from_bytes(bytes) {
                 Ok(Address::Stake(addr)) => Ok(addr),
                 _ => Err(PostAlonzo(InputDecoding)),
             })
             .collect::<Result<_, _>>()?;
-        parsed.sort_by(sort_reward_accounts);
         for (index, stake_addr) in parsed.iter().enumerate() {
             if stake_addr.is_script() {
                 let script_hash = stake_addr.payload().as_hash();

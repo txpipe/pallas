@@ -546,7 +546,9 @@ impl<'b> MultiEraTx<'b> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Era, MultiEraNativeClause, MultiEraTx, testing};
+    use std::ops::Deref;
+
+    use crate::{Era, MultiEraNativeClause, MultiEraNativeScript, MultiEraTx, testing};
     use pallas_crypto::hash::Hasher;
 
     #[test]
@@ -605,6 +607,47 @@ mod tests {
             scripts[0].hash(),
             Hasher::<224>::hash_tagged(&wire, 0),
             "and the hash the ledger keyed this script by is not recoverable here"
+        );
+    }
+
+    #[test]
+    fn an_auxiliary_data_script_reads_as_alonzo_compatible() {
+        let cbor = testing::conway_tx(
+            &testing::minimal_body(),
+            &testing::empty_witness_set(),
+            Some(&testing::post_alonzo_aux_data(
+                &testing::native_script_invalid_before(5),
+                None,
+            )),
+            true,
+        );
+        let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
+
+        assert!(matches!(
+            tx.multi_era_aux_native_scripts()[..],
+            [MultiEraNativeScript::AlonzoCompatible(_)]
+        ));
+    }
+
+    #[test]
+    fn a_nested_script_reads_as_alonzo_compatible() {
+        let script = testing::native_script_all(&[&testing::native_script_pubkey(0x11)]);
+        let cbor = testing::conway_tx(
+            &testing::minimal_body(),
+            &testing::witness_set_with_native_script(&script),
+            None,
+            true,
+        );
+        let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
+        let scripts = tx.multi_era_native_scripts();
+
+        let items = match scripts[0].clause() {
+            MultiEraNativeClause::All(items) => items,
+            other => panic!("the root clause is script_all, found {other:?}"),
+        };
+        assert!(
+            matches!(items[..], [MultiEraNativeScript::AlonzoCompatible(_)]),
+            "a script held by another reads in the variant a script with no bytes has, found {items:?}"
         );
     }
 
@@ -859,6 +902,33 @@ mod tests {
     }
 
     #[test]
+    fn a_witness_script_holds_its_value_by_reference() {
+        let script = script_of_every_alonzo_clause();
+        let cbor = testing::conway_tx(
+            &testing::minimal_body(),
+            &testing::witness_set_with_native_script(&script),
+            None,
+            true,
+        );
+
+        let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
+        let held = tx
+            .as_conway()
+            .and_then(|x| x.transaction_witness_set.native_script.as_ref())
+            .expect("the witness set holds a native script");
+
+        assert!(
+            std::ptr::eq(
+                tx.multi_era_native_scripts()[0]
+                    .as_alonzo_compatible()
+                    .expect("an Alonzo compatible script"),
+                held[0].deref(),
+            ),
+            "a script read from the witness set is the value the transaction holds"
+        );
+    }
+
+    #[test]
     fn a_nested_script_carries_no_bytes_of_its_own() {
         let script = script_of_every_alonzo_clause();
         let cbor = testing::conway_tx(
@@ -909,6 +979,7 @@ mod tests {
 mod dijkstra_tests {
     use super::*;
     use crate::{MultiEraBlock, testing};
+    use pallas_crypto::hash::Hasher;
 
     #[test]
     fn a_dijkstra_native_script_witness_is_readable() {
@@ -945,6 +1016,43 @@ mod dijkstra_tests {
             hex::encode(&guard),
             "the script re-encodes to the bytes it was read from"
         );
+    }
+
+    #[test]
+    fn a_dijkstra_auxiliary_data_script_hashes_the_bytes_it_arrived_in() {
+        let wire = testing::native_script_invalid_before_long_form(5);
+        let canonical = testing::native_script_invalid_before(5);
+        assert_ne!(
+            Hasher::<224>::hash_tagged(&wire, 0),
+            Hasher::<224>::hash_tagged(&canonical, 0),
+            "the two encodings of this script must hash differently, or this test proves nothing"
+        );
+
+        for aux in [
+            testing::post_alonzo_aux_data(&wire, None),
+            testing::shelley_ma_aux_data(&wire),
+        ] {
+            let cbor = testing::dijkstra_block_tx(
+                &testing::minimal_body(),
+                &testing::empty_witness_set(),
+                Some(&aux),
+                true,
+            );
+            let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).expect("must decode");
+            let scripts = tx.multi_era_aux_native_scripts();
+            assert_eq!(scripts.len(), 1, "the auxiliary data carries one script");
+
+            assert_eq!(
+                scripts[0].hash(),
+                Hasher::<224>::hash_tagged(&wire, 0),
+                "an auxiliary data script is hashed over the bytes it arrived in"
+            );
+            assert_eq!(
+                hex::encode(scripts[0].encode()),
+                hex::encode(&wire),
+                "and it re-encodes to those same bytes"
+            );
+        }
     }
 
     #[test]
