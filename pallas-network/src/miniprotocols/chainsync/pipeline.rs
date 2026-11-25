@@ -25,8 +25,13 @@ pub enum PipelineMode {
     /// Stays in single-request probe mode after intersect or rollback until a
     /// `RollForward` establishes the local block number via
     /// [`Pipeline::set_local_height`]. Never issues extra `RequestNext`
-    /// messages past `tip.1`; if `tip.1` shrinks mid-flight, stops refilling
-    /// and drains remaining replies to `0` before returning `Ok(None)`.
+    /// messages past `tip.1`. If `tip.1` shrinks mid-flight, stops refilling
+    /// and drains already-in-flight replies; if an already-sent request reaches
+    /// a stationary shrunken tip, the peer replies with
+    /// [`NextResponse::Await`] (holding agency in [`State::MustReply`]), which
+    /// [`Pipeline::next`] surfaces so one-shot callers that cannot wait for a
+    /// new block can break and abort/close the connection instead of calling
+    /// [`Client::send_done`].
     StopAtTip,
 
     /// Catch up to the peer's advertised `tip.1` and then keep at most `1`
@@ -82,13 +87,21 @@ pub enum PipelineMode {
 ///         }
 ///         NextResponse::Await => {
 ///             // Pipeline pauses refills while the client is in MustReply.
+///             // In `StopAtTip`, if an already-sent request hits a shrunken tip
+///             // and you do not want to wait for a new block, break here and
+///             // close/abort the connection (skipping `send_done`).
+///             if no_service {
+///                 break;
+///             }
 ///         }
 ///     }
 /// }
 ///
 /// // When `next` returns `Ok(None)` in `StopAtTip` mode, `client.in_flight() == 0`
-/// // and `*client.state() == chainsync::State::Idle`.
-/// client.send_done().await?;
+/// // and `*client.state() == chainsync::State::Idle` (`has_agency() == true`).
+/// if client.has_agency() {
+///     client.send_done().await?;
+/// }
 /// # Ok(())
 /// # }
 /// ```
@@ -264,7 +277,12 @@ impl Pipeline {
     ///
     /// In [`PipelineMode::StopAtTip`], returns `Ok(None)` once the advertised
     /// tip has been reached **and** all in-flight requests have drained to `0`,
-    /// leaving `client` in [`State::Idle`] ready for [`Client::send_done`].
+    /// leaving `client` in [`State::Idle`] ready for [`Client::send_done`]. If
+    /// a peer shrinks `tip.1` below requests already sent on the wire and
+    /// answers with `AwaitReply`, this returns `Ok(Some(NextResponse::Await))`
+    /// with `client` in [`State::MustReply`]; callers that cannot wait for a
+    /// future block should exit the loop and drop/abort the connection rather
+    /// than calling `send_done`.
     ///
     /// # Errors
     ///

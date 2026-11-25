@@ -23,7 +23,7 @@ use pallas_codec::minicbor;
 use pallas_network::facades::NodeClient;
 use pallas_network::facades::PeerClient;
 use pallas_network::miniprotocols::chainsync::{
-    self, DEFAULT_PIPELINE_WINDOW, HeaderContent, NextResponse, Pipeline,
+    self, DEFAULT_PIPELINE_WINDOW, HeaderContent, NextResponse, Pipeline, State,
 };
 use pallas_network::miniprotocols::{MAINNET_MAGIC, Point};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -151,6 +151,39 @@ async fn resolve_start_point(
     Ok((found.unwrap_or(Point::Origin), tip))
 }
 
+const TEARDOWN_DRAIN_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// Drain already-in-flight replies up to `TEARDOWN_DRAIN_TIMEOUT`, stopping
+/// immediately if the peer enters `MustReply` (at tip) and only sending
+/// `MsgDone` when the client holds agency.
+async fn teardown_pipelined<O>(
+    pipeline: &mut Pipeline,
+    client: &mut chainsync::Client<O>,
+) -> Result<(), chainsync::ClientError>
+where
+    chainsync::Message<O>: pallas_codec::Fragment,
+{
+    if *client.state() != State::MustReply {
+        let drain = async {
+            while let Some(resp) = pipeline.drain_next(client).await? {
+                if matches!(resp, NextResponse::Await) {
+                    break;
+                }
+            }
+            Ok::<(), chainsync::ClientError>(())
+        };
+        if let Ok(result) = tokio::time::timeout(TEARDOWN_DRAIN_TIMEOUT, drain).await {
+            result?;
+        }
+    }
+
+    if client.has_agency() {
+        client.send_done().await?;
+    }
+
+    Ok(())
+}
+
 async fn bench_n2n_stop_and_wait(
     addr: &str,
     magic: u64,
@@ -173,7 +206,9 @@ async fn bench_n2n_stop_and_wait(
     }
 
     let elapsed = start.elapsed();
-    client.send_done().await?;
+    if client.has_agency() {
+        client.send_done().await?;
+    }
     peer.abort().await;
 
     Ok(BenchResult {
@@ -225,9 +260,8 @@ async fn bench_n2n_pipelined(
 
     let elapsed = start.elapsed();
 
-    // Drain any in-flight responses cleanly so send_done succeeds in State::Idle.
-    while pipeline.drain_next(client).await?.is_some() {}
-    client.send_done().await?;
+    // Drain any in-flight responses cleanly (bounded so a static tip never stalls teardown).
+    teardown_pipelined(&mut pipeline, client).await?;
     peer.abort().await;
 
     Ok(BenchResult {
@@ -299,7 +333,9 @@ async fn bench_n2c(
             }
         }
         let elapsed = start.elapsed();
-        client.send_done().await?;
+        if client.has_agency() {
+            client.send_done().await?;
+        }
         node.abort().await;
 
         results.push(BenchResult {
@@ -338,8 +374,7 @@ async fn bench_n2c(
         }
         let elapsed = start.elapsed();
 
-        while pipeline.drain_next(client).await?.is_some() {}
-        client.send_done().await?;
+        teardown_pipelined(&mut pipeline, client).await?;
         node.abort().await;
 
         results.push(BenchResult {
