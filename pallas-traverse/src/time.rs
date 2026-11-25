@@ -136,7 +136,7 @@ impl MultiEraBlock<'_> {
             }
             #[cfg(feature = "unstable")]
             MultiEraBlock::Dijkstra(x) => {
-                genesis.absolute_slot_to_relative(x.header.header_body.slot)
+                genesis.absolute_slot_to_relative(x.header.header_body.slot())
             }
         }
     }

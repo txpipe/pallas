@@ -82,7 +82,7 @@ impl MultiEraBlock<'_> {
             MultiEraBlock::Byron(_) => None,
             MultiEraBlock::Conway(x) => Some(x.header.header_body.block_body_size as usize),
             #[cfg(feature = "unstable")]
-            MultiEraBlock::Dijkstra(x) => Some(x.header.header_body.block_body_size as usize),
+            MultiEraBlock::Dijkstra(x) => Some(x.header.header_body.block_body_size() as usize),
         }
     }
 }

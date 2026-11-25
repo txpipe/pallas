@@ -87,7 +87,7 @@ impl<'b> MultiEraHeader<'b> {
             MultiEraHeader::BabbageCompatible(x) => x.header_body.block_number,
             MultiEraHeader::Byron(x) => x.consensus_data.2.first().cloned().unwrap_or_default(),
             #[cfg(feature = "unstable")]
-            MultiEraHeader::Dijkstra(x) => x.header_body.block_number,
+            MultiEraHeader::Dijkstra(x) => x.header_body.block_number(),
         }
     }
 
@@ -104,7 +104,7 @@ impl<'b> MultiEraHeader<'b> {
                 genesis.relative_slot_to_absolute(x.consensus_data.0.epoch, x.consensus_data.0.slot)
             }
             #[cfg(feature = "unstable")]
-            MultiEraHeader::Dijkstra(x) => x.header_body.slot,
+            MultiEraHeader::Dijkstra(x) => x.header_body.slot(),
         }
     }
 
@@ -126,7 +126,7 @@ impl<'b> MultiEraHeader<'b> {
             MultiEraHeader::EpochBoundary(x) => Some(x.prev_block),
             MultiEraHeader::Byron(x) => Some(x.prev_block),
             #[cfg(feature = "unstable")]
-            MultiEraHeader::Dijkstra(x) => x.header_body.prev_hash,
+            MultiEraHeader::Dijkstra(x) => x.header_body.prev_hash(),
         }
     }
 
@@ -137,7 +137,7 @@ impl<'b> MultiEraHeader<'b> {
             MultiEraHeader::EpochBoundary(_) => None,
             MultiEraHeader::Byron(_) => None,
             #[cfg(feature = "unstable")]
-            MultiEraHeader::Dijkstra(x) => Some(x.header_body.vrf_vkey.as_ref()),
+            MultiEraHeader::Dijkstra(x) => Some(x.header_body.vrf_vkey().as_ref()),
         }
     }
 
@@ -148,7 +148,7 @@ impl<'b> MultiEraHeader<'b> {
             MultiEraHeader::EpochBoundary(_) => None,
             MultiEraHeader::Byron(_) => None,
             #[cfg(feature = "unstable")]
-            MultiEraHeader::Dijkstra(x) => Some(x.header_body.issuer_vkey.as_ref()),
+            MultiEraHeader::Dijkstra(x) => Some(x.header_body.issuer_vkey().as_ref()),
         }
     }
 
@@ -174,24 +174,30 @@ impl<'b> MultiEraHeader<'b> {
         }
     }
 
-    /// Returns whether this body carries a Leios certificate, or None before
-    /// Dijkstra, the only era whose header body has the field.
+    /// Returns whether this body carries a Leios certificate, or None for a
+    /// header body without the field.
     pub fn block_body_contains_leios_cert(&self) -> Option<bool> {
         match self {
             #[cfg(feature = "unstable")]
-            MultiEraHeader::Dijkstra(x) => Some(x.header_body.block_body_contains_leios_cert),
+            MultiEraHeader::Dijkstra(x) => match &x.header_body {
+                dijkstra::HeaderBody::Leios(body) => Some(body.block_body_contains_leios_cert),
+                dijkstra::HeaderBody::Praos(_) => None,
+            },
             _ => None,
         }
     }
 
-    /// The endorser block this header announces. `None` both for an era with
-    /// no announcement field and for a Dijkstra header that left it nil.
+    /// The endorser block this header announces. `None` both for a header
+    /// body with no announcement field and for one that left it nil.
     #[cfg(feature = "unstable")]
     pub fn eb_announcement(&self) -> Option<&dijkstra::EbAnnouncement> {
         match self {
-            MultiEraHeader::Dijkstra(x) => match &x.header_body.eb_announcement {
-                pallas_primitives::Nullable::Some(a) => Some(a),
-                _ => None,
+            MultiEraHeader::Dijkstra(x) => match &x.header_body {
+                dijkstra::HeaderBody::Leios(body) => match &body.eb_announcement {
+                    pallas_primitives::Nullable::Some(a) => Some(a),
+                    _ => None,
+                },
+                dijkstra::HeaderBody::Praos(_) => None,
             },
             _ => None,
         }
@@ -277,6 +283,27 @@ mod tests {
         assert_eq!(header.era(), Era::Dijkstra);
         assert!(header.as_dijkstra().is_some());
         assert_eq!(header.block_body_contains_leios_cert(), Some(false));
+        assert!(header.eb_announcement().is_none());
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_praos_dijkstra_header_has_no_leios_fields() {
+        let raw = header_of(include_str!("../../test_data/dijkstranet-153913.block"));
+        let header = MultiEraHeader::decode(7, None, &raw).unwrap();
+
+        assert_eq!(header.era(), Era::Dijkstra);
+        assert!(matches!(
+            header.as_dijkstra().unwrap().header_body,
+            dijkstra::HeaderBody::Praos(_)
+        ));
+        assert_eq!(header.number(), 153913);
+        assert_eq!(header.slot(), 3178776);
+        assert_eq!(
+            header.hash().to_string(),
+            "3765872ae453542afb13ae96c731c6838edfbe8ae75fe313c762abaefc8ce211"
+        );
+        assert_eq!(header.block_body_contains_leios_cert(), None);
         assert!(header.eb_announcement().is_none());
     }
 
