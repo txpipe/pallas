@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2026-11-26
+
+### 🚀 Features
+
+- *(hardano)* Add an opt-in to read the highest chunk of a certified immutable directory (#883)
+- *(network2)* Report a missing intersection (#841)
+
+### 🐛 Bug Fixes
+
+- *(network2)* Parse IPv6 peer addresses in PeerId (#858)
+- *(network2)* Introduce per-protocol timeouts (#843)
+- *(network2)* Emit each fetched block body only once (#848)
+
+### 🔧 Continuous Integration
+
+- Leave the experimental pallas-network2 out of the API checks (#884)
+
 ## [1.5.0-rc.3] - 2026-11-22
 
 ### 🚀 Features
@@ -17,6 +34,10 @@ All notable changes to this project will be documented in this file.
 - *(network)* Stop the plexer when a client handshake fails (#879)
 - *(network)* Stop the plexer when a client handshake is cancelled (#880)
 - *(network)* Close a client facade's connection once it is dropped (#881)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.5.0-rc.3
 
 ## [1.5.0-rc.2] - 2026-11-11
 
