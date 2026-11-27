@@ -11,8 +11,10 @@ mod byron_tests {
         },
     };
 
+    use pallas_addresses::byron::{AddrType, AddressPayload, SpendingData};
     use pallas_codec::{
         minicbor::{
+            self,
             decode::{Decode, Decoder},
             encode,
         },
@@ -363,6 +365,76 @@ mod byron_tests {
                 Byron(ByronError::WrongSignature) => (),
                 _ => panic!("Unexpected error ({err:?})"),
             },
+        }
+    }
+
+    const BYRON1_INPUT_ADDRESS: &str = "83581cff66e7549ee0706abe5ce63ba325f792f2c1145d918baf563db2b457a101581e581cca3e553c9c63c5927480e7434620200eb3a162ef0b6cf6f671ba925100";
+
+    // Validates byron1.tx with its witness replaced by `new_wit`, spending from
+    // an input at `address` (hex-encoded address payload).
+    fn validate_byron1_with_witness(
+        new_wit: Twit,
+        address: String,
+    ) -> Result<(), pallas_validate::utils::ValidationError> {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/byron1.tx"));
+        let mut mtxp: TxPayload = minted_tx_payload_from_cbor(&cbor_bytes);
+        let new_witnesses: Witnesses = MaybeIndefArray::Def(vec![new_wit]);
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(new_witnesses, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => panic!("Unable to encode Tx ({err:?})"),
+        };
+        mtxp.witness = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
+        let utxos: UTxOs = mk_utxo_for_byron_tx(&mtxp.transaction, &[(address, 19999000000)]);
+        let env: Environment = hardcoded_environment_values!();
+        let mut cert_state: CertState = CertState::default();
+        validate_txs(&[metx], &env, &utxos, &mut cert_state)
+    }
+
+    #[test]
+    // The input's matching witness carries a 63-byte signature.
+    fn byron_witness_with_short_signature_is_rejected() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/byron1.tx"));
+        let mtxp: TxPayload = minted_tx_payload_from_cbor(&cbor_bytes);
+        let new_wit: Twit = match mtxp.witness[0].clone() {
+            Twit::PkWitness(CborWrap((pk, sig))) => {
+                Twit::PkWitness(CborWrap((pk, sig.as_slice()[0..63].to_vec().into())))
+            }
+            _ => unreachable!(),
+        };
+        match validate_byron1_with_witness(new_wit, String::from(BYRON1_INPUT_ADDRESS)) {
+            Ok(()) => panic!("A 63-byte signature should not verify"),
+            Err(Byron(ByronError::WrongSignature)) => (),
+            Err(err) => panic!("Unexpected error ({err:?})"),
+        }
+    }
+
+    #[test]
+    // The input's matching witness carries a key shorter than 32 bytes, and the
+    // input address is derived from that key so the witness matches it.
+    fn byron_witness_with_short_vkey_is_rejected() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/byron1.tx"));
+        let mtxp: TxPayload = minted_tx_payload_from_cbor(&cbor_bytes);
+        let short_key: Vec<u8> = vec![1u8; 31];
+        let new_wit: Twit = match mtxp.witness[0].clone() {
+            Twit::PkWitness(CborWrap((_, sig))) => {
+                Twit::PkWitness(CborWrap((short_key.clone().into(), sig)))
+            }
+            _ => unreachable!(),
+        };
+        let original: AddressPayload =
+            minicbor::decode(&hex::decode(BYRON1_INPUT_ADDRESS).unwrap()).unwrap();
+        let payload: AddressPayload = AddressPayload::new(
+            AddrType::PubKey,
+            SpendingData::PubKey(short_key.into()),
+            original.attributes,
+        );
+        let address: String = hex::encode(minicbor::to_vec(payload).unwrap());
+        match validate_byron1_with_witness(new_wit, address) {
+            Ok(()) => panic!("A 31-byte key should not verify"),
+            Err(Byron(ByronError::WrongSignature)) => (),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 }
