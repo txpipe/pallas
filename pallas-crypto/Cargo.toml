@@ -36,7 +36,7 @@ serde_json.workspace = true
 serde_test = "1.0.143"
 
 [features]
-default = []
+default = ["ed25519-dalek"]
 sk_clone_enabled = []
 kes = ["rand", "rand_chacha", "serde_with", "ed25519-dalek", "zeroize"]
 relaxed = []

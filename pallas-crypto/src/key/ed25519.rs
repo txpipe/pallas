@@ -314,12 +314,33 @@ impl SecretKeyExtended {
 impl PublicKey {
     /// verify the cryptographic [`Signature`] against the `message` and the
     /// [`PublicKey`] `self`.
+    ///
+    /// This check is more permissive than the one the Cardano node applies to
+    /// vkey witnesses: it accepts some signatures with a small-order `R` or
+    /// public key. Use [`PublicKey::verify_strict`] to check ledger witnesses.
     #[inline]
     pub fn verify<T>(&self, message: T, signature: &Signature) -> bool
     where
         T: AsRef<[u8]>,
     {
         ed25519::verify(message.as_ref(), &self.0, &signature.0)
+    }
+
+    /// verify the cryptographic [`Signature`] against the `message` and the
+    /// [`PublicKey`] `self`, with the rules the Cardano node applies to vkey
+    /// witnesses (libsodium 1.0.18): a canonical `S`, no small-order `R` or
+    /// public key, and a canonical public key encoding.
+    #[cfg(feature = "ed25519-dalek")]
+    pub fn verify_strict<T>(&self, message: T, signature: &Signature) -> bool
+    where
+        T: AsRef<[u8]>,
+    {
+        let Ok(key) = ed25519_dalek::VerifyingKey::from_bytes(&self.0) else {
+            return false;
+        };
+        let signature = ed25519_dalek::Signature::from_bytes(&signature.0);
+
+        key.verify_strict(message.as_ref(), &signature).is_ok()
     }
 }
 
@@ -576,6 +597,98 @@ mod tests {
         let signature = signing_key.sign(&message);
 
         public_key.verify(message, &signature)
+    }
+
+    #[cfg(feature = "ed25519-dalek")]
+    mod strict {
+        use super::*;
+
+        fn verdicts(message: &str, key: &str, signature: &str) -> (bool, bool) {
+            let message = hex::decode(message).unwrap();
+            let key: PublicKey = key.parse().unwrap();
+            let signature: Signature = signature.parse().unwrap();
+
+            (
+                key.verify(&message, &signature),
+                key.verify_strict(&message, &signature),
+            )
+        }
+
+        const RFC8032_KEY: &str =
+            "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a";
+        const RFC8032_SIG: &str = "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b";
+
+        #[test]
+        fn rfc8032_signature_passes_both_checks() {
+            assert_eq!(verdicts("", RFC8032_KEY, RFC8032_SIG), (true, true));
+        }
+
+        #[test]
+        fn rfc8032_signature_with_altered_s_fails_both_checks() {
+            let altered = format!("{}0a", &RFC8032_SIG[..126]);
+            assert_eq!(verdicts("", RFC8032_KEY, &altered), (false, false));
+        }
+
+        #[test]
+        fn strict_check_rejects_identity_key_and_r_with_zero_s() {
+            let verdicts = verdicts(
+                "70616c6c6173206564323535313920726570726f",
+                "0100000000000000000000000000000000000000000000000000000000000000",
+                "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            );
+            assert_eq!(verdicts, (true, false));
+        }
+
+        #[test]
+        fn strict_check_rejects_identity_r() {
+            let verdicts = verdicts(
+                "70616c6c6173206564323535313920726570726f",
+                RFC8032_KEY,
+                "010000000000000000000000000000000000000000000000000000000000000024a865c766f6ef9110dfc32bde1b8e44c55b90e7328a71aedcaf8e4f00748d05",
+            );
+            assert_eq!(verdicts, (true, false));
+        }
+
+        #[test]
+        fn strict_check_rejects_small_order_key_with_sign_bit_set() {
+            let verdicts = verdicts(
+                "39a591f5321bbe07fd5a23dc2f39d025d74526615746727ceefd6e82ae65c06f",
+                "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "a9d55260f765261eb9b84e106f665e00b867287a761990d7135963ee0a7d59dca5bb704786be79fc476f91d3f3f89b03984d8068dcf1bb7dfc6637b45450ac04",
+            );
+            assert_eq!(verdicts, (true, false));
+        }
+
+        #[test]
+        fn strict_check_rejects_key_off_the_curve() {
+            // y = 2 has no x on the curve, so the key does not decode.
+            const OFF_CURVE_KEY: &str =
+                "0200000000000000000000000000000000000000000000000000000000000000";
+            let bytes: [u8; 32] = hex::decode(OFF_CURVE_KEY).unwrap().try_into().unwrap();
+            assert!(ed25519_dalek::VerifyingKey::from_bytes(&bytes).is_err());
+
+            let (_, strict) = verdicts("", OFF_CURVE_KEY, RFC8032_SIG);
+            assert!(!strict);
+        }
+
+        #[quickcheck]
+        fn signing_verify_strict_works(signing_key: SecretKey, message: Vec<u8>) -> bool {
+            let public_key = signing_key.public_key();
+            let signature = signing_key.sign(&message);
+
+            public_key.verify_strict(message, &signature)
+        }
+
+        #[quickcheck]
+        fn signing_verify_strict_works_extended(
+            signing_key: SecretKeyExtended,
+            message: Vec<u8>,
+        ) -> bool {
+            let public_key = signing_key.public_key();
+            let signature = signing_key.sign(&message);
+
+            public_key.verify_strict(message, &signature)
+        }
     }
 
     #[quickcheck]
