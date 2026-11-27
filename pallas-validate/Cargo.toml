@@ -14,7 +14,7 @@ readme = "README.md"
 [dependencies]
 pallas-addresses.workspace = true
 pallas-codec.workspace = true
-pallas-crypto.workspace = true
+pallas-crypto = { workspace = true, features = ["ed25519-dalek"] }
 pallas-primitives.workspace = true
 pallas-traverse.workspace = true
 hex.workspace = true

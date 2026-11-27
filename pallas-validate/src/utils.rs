@@ -715,6 +715,8 @@ pub fn mk_alonzo_vk_wits_check_list(
         .collect::<Vec<(bool, VKeyWitness)>>())
 }
 
+/// Checks a vkey witness's signature over `data_to_verify` with the rules the
+/// Cardano node applies to vkey witnesses (see [`PublicKey::verify_strict`]).
 pub fn verify_signature(vk_wit: &VKeyWitness, data_to_verify: &[u8]) -> bool {
     let mut public_key_source: [u8; PublicKey::SIZE] = [0; PublicKey::SIZE];
     public_key_source.copy_from_slice(vk_wit.vkey.as_slice());
@@ -722,7 +724,7 @@ pub fn verify_signature(vk_wit: &VKeyWitness, data_to_verify: &[u8]) -> bool {
     let mut signature_source: [u8; Signature::SIZE] = [0; Signature::SIZE];
     signature_source.copy_from_slice(vk_wit.signature.as_slice());
     let sig: Signature = From::<[u8; Signature::SIZE]>::from(signature_source);
-    public_key.verify(data_to_verify, &sig)
+    public_key.verify_strict(data_to_verify, &sig)
 }
 
 pub fn get_payment_part(address: &Bytes) -> Option<ShelleyPaymentPart> {
