@@ -13,12 +13,13 @@ mod alonzo_tests {
         },
         utils::{Bytes, KeepRaw},
     };
+    use pallas_crypto::key::ed25519::SecretKey;
     use pallas_primitives::alonzo::{
         AddrKeyhash, ExUnitPrices, ExUnits, Language, NativeScript, NetworkId, Nonce, NonceVariant,
         PlutusData, RationalNumber, Redeemer, RedeemerTag, TransactionBody, TransactionOutput, Tx,
         VKeyWitness, Value, WitnessSet,
     };
-    use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraTx};
+    use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraTx, OriginalHash};
     use pallas_validate::{
         phase1::validate_txs,
         utils::{
@@ -1704,6 +1705,68 @@ mod alonzo_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Witness signature should verify the transaction"),
+            Err(err) => match err {
+                Alonzo(AlonzoError::VKWrongSignature) => (),
+                _ => panic!("Unexpected error ({err:?})"),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx, but with two extra vkey witnesses no input
+    // claims: the first signs the body correctly, the second does not verify.
+    // Every one must be checked.
+    fn bad_vk_witness_after_a_valid_extra_one() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from(
+                    "018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00",
+                ),
+                Value::Coin(1549646822),
+                None,
+            )],
+        );
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let tx_hash = mtx.transaction_body.original_hash();
+        let key = SecretKey::from([7u8; 32]);
+        let mut vkey_wits: Vec<VKeyWitness> = tx_wits.vkeywitness.clone().unwrap();
+        vkey_wits.push(VKeyWitness {
+            vkey: Bytes::from(key.public_key().as_ref().to_vec()),
+            signature: Bytes::from(key.sign(tx_hash).as_ref().to_vec()),
+        });
+        vkey_wits.push(VKeyWitness {
+            vkey: Bytes::from(vec![1u8; 32]),
+            signature: Bytes::from(vec![0u8; 64]),
+        });
+        tx_wits.vkeywitness = Some(vkey_wits);
+        let mut tx_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_wits, &mut tx_buf);
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
+        // The extra witnesses grow the transaction past its fee; drop the
+        // per-byte fee so the witness check decides the outcome.
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
+                minfee_a: 0,
+                ..mk_params_epoch_334()
+            }),
+            prot_magic: 764824073,
+            block_slot: 44237276,
+            network_id: 1,
+            acnt: Some(acnt),
+        };
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
+            Ok(()) => panic!("The second extra witness signature should not verify"),
             Err(err) => match err {
                 Alonzo(AlonzoError::VKWrongSignature) => (),
                 _ => panic!("Unexpected error ({err:?})"),

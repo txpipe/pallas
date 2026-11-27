@@ -164,6 +164,22 @@ mod conway_tests {
     }
 
     #[test]
+    // An extra vkey witness no input claims that signs the body correctly is
+    // accepted.
+    fn valid_extra_vkey_witness_is_accepted() {
+        let res = validate_mainnet_tx_with_extra_vkey_witnesses(|tx_hash| {
+            let key = SecretKey::from([7u8; 32]);
+            vec![VKeyWitness {
+                vkey: Bytes::from(key.public_key().as_ref().to_vec()),
+                signature: Bytes::from(key.sign(tx_hash).as_ref().to_vec()),
+            }]
+        });
+        if let Err(err) = res {
+            panic!("Unexpected error ({err:?})");
+        }
+    }
+
+    #[test]
     // An extra vkey witness whose key is shorter than 32 bytes.
     fn vkey_witness_with_short_vkey_is_rejected() {
         match validate_mainnet_tx_with_extra_vkey_witness(vec![1u8; 31], vec![0u8; 64]) {
