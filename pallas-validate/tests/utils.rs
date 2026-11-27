@@ -128,3 +128,13 @@ fn verify_signature_rejects_small_order_key_with_sign_bit_set() {
 
     assert!(!verify_signature(&wit, &message));
 }
+
+#[test]
+fn verify_signature_rejects_key_off_the_curve() {
+    let wit = witness(
+        "0200000000000000000000000000000000000000000000000000000000000000",
+        "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b",
+    );
+
+    assert!(!verify_signature(&wit, &[]));
+}

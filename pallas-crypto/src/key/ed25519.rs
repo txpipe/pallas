@@ -631,31 +631,43 @@ mod tests {
 
         #[test]
         fn strict_check_rejects_identity_key_and_r_with_zero_s() {
-            let (_, strict) = verdicts(
+            let verdicts = verdicts(
                 "70616c6c6173206564323535313920726570726f",
                 "0100000000000000000000000000000000000000000000000000000000000000",
                 "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
             );
-            assert!(!strict);
+            assert_eq!(verdicts, (true, false));
         }
 
         #[test]
         fn strict_check_rejects_identity_r() {
-            let (_, strict) = verdicts(
+            let verdicts = verdicts(
                 "70616c6c6173206564323535313920726570726f",
                 RFC8032_KEY,
                 "010000000000000000000000000000000000000000000000000000000000000024a865c766f6ef9110dfc32bde1b8e44c55b90e7328a71aedcaf8e4f00748d05",
             );
-            assert!(!strict);
+            assert_eq!(verdicts, (true, false));
         }
 
         #[test]
         fn strict_check_rejects_small_order_key_with_sign_bit_set() {
-            let (_, strict) = verdicts(
+            let verdicts = verdicts(
                 "39a591f5321bbe07fd5a23dc2f39d025d74526615746727ceefd6e82ae65c06f",
                 "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 "a9d55260f765261eb9b84e106f665e00b867287a761990d7135963ee0a7d59dca5bb704786be79fc476f91d3f3f89b03984d8068dcf1bb7dfc6637b45450ac04",
             );
+            assert_eq!(verdicts, (true, false));
+        }
+
+        #[test]
+        fn strict_check_rejects_key_off_the_curve() {
+            // y = 2 has no x on the curve, so the key does not decode.
+            const OFF_CURVE_KEY: &str =
+                "0200000000000000000000000000000000000000000000000000000000000000";
+            let bytes: [u8; 32] = hex::decode(OFF_CURVE_KEY).unwrap().try_into().unwrap();
+            assert!(ed25519_dalek::VerifyingKey::from_bytes(&bytes).is_err());
+
+            let (_, strict) = verdicts("", OFF_CURVE_KEY, RFC8032_SIG);
             assert!(!strict);
         }
 

@@ -7,6 +7,7 @@ const VECTORS: &str = include_str!("data/ed25519_libsodium_verdicts.txt");
 #[test]
 fn verify_strict_agrees_with_libsodium() {
     let mut checked = 0;
+    let mut accepted = 0;
     let mut disagreements = Vec::new();
 
     for line in VECTORS.lines().filter(|l| !l.starts_with('#')) {
@@ -31,8 +32,11 @@ fn verify_strict_agrees_with_libsodium() {
             disagreements.push(label);
         }
         checked += 1;
+        accepted += usize::from(expected);
     }
 
-    assert!(checked > 0, "no vectors were read");
+    // 914 C2SP CCTV vectors and 12 speccheck cases, of which libsodium accepts 44.
+    assert_eq!(checked, 926, "unexpected number of vectors");
+    assert_eq!(accepted, 44, "unexpected number of accepted vectors");
     assert!(disagreements.is_empty(), "disagreements: {disagreements:?}");
 }
