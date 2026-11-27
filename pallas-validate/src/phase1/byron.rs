@@ -140,9 +140,9 @@ fn check_witnesses(mtxp: &TxPayload, utxos: &UTxOs, prot_magic: &u32) -> Validat
     for input in tx_inputs {
         let tx_out: &TxOut = find_tx_out(input, utxos)?;
         let (pub_key, sign): (&PubKey, &TaggedSignature) = find_raw_witness(tx_out, &witnesses)?;
-        let public_key: PublicKey = get_verification_key(pub_key);
+        let public_key: PublicKey = get_verification_key(pub_key).ok_or(Byron(WrongSignature))?;
         let data_to_verify: Vec<u8> = get_data_to_verify(sign, prot_magic, &tx_hash)?;
-        let signature: Signature = get_signature(sign);
+        let signature: Signature = get_signature(sign).ok_or(Byron(WrongSignature))?;
         if !public_key.verify(data_to_verify, &signature) {
             return Err(Byron(WrongSignature));
         }
@@ -229,10 +229,10 @@ fn mk_spending_data(pub_key: &PubKey, addr_type: &AddrType) -> SpendingData {
     }
 }
 
-fn get_verification_key(pk: &PubKey) -> PublicKey {
-    let mut trunc_len: [u8; PublicKey::SIZE] = [0; PublicKey::SIZE];
-    trunc_len.copy_from_slice(&pk.as_slice()[0..PublicKey::SIZE]);
-    From::<[u8; PublicKey::SIZE]>::from(trunc_len)
+// The key is the first 32 bytes of the witness key; a shorter key is `None`.
+fn get_verification_key(pk: &PubKey) -> Option<PublicKey> {
+    let key: &[u8] = pk.as_slice().get(0..PublicKey::SIZE)?;
+    PublicKey::try_from(key).ok()
 }
 
 fn get_data_to_verify(
@@ -259,12 +259,10 @@ fn get_data_to_verify(
     Ok(enc.into_writer().clone())
 }
 
-fn get_signature(tagged_signature: &TaggedSignature<'_>) -> Signature {
+fn get_signature(tagged_signature: &TaggedSignature<'_>) -> Option<Signature> {
     let inner_sig = match tagged_signature {
         TaggedSignature::PkWitness(sign) => sign,
         TaggedSignature::RedeemWitness(sign) => sign,
     };
-    let mut trunc_len: [u8; Signature::SIZE] = [0; Signature::SIZE];
-    trunc_len.copy_from_slice(inner_sig.as_slice());
-    From::<[u8; Signature::SIZE]>::from(trunc_len)
+    Signature::try_from(inner_sig.as_slice()).ok()
 }

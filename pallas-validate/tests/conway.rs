@@ -30,7 +30,11 @@ mod conway_tests {
     use std::{borrow::Cow, collections::BTreeMap};
 
     use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
-    use pallas_primitives::{PositiveCoin, conway::PostAlonzoTransactionOutput};
+    use pallas_codec::utils::NonEmptySet;
+    use pallas_primitives::{
+        PositiveCoin,
+        conway::{PostAlonzoTransactionOutput, VKeyWitness, WitnessSet},
+    };
     use pallas_traverse::{MultiEraInput, MultiEraOutput};
 
     use super::*;
@@ -66,6 +70,80 @@ mod conway_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
+            Err(err) => panic!("Unexpected error ({err:?})"),
+        }
+    }
+
+    // Validates successful_mainnet_tx with one extra vkey witness made of the
+    // given key and signature bytes. The body, and so its hash, is unchanged.
+    fn validate_mainnet_tx_with_extra_vkey_witness(
+        vkey: Vec<u8>,
+        signature: Vec<u8>,
+    ) -> Result<(), pallas_validate::utils::ValidationError> {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
+        let mut mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mut tx_wits: WitnessSet = (*mtx.transaction_witness_set).clone();
+        let mut vkey_wits: Vec<VKeyWitness> = tx_wits.vkeywitness.unwrap().to_vec();
+        vkey_wits.push(VKeyWitness {
+            vkey: Bytes::from(vkey),
+            signature: Bytes::from(signature),
+        });
+        tx_wits.vkeywitness = NonEmptySet::from_vec(vkey_wits);
+        let mut tx_wits_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_wits, &mut tx_wits_buf);
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(tx_wits_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
+            Value::Coin(20000000),
+            None,
+            None,
+        )];
+        let utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Conway(mk_mainnet_params_epoch_365()),
+            prot_magic: 764824073,
+            block_slot: 137806612,
+            network_id: 1,
+            acnt: Some(acnt),
+        };
+        let mut cert_state: CertState = CertState::default();
+        validate_txs(&[metx], &env, &utxos, &mut cert_state)
+    }
+
+    #[test]
+    // An extra vkey witness of the right lengths whose signature does not verify.
+    fn vkey_witness_with_wrong_signature_is_rejected() {
+        match validate_mainnet_tx_with_extra_vkey_witness(vec![1u8; 32], vec![0u8; 64]) {
+            Ok(()) => panic!("The extra witness signature should not verify"),
+            Err(PostAlonzo(PostAlonzoError::VKWrongSignature)) => (),
+            Err(err) => panic!("Unexpected error ({err:?})"),
+        }
+    }
+
+    #[test]
+    // An extra vkey witness whose key is shorter than 32 bytes.
+    fn vkey_witness_with_short_vkey_is_rejected() {
+        match validate_mainnet_tx_with_extra_vkey_witness(vec![1u8; 31], vec![0u8; 64]) {
+            Ok(()) => panic!("A 31-byte key should not verify"),
+            Err(PostAlonzo(PostAlonzoError::VKWrongSignature)) => (),
+            Err(err) => panic!("Unexpected error ({err:?})"),
+        }
+    }
+
+    #[test]
+    // An extra vkey witness whose signature is shorter than 64 bytes.
+    fn vkey_witness_with_short_signature_is_rejected() {
+        match validate_mainnet_tx_with_extra_vkey_witness(vec![1u8; 32], vec![0u8; 63]) {
+            Ok(()) => panic!("A 63-byte signature should not verify"),
+            Err(PostAlonzo(PostAlonzoError::VKWrongSignature)) => (),
             Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }

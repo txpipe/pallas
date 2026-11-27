@@ -715,13 +715,15 @@ pub fn mk_alonzo_vk_wits_check_list(
         .collect::<Vec<(bool, VKeyWitness)>>())
 }
 
+/// Verifies a vkey witness over `data_to_verify`. A key or signature of the
+/// wrong length does not verify.
 pub fn verify_signature(vk_wit: &VKeyWitness, data_to_verify: &[u8]) -> bool {
-    let mut public_key_source: [u8; PublicKey::SIZE] = [0; PublicKey::SIZE];
-    public_key_source.copy_from_slice(vk_wit.vkey.as_slice());
-    let public_key: PublicKey = From::<[u8; PublicKey::SIZE]>::from(public_key_source);
-    let mut signature_source: [u8; Signature::SIZE] = [0; Signature::SIZE];
-    signature_source.copy_from_slice(vk_wit.signature.as_slice());
-    let sig: Signature = From::<[u8; Signature::SIZE]>::from(signature_source);
+    let Ok(public_key) = PublicKey::try_from(vk_wit.vkey.as_slice()) else {
+        return false;
+    };
+    let Ok(sig) = Signature::try_from(vk_wit.signature.as_slice()) else {
+        return false;
+    };
     public_key.verify(data_to_verify, &sig)
 }
 
