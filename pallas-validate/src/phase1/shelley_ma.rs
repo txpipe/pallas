@@ -364,12 +364,8 @@ fn check_remaining_vk_wits(
     data_to_verify: &[u8],
 ) -> ValidationResult {
     for (covered, vkey_wit) in wits {
-        if !*covered {
-            if verify_signature(vkey_wit, data_to_verify) {
-                return Ok(());
-            } else {
-                return Err(ShelleyMA(WrongSignature));
-            }
+        if !*covered && !verify_signature(vkey_wit, data_to_verify) {
+            return Err(ShelleyMA(WrongSignature));
         }
     }
     Ok(())

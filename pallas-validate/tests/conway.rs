@@ -31,11 +31,12 @@ mod conway_tests {
 
     use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
     use pallas_codec::utils::NonEmptySet;
+    use pallas_crypto::key::ed25519::SecretKey;
     use pallas_primitives::{
         PositiveCoin,
         conway::{PostAlonzoTransactionOutput, VKeyWitness, WitnessSet},
     };
-    use pallas_traverse::{MultiEraInput, MultiEraOutput};
+    use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 
     use super::*;
 
@@ -80,14 +81,24 @@ mod conway_tests {
         vkey: Vec<u8>,
         signature: Vec<u8>,
     ) -> Result<(), pallas_validate::utils::ValidationError> {
+        validate_mainnet_tx_with_extra_vkey_witnesses(|_| {
+            vec![VKeyWitness {
+                vkey: Bytes::from(vkey),
+                signature: Bytes::from(signature),
+            }]
+        })
+    }
+
+    // Validates successful_mainnet_tx with the extra vkey witnesses returned by
+    // `extra`, which receives the transaction body hash they would sign.
+    fn validate_mainnet_tx_with_extra_vkey_witnesses(
+        extra: impl FnOnce(&[u8]) -> Vec<VKeyWitness>,
+    ) -> Result<(), pallas_validate::utils::ValidationError> {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
         let mut mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let mut tx_wits: WitnessSet = (*mtx.transaction_witness_set).clone();
         let mut vkey_wits: Vec<VKeyWitness> = tx_wits.vkeywitness.unwrap().to_vec();
-        vkey_wits.push(VKeyWitness {
-            vkey: Bytes::from(vkey),
-            signature: Bytes::from(signature),
-        });
+        vkey_wits.extend(extra(mtx.transaction_body.original_hash().as_ref()));
         tx_wits.vkeywitness = NonEmptySet::from_vec(vkey_wits);
         let mut tx_wits_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_wits_buf);
@@ -125,6 +136,46 @@ mod conway_tests {
             Ok(()) => panic!("The extra witness signature should not verify"),
             Err(PostAlonzo(PostAlonzoError::VKWrongSignature)) => (),
             Err(err) => panic!("Unexpected error ({err:?})"),
+        }
+    }
+
+    #[test]
+    // Two extra vkey witnesses no input claims: the first signs the body
+    // correctly, the second does not verify. Every one must be checked.
+    fn bad_vkey_witness_after_a_valid_extra_one_is_rejected() {
+        let res = validate_mainnet_tx_with_extra_vkey_witnesses(|tx_hash| {
+            let key = SecretKey::from([7u8; 32]);
+            vec![
+                VKeyWitness {
+                    vkey: Bytes::from(key.public_key().as_ref().to_vec()),
+                    signature: Bytes::from(key.sign(tx_hash).as_ref().to_vec()),
+                },
+                VKeyWitness {
+                    vkey: Bytes::from(vec![1u8; 32]),
+                    signature: Bytes::from(vec![0u8; 64]),
+                },
+            ]
+        });
+        match res {
+            Ok(()) => panic!("The second extra witness signature should not verify"),
+            Err(PostAlonzo(PostAlonzoError::VKWrongSignature)) => (),
+            Err(err) => panic!("Unexpected error ({err:?})"),
+        }
+    }
+
+    #[test]
+    // An extra vkey witness no input claims that signs the body correctly is
+    // accepted.
+    fn valid_extra_vkey_witness_is_accepted() {
+        let res = validate_mainnet_tx_with_extra_vkey_witnesses(|tx_hash| {
+            let key = SecretKey::from([7u8; 32]);
+            vec![VKeyWitness {
+                vkey: Bytes::from(key.public_key().as_ref().to_vec()),
+                signature: Bytes::from(key.sign(tx_hash).as_ref().to_vec()),
+            }]
+        });
+        if let Err(err) = res {
+            panic!("Unexpected error ({err:?})");
         }
     }
 

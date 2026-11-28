@@ -12,12 +12,13 @@ mod babbage_tests {
         encode, to_vec,
     };
     use pallas_codec::utils::{Bytes, CborWrap, KeepRaw};
+    use pallas_crypto::key::ed25519::SecretKey;
     use pallas_primitives::babbage::{
         CostModels, DatumOption, ExUnitPrices, ExUnits, NetworkId, Nonce, NonceVariant, PlutusData,
         PlutusScript, PostAlonzoTransactionOutput, RationalNumber, Redeemer, RedeemerTag,
-        ScriptRef, TransactionBody, TransactionOutput, Tx, Value, WitnessSet,
+        ScriptRef, TransactionBody, TransactionOutput, Tx, VKeyWitness, Value, WitnessSet,
     };
-    use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
+    use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx, OriginalHash};
     use pallas_validate::{
         phase1::validate_txs,
         utils::{
@@ -61,6 +62,67 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({err:?})"),
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx, but with two extra vkey witnesses no input
+    // claims: the first signs the body correctly, the second does not verify.
+    // Every one must be checked.
+    fn bad_vk_witness_after_a_valid_extra_one() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
+        let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let tx_hash = mtx.transaction_body.original_hash();
+        let key = SecretKey::from([7u8; 32]);
+        let mut vkey_wits: Vec<VKeyWitness> = tx_wits.vkeywitness.clone().unwrap();
+        vkey_wits.push(VKeyWitness {
+            vkey: Bytes::from(key.public_key().as_ref().to_vec()),
+            signature: Bytes::from(key.sign(tx_hash).as_ref().to_vec()),
+        });
+        vkey_wits.push(VKeyWitness {
+            vkey: Bytes::from(vec![1u8; 32]),
+            signature: Bytes::from(vec![0u8; 64]),
+        });
+        tx_wits.vkeywitness = Some(vkey_wits);
+        let mut tx_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_wits, &mut tx_buf);
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let tx_outs_info: &[BabbageTxOutInfo] = &[(
+            String::from(
+                "011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382",
+            ),
+            Value::Coin(103324335),
+            None,
+            None,
+        )];
+        let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
+        // The extra witnesses grow the transaction past its fee; drop the
+        // per-byte fee so the witness check decides the outcome.
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
+                minfee_a: 0,
+                ..mk_mainnet_params_epoch_365()
+            }),
+            prot_magic: 764824073,
+            block_slot: 72316896,
+            network_id: 1,
+            acnt: Some(acnt),
+        };
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
+            Ok(()) => panic!("The second extra witness signature should not verify"),
+            Err(err) => match err {
+                PostAlonzo(PostAlonzoError::VKWrongSignature) => (),
+                _ => panic!("Unexpected error ({err:?})"),
+            },
         }
     }
 
