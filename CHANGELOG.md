@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.1] - 2026-11-28
+
+### 🐛 Bug Fixes
+
+- *(validate)* Reject vkey witnesses of the wrong length instead of panicking (#887)
+- *(validate)* Verify vkey witnesses with the node's strict Ed25519 rules (#888)
+- *(validate)* Check every unclaimed vkey witness, not only the first (#889)
+
 ## [1.5.0] - 2026-11-26
 
 ### 🚀 Features
@@ -18,6 +26,10 @@ All notable changes to this project will be documented in this file.
 ### 🔧 Continuous Integration
 
 - Leave the experimental pallas-network2 out of the API checks (#884)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.5.0
 
 ## [1.5.0-rc.3] - 2026-11-22
 
